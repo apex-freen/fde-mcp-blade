@@ -1,0 +1,551 @@
+// 样式入口文件
+
+// 全局样式变量已通过 vite.config.js 的 additionalData 自动注入
+// 不需要在这里重复导入
+@use './screen-theme' as tech;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: $color-text;
+  background-color: $color-bg;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+// 滚动条样式
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $color-text-quaternary;
+  border-radius: $radius-full;
+
+  &:hover {
+    background: $color-text-tertiary;
+  }
+}
+
+// 通用工具类
+.text-primary {
+  color: $color-primary;
+}
+
+.text-success {
+  color: $color-success;
+}
+
+.text-warning {
+  color: $color-warning;
+}
+
+.text-danger {
+  color: $color-danger;
+}
+
+.text-muted {
+  color: $color-text-tertiary;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+// ==========================================
+// 数据大屏（/screen/*）公共样式（Doc 37 §3.6）
+// 供「价值报告」「成本面板」的 screen 模式共用；FDE 屏为独立页面，样式在页面内
+// 基准 1920×1080，2560×1440 按 --s 等比放大；两种分辨率下均不出现纵向滚动条
+// ==========================================
+.ds {
+  --s: 1;
+  height: 100%;
+  padding: calc(12px * var(--s)) calc(20px * var(--s));
+  display: grid;
+  grid-template-rows:
+    calc(64px * var(--s))
+    calc(168px * var(--s))
+    minmax(0, 1fr)
+    calc(48px * var(--s));
+  gap: calc(12px * var(--s));
+  overflow: hidden;
+  color: #e6edf7;
+  font-size: calc(14px * var(--s));
+
+  @media (min-width: 2200px) {
+    --s: 1.3333;
+  }
+}
+
+// 顶栏底线流光：极缓慢横移，不做高频闪烁
+@keyframes ds-top-flow {
+  0% {
+    background-position: 0% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.ds-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s));
+  padding: 0 calc(8px * var(--s));
+  border-bottom: 1px solid tech.$line-soft;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(-1px * var(--s));
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      rgba(53, 230, 255, 0) 0%,
+      rgba(53, 230, 255, 0.75) 18%,
+      rgba(77, 141, 255, 0.9) 50%,
+      rgba(53, 230, 255, 0.75) 82%,
+      rgba(53, 230, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: ds-top-flow 9s linear infinite;
+    pointer-events: none;
+  }
+}
+
+.ds-top-left {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10px * var(--s));
+  min-width: 0;
+}
+
+.ds-brand {
+  position: relative;
+  padding-left: calc(22px * var(--s));
+  font-size: calc(22px * var(--s));
+  font-weight: 600;
+  letter-spacing: calc(1.5px * var(--s));
+  color: tech.$t1;
+  text-shadow: 0 0 calc(20px * var(--s)) rgba(53, 230, 255, 0.5);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: calc(4px * var(--s));
+    top: 50%;
+    width: calc(10px * var(--s));
+    height: calc(10px * var(--s));
+    background: linear-gradient(135deg, tech.$c-cyan 0%, tech.$c-blue 100%);
+    box-shadow: 0 0 calc(14px * var(--s)) rgba(53, 230, 255, 0.95);
+    transform: translateY(-50%) rotate(45deg);
+  }
+}
+
+.ds-sep {
+  color: rgba(77, 141, 255, 0.55);
+}
+
+.ds-title {
+  font-size: calc(20px * var(--s));
+  letter-spacing: calc(1px * var(--s));
+  color: #d8e8ff;
+}
+
+.ds-period {
+  margin-left: calc(8px * var(--s));
+  padding: calc(3px * var(--s)) calc(14px * var(--s));
+  font-size: calc(15px * var(--s));
+  color: tech.$c-cyan;
+  @include tech.glass-chip;
+
+  border-color: rgba(53, 230, 255, 0.42);
+  border-radius: calc(3px * var(--s));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 calc(14px * var(--s)) calc(-6px * var(--s)) rgba(53, 230, 255, 0.85);
+}
+
+.ds-top-right {
+  display: flex;
+  align-items: center;
+  gap: calc(14px * var(--s));
+  flex-shrink: 0;
+}
+
+.ds-updated {
+  color: tech.$t2;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-failing {
+  color: tech.$c-amber;
+  text-shadow: 0 0 calc(14px * var(--s)) rgba(255, 192, 97, 0.7);
+}
+
+.ds-btn {
+  padding: calc(6px * var(--s)) calc(18px * var(--s));
+  font-size: calc(14px * var(--s));
+  letter-spacing: calc(0.5px * var(--s));
+  cursor: pointer;
+  @include tech.neon-button;
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+// ---------- KPI 行 ----------
+.ds-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: calc(12px * var(--s));
+  min-width: 0;
+
+  &.cols-6 {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.ds-kpi {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(10px * var(--s));
+  padding: calc(18px * var(--s)) calc(20px * var(--s));
+  @include tech.kpi-card;
+}
+
+.ds-kpi-value {
+  position: relative;
+  z-index: 1;
+  font-size: calc(38px * var(--s));
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  @include tech.value-num;
+
+  &.smaller {
+    font-size: calc(20px * var(--s));
+    font-weight: 400;
+    color: tech.$t2;
+    text-shadow: none;
+  }
+
+  .unit {
+    margin-left: calc(6px * var(--s));
+    font-size: calc(16px * var(--s));
+    font-weight: 400;
+    color: tech.$t2;
+    text-shadow: none;
+  }
+}
+
+.ds-kpi-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--s));
+  color: tech.$t2;
+  font-size: calc(15px * var(--s));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ds-tag {
+  flex-shrink: 0;
+  padding: calc(1px * var(--s)) calc(7px * var(--s));
+  border: 1px solid rgba(255, 192, 97, 0.32);
+  border-radius: calc(3px * var(--s));
+  background: rgba(255, 192, 97, 0.14);
+  color: tech.$c-amber;
+  font-size: calc(12px * var(--s));
+}
+
+// ---------- 主区 ----------
+.ds-main {
+  display: grid;
+  grid-template-columns: 1.3fr 1.2fr 1.1fr;
+  gap: calc(12px * var(--s));
+  min-height: 0;
+
+  &.cols-4 {
+    grid-template-columns: 1.1fr 1fr 1fr 1.1fr;
+  }
+
+  &.cols-5 {
+    grid-template-columns: 1fr 1fr 1fr 1.05fr 1.05fr;
+  }
+}
+
+.ds-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  @include tech.panel;
+}
+
+.ds-panel-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  gap: calc(10px * var(--s));
+  padding: calc(13px * var(--s)) calc(16px * var(--s)) calc(9px * var(--s));
+  font-size: calc(17px * var(--s));
+  font-weight: 600;
+  color: tech.$t1;
+  @include tech.panel-head;
+}
+
+.ds-panel-sub {
+  font-size: calc(13px * var(--s));
+  font-weight: 400;
+  color: tech.$t3;
+}
+
+.ds-panel-body {
+  flex: 1;
+  min-height: 0;
+  padding: calc(12px * var(--s)) calc(16px * var(--s));
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--s));
+  overflow: hidden;
+}
+
+// ---------- 明细行 / 统计 ----------
+.ds-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(10px * var(--s)) calc(26px * var(--s));
+}
+
+.ds-stat {
+  min-width: 0;
+
+  .ds-stat-label {
+    display: flex;
+    align-items: center;
+    gap: calc(4px * var(--s));
+    font-size: calc(13px * var(--s));
+    color: tech.$t2;
+    white-space: nowrap;
+  }
+
+  .ds-stat-value {
+    margin-top: calc(2px * var(--s));
+    font-size: calc(24px * var(--s));
+    @include tech.value-num;
+
+    text-shadow: 0 0 calc(14px * var(--s)) rgba(53, 230, 255, 0.3);
+  }
+}
+
+.ds-list {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ds-list-title {
+  margin-bottom: calc(6px * var(--s));
+  font-size: calc(13px * var(--s));
+  color: tech.$t3;
+  @include tech.list-title;
+}
+
+.ds-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: calc(10px * var(--s));
+  padding: calc(7px * var(--s)) 0;
+  border-bottom: 1px dashed rgba(120, 170, 255, 0.1);
+  font-size: calc(14px * var(--s));
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.ds-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #dbe7f7;
+}
+
+.ds-num {
+  color: #c3d3e8;
+  font-family: tech.$num-font;
+  font-variant-numeric: tabular-nums;
+
+  &.strong {
+    color: tech.$c-green;
+    font-weight: 600;
+    text-shadow: 0 0 calc(12px * var(--s)) rgba(63, 224, 168, 0.55);
+  }
+}
+
+.ds-state {
+  flex-shrink: 0;
+  padding: calc(1px * var(--s)) calc(9px * var(--s));
+  border: 1px solid rgba(63, 224, 168, 0.3);
+  border-radius: calc(3px * var(--s));
+  background: rgba(63, 224, 168, 0.14);
+  color: tech.$c-green;
+  font-size: calc(13px * var(--s));
+
+  &.s-warn {
+    border-color: rgba(255, 192, 97, 0.32);
+    background: rgba(255, 192, 97, 0.16);
+    color: tech.$c-amber;
+  }
+
+  &.s-block {
+    border-color: rgba(255, 192, 97, 0.48);
+    background: rgba(255, 192, 97, 0.24);
+    color: #ffd28a;
+  }
+}
+
+.ds-chart {
+  flex: 1;
+  min-height: 0;
+}
+
+.ds-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: tech.$t3;
+
+  &.left {
+    justify-content: flex-start;
+    flex: none;
+    font-size: calc(13px * var(--s));
+  }
+}
+
+.ds-note {
+  flex-shrink: 0;
+  font-size: calc(13px * var(--s));
+  color: tech.$t3;
+  line-height: 1.5;
+}
+
+// ---------- 底栏 ----------
+.ds-foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s));
+  padding: 0 calc(8px * var(--s));
+  border-top: 1px solid tech.$line-soft;
+  color: tech.$t3;
+  font-size: calc(13px * var(--s));
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(53, 230, 255, 0) 0%,
+      rgba(53, 230, 255, 0.55) 50%,
+      rgba(53, 230, 255, 0) 100%
+    );
+    pointer-events: none;
+  }
+}
+
+.ds-foot-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ds-toast {
+  flex-shrink: 0;
+  padding: calc(6px * var(--s)) calc(14px * var(--s));
+  border: 1px solid rgba(255, 192, 97, 0.32);
+  border-radius: calc(3px * var(--s));
+  background: rgba(255, 192, 97, 0.14);
+  color: tech.$c-amber;
+  font-size: calc(14px * var(--s));
+}
+
+// 顶栏流光属纯装饰，用户关闭动效时直接停掉
+@media (prefers-reduced-motion: reduce) {
+  .ds-top::after {
+    animation: none;
+  }
+}

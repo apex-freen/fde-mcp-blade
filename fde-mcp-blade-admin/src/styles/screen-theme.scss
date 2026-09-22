@@ -1,0 +1,191 @@
+// ==========================================
+// 数据大屏「科技感」主题（Doc 37 §3.6 视觉层）
+// 供 styles/index.scss 的 .ds-* 与 views/screen/fde 共用
+// 约定：尺寸一律 calc(Npx * var(--s))，与页面 --s 缩放保持一致；
+//       青蓝仅用于装饰与高光，绿 / 琥珀只承担语义状态，不挪作装饰。
+// ==========================================
+
+// ---------- 霓虹色板 ----------
+$c-cyan: #35e6ff;
+$c-blue: #4d8dff;
+$c-violet: #8b5cf6;
+$c-green: #3fe0a8;
+$c-amber: #ffc061;
+
+// ---------- 描边 / 文字 ----------
+$line: rgba(77, 141, 255, 0.2);
+$line-soft: rgba(120, 170, 255, 0.12);
+$line-hot: rgba(53, 230, 255, 0.62);
+
+$t1: #eef5ff;
+$t2: #9db2d0;
+$t3: #6b819f;
+
+// ---------- 数字字体 ----------
+// 优先系统内置的窄体 / 等宽科技字体，缺失时逐级回落到中文无衬线
+$num-font: 'Bahnschrift', 'DIN Alternate', 'Barlow Semi Condensed', 'HarmonyOS Sans SC',
+  'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+
+// ---------- 面板：玻璃底 + 内高光 + 左上 / 右下 霓虹角标 ----------
+@mixin panel {
+  position: relative;
+  border: 1px solid $line;
+  border-radius: calc(4px * var(--s));
+  background: linear-gradient(180deg, rgba(24, 48, 96, 0.5) 0%, rgba(8, 17, 36, 0.42) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 calc(28px * var(--s)) calc(-14px * var(--s)) rgba(53, 230, 255, 0.55);
+
+  // 角标必须画在面板内部，避免被 overflow: hidden 裁掉
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: calc(13px * var(--s));
+    height: calc(13px * var(--s));
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  &::before {
+    top: 0;
+    left: 0;
+    border-top: 2px solid $line-hot;
+    border-left: 2px solid $line-hot;
+  }
+
+  &::after {
+    right: 0;
+    bottom: 0;
+    border-right: 2px solid $line-hot;
+    border-bottom: 2px solid $line-hot;
+  }
+}
+
+// ---------- 面板标题：左侧发光菱形 + 渐变底 + 底线扫光 ----------
+// 只覆盖 padding-left，调用方先写 padding 简写、后 include 本 mixin
+@mixin panel-head {
+  position: relative;
+  padding-left: calc(32px * var(--s));
+  border-bottom: 1px solid $line;
+  background: linear-gradient(90deg, rgba(53, 230, 255, 0.14) 0%, rgba(53, 230, 255, 0) 58%);
+  letter-spacing: calc(0.6px * var(--s));
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: calc(15px * var(--s));
+    top: 50%;
+    width: calc(8px * var(--s));
+    height: calc(8px * var(--s));
+    background: $c-cyan;
+    box-shadow: 0 0 calc(10px * var(--s)) rgba(53, 230, 255, 0.9);
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, $line-hot 0%, rgba(53, 230, 255, 0) 72%);
+  }
+}
+
+// ---------- 顶部大数字卡：霓虹顶线 + 右上角光晕 ----------
+@mixin kpi-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid $line;
+  border-radius: calc(4px * var(--s));
+  background: linear-gradient(180deg, rgba(28, 58, 116, 0.5) 0%, rgba(8, 17, 36, 0.3) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 calc(30px * var(--s)) calc(-16px * var(--s)) rgba(53, 230, 255, 0.6);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      rgba(53, 230, 255, 0) 0%,
+      $c-cyan 50%,
+      rgba(53, 230, 255, 0) 100%
+    );
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: calc(-40px * var(--s));
+    right: calc(-40px * var(--s));
+    width: calc(140px * var(--s));
+    height: calc(140px * var(--s));
+    background: radial-gradient(circle, rgba(53, 230, 255, 0.2) 0%, rgba(53, 230, 255, 0) 70%);
+    pointer-events: none;
+  }
+}
+
+// ---------- 发光数字 ----------
+@mixin value-num {
+  font-family: $num-font;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: calc(1px * var(--s));
+  color: $t1;
+  text-shadow: 0 0 calc(18px * var(--s)) rgba(53, 230, 255, 0.38);
+}
+
+// ---------- 玻璃胶囊（周期 / 口径图例等） ----------
+@mixin glass-chip {
+  border: 1px solid $line;
+  border-radius: calc(4px * var(--s));
+  background: rgba(24, 48, 96, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+// ---------- 霓虹按钮 ----------
+@mixin neon-button {
+  border: 1px solid rgba(53, 230, 255, 0.5);
+  border-radius: calc(4px * var(--s));
+  background: linear-gradient(180deg, rgba(53, 230, 255, 0.2) 0%, rgba(77, 141, 255, 0.12) 100%);
+  color: $t1;
+  box-shadow: 0 0 calc(16px * var(--s)) calc(-6px * var(--s)) rgba(53, 230, 255, 0.8);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(180deg, rgba(53, 230, 255, 0.34) 0%, rgba(77, 141, 255, 0.2) 100%);
+    box-shadow: 0 0 calc(22px * var(--s)) calc(-4px * var(--s)) rgba(53, 230, 255, 0.95);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+  }
+}
+
+// ---------- 列表小标题：左侧短竖线 ----------
+@mixin list-title {
+  position: relative;
+  padding-left: calc(12px * var(--s));
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: calc(3px * var(--s));
+    height: calc(12px * var(--s));
+    border-radius: calc(2px * var(--s));
+    background: linear-gradient(180deg, $c-cyan 0%, rgba(77, 141, 255, 0.35) 100%);
+    box-shadow: 0 0 calc(8px * var(--s)) rgba(53, 230, 255, 0.7);
+    transform: translateY(-50%);
+  }
+}

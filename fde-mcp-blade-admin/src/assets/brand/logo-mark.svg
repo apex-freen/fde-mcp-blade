@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="FDE MCP Blade">
+  <title>FDE MCP Blade</title>
+  <desc>圆角方形底 + 双向箭头，表示边缘 MCP 双向中控。</desc>
+  <defs>
+    <linearGradient id="fde-mark" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B8CFF"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#fde-mark)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.5 20h15"/>
+    <path d="M17 15.5 12.5 20l4.5 4.5"/>
+    <path d="M23 15.5 27.5 20 23 24.5"/>
+  </g>
+</svg>

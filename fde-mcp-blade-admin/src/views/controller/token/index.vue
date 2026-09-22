@@ -1,0 +1,712 @@
+<template>
+  <div class="token-index-page">
+    <!-- 搜索区域 -->
+    <a-card :bordered="false" style="margin-top: 16px">
+      <a-form :model="searchForm" layout="inline">
+        <a-form-item field="user_name" :label="$t('token.username')">
+          <a-input
+            v-model="searchForm.user_name"
+            :placeholder="$t('token.usernamePlaceholder')"
+            allow-clear
+            style="width: 180px"
+          />
+        </a-form-item>
+        <a-form-item field="status" :label="$t('token.status')">
+          <a-select
+            v-model="searchForm.status"
+            :placeholder="$t('commonTable.all')"
+            allow-clear
+            style="width: 140px"
+          >
+            <a-option value="active">{{ $t('token.active') }}</a-option>
+            <a-option value="revoked">{{ $t('token.revoked') }}</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item>
+          <a-space>
+            <a-button type="primary" @click="handleSearch">
+              <template #icon><icon-search /></template>
+              {{ $t('commonTable.search') }}
+            </a-button>
+            <a-button @click="handleReset">
+              <template #icon><icon-refresh /></template>
+              {{ $t('commonTable.reset') }}
+            </a-button>
+          </a-space>
+        </a-form-item>
+      </a-form>
+    </a-card>
+
+    <!-- 表格区域 -->
+    <a-card :bordered="false" style="margin-top: 16px">
+      <div class="table-toolbar">
+        <a-button type="primary" @click="handleAdd">
+          <template #icon><icon-plus /></template>
+          {{ $t('token.createToken') }}
+        </a-button>
+      </div>
+
+      <a-table
+        :columns="columns"
+        :data="tableData"
+        :loading="loading"
+        :pagination="pagination"
+        row-key="id"
+        @page-change="handlePageChange"
+        @page-size-change="handlePageSizeChange"
+      >
+        <template #columns>
+          <a-table-column :title="$t('token.id')" data-index="id" :width="70" />
+          <a-table-column :title="$t('token.tokenPrefix')" data-index="token_prefix" :width="180" />
+          <a-table-column :title="$t('token.tokenName')" data-index="token_name" :width="160" />
+          <a-table-column :title="$t('token.bindUser')" data-index="user_name" :width="130" />
+          <a-table-column :title="$t('token.timeType')" :width="120">
+            <template #cell="{ record }">
+              <a-tag v-if="record.token_time_unit === 'permanent'" color="arcoblue">{{ $t('token.permanent') }}</a-tag>
+              <a-tag v-else-if="record.token_time_unit === 'monthly'" color="purple">{{ $t('token.monthly') }}</a-tag>
+              <a-tag v-else color="orange">{{ $t('token.custom') }}</a-tag>
+            </template>
+          </a-table-column>
+          <a-table-column :title="$t('commonTable.status')" data-index="status" :width="100">
+            <template #cell="{ record }">
+              <a-tag :color="record.status === 'active' ? 'green' : 'red'">
+                {{ record.status === 'active' ? $t('token.active') : $t('token.revoked') }}
+              </a-tag>
+            </template>
+          </a-table-column>
+          <a-table-column :title="$t('token.expiresAt')" :width="180">
+            <template #cell="{ record }">
+              {{ record.expires_at || $t('token.permanentValid') }}
+            </template>
+          </a-table-column>
+          <a-table-column :title="$t('token.issuedAt')" data-index="issued_at" :width="180" />
+          <a-table-column :title="$t('commonTable.operation')" :width="220" fixed="right">
+            <template #cell="{ record }">
+              <a-space size="mini">
+                <a-tooltip :content="$t('token.regenerateHint')">
+                  <a-button
+                    type="text"
+                    size="small"
+                    :disabled="record.status === 'revoked'"
+                    @click="handleRegenerate(record)"
+                  >
+                    <template #icon><icon-sync /></template>
+                    {{ $t('token.regenerate') }}
+                  </a-button>
+                </a-tooltip>
+                <a-popconfirm
+                  v-if="record.status === 'active'"
+                  :content="$t('token.revokeConfirm')"
+                  position="br"
+                  @ok="handleRevoke(record)"
+                >
+                  <a-button type="text" size="small" status="danger">
+                    <template #icon><icon-stop /></template>
+                    {{ $t('token.revoke') }}
+                  </a-button>
+                </a-popconfirm>
+              </a-space>
+            </template>
+          </a-table-column>
+        </template>
+      </a-table>
+    </a-card>
+
+    <!-- 创建令牌弹窗 -->
+    <a-modal
+      v-model:visible="createModalVisible"
+      :title="isRegenerate ? $t('token.regenerateTitle') : $t('token.createTitle')"
+      :ok-text="$t('token.confirmCreate')"
+      :cancel-text="$t('token.cancel')"
+      width="520px"
+      @ok="handleCreateSubmit"
+      @cancel="createModalVisible = false"
+    >
+      <a-form
+        ref="createFormRef"
+        :model="createForm"
+        :rules="createFormRules"
+        layout="vertical"
+      >
+        <a-form-item field="token_name" :label="$t('token.tokenNameLabel')">
+          <a-input v-model="createForm.token_name" :placeholder="$t('token.tokenNamePlaceholder')" />
+        </a-form-item>
+        <a-form-item field="target_user_id" :label="$t('token.bindUserLabel')">
+          <a-select
+            v-model="createForm.target_user_id"
+            :placeholder="$t('token.bindUserPlaceholder')"
+            :loading="userSelectLoading"
+            allow-search
+          >
+            <a-option
+              v-for="user in userList"
+              :key="user.user_id"
+              :value="user.user_id"
+            >
+              {{ user.user_name }}（{{ user.nick_name || user.user_name }}）
+            </a-option>
+          </a-select>
+        </a-form-item>
+        <!-- 所选绑定用户非云端用户时提前警示 -->
+        <a-alert
+          v-if="selectedBindUser && selectedBindUser.enable_cloud !== '1'"
+          type="warning"
+          style="margin-bottom: 16px"
+        >
+          {{ $t('token.nonCloudWarning') }}
+        </a-alert>
+        <a-form-item field="token_time_unit" :label="$t('token.tokenTimeUnit')">
+          <a-radio-group v-model="createForm.token_time_unit">
+            <a-radio value="permanent">{{ $t('token.permanentValid') }}</a-radio>
+            <a-radio value="monthly">{{ $t('token.monthlyValid') }}</a-radio>
+            <a-radio value="custom">{{ $t('token.customHours') }}</a-radio>
+          </a-radio-group>
+        </a-form-item>
+        <a-form-item
+          v-if="createForm.token_time_unit === 'custom'"
+          field="expiration_hours"
+          :label="$t('token.validHours')"
+        >
+          <a-input-number
+            v-model="createForm.expiration_hours"
+            :min="1"
+            :max="87600"
+            :placeholder="$t('token.defaultHours')"
+            style="width: 100%"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 创建成功弹窗：展示完整令牌 + MCP 配置 + 二维码 -->
+    <a-modal
+      v-model:visible="successModalVisible"
+      :title="$t('token.createSuccessTitle')"
+      :ok-text="$t('token.savedClose')"
+      :cancel-text="$t('token.close')"
+      :hide-cancel="false"
+      :simple-footer="false"
+      :mask-closable="false"
+      unmount-on-close
+      width="1200px"
+      @ok="successModalVisible = false"
+      @cancel="successModalVisible = false"
+    >
+      <template #footer>
+        <a-space>
+          <a-button @click="successModalVisible = false">{{ $t('token.close') }}</a-button>
+          <a-button type="primary" @click="handleCopyToken">{{ $t('token.copyToken') }}</a-button>
+          <a-button type="primary" status="warning" @click="handleCopyMcpConfig('local')">{{ $t('token.copyMcpConfigLocal') }}</a-button>
+          <a-button type="primary" status="warning" @click="handleCopyMcpConfig('cloud')" :disabled="!createdTokenInfo.mcpCloudQrCode">{{ $t('token.copyMcpConfigCloud') }}</a-button>
+          <a-button type="primary" status="success" @click="handleDownloadQrCode(qrCanvasRef, 'local')">{{ $t('token.downloadQrCodeLocal') }}</a-button>
+          <a-button type="primary" status="success" @click="handleDownloadQrCode(cloudQrCanvasRef, 'cloud')" :disabled="!createdTokenInfo.mcpCloudQrCode">{{ $t('token.downloadQrCodeCloud') }}</a-button>
+          <a-button type="primary" status="success" @click="successModalVisible = false">{{ $t('token.savedClose') }}</a-button>
+        </a-space>
+      </template>
+      <div style="padding: 8px 0">
+        <a-alert type="warning" style="margin-bottom: 16px">
+          <span style="font-weight: 600">{{ $t('token.warningText') }}</span>{{ $t('token.saveNow') }}
+        </a-alert>
+
+        <!-- 三列布局：令牌信息 / 本地 MCP / 云端 MCP -->
+        <div class="token-modal-layout">
+          <!-- 第一列：令牌信息 -->
+          <a-form :model="{}" layout="vertical" class="token-modal-col">
+            <div class="token-modal-section-title">{{ $t('token.tokenInfo') }}</div>
+            <a-form-item :label="$t('token.tokenNameLabel')">
+              <a-input :model-value="createdTokenInfo.token_name" readonly />
+            </a-form-item>
+            <a-form-item :label="$t('token.tokenPrefix')">
+              <a-input :model-value="createdTokenInfo.token_prefix" readonly />
+            </a-form-item>
+            <a-form-item :label="$t('token.bindUserLabel')">
+              <a-input :model-value="createdTokenInfo.user_name" readonly />
+            </a-form-item>
+            <a-form-item :label="$t('token.expiresAt')">
+              <a-input :model-value="createdTokenInfo.expires_at || $t('token.permanentValid')" readonly />
+            </a-form-item>
+            <a-form-item :label="$t('token.tokenLabel')">
+              <a-textarea
+                :model-value="createdTokenInfo.token"
+                readonly
+                :auto-size="{ minRows: 4, maxRows: 4 }"
+                style="font-family: monospace; font-size: 12px"
+              />
+            </a-form-item>
+          </a-form>
+
+          <!-- 第二列：本地 MCP -->
+          <div class="token-modal-col">
+            <div class="token-modal-section-title">{{ $t('token.mcpConfigLocal') }}</div>
+            <div class="token-modal-col-label">{{ $t('token.mcpConfigJson') }}</div>
+            <a-textarea
+              :model-value="mcpConfigJsonText"
+              readonly
+              :auto-size="{ minRows: 8, maxRows: 8 }"
+              style="font-family: monospace; font-size: 12px"
+            />
+            <div class="token-modal-qr-box">
+              <div class="token-modal-qr-label">{{ $t('token.qrCodeLocalTitle') }}</div>
+              <div class="token-modal-qr-wrapper">
+                <canvas ref="qrCanvasRef" width="512" height="512"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- 第三列：云端 MCP -->
+          <div class="token-modal-col">
+            <div class="token-modal-section-title">{{ $t('token.mcpConfigCloud') }}</div>
+            <template v-if="createdTokenInfo.mcpCloudQrCode">
+              <div class="token-modal-col-label">{{ $t('token.mcpConfigJson') }}</div>
+              <a-textarea
+                :model-value="cloudMcpConfigJsonText"
+                readonly
+                :auto-size="{ minRows: 8, maxRows: 8 }"
+                style="font-family: monospace; font-size: 12px"
+              />
+              <div class="token-modal-qr-box">
+                <div class="token-modal-qr-label">{{ $t('token.qrCodeCloudTitle') }}</div>
+                <div class="token-modal-qr-wrapper">
+                  <canvas ref="cloudQrCanvasRef" width="320" height="320"></canvas>
+                </div>
+              </div>
+            </template>
+            <a-empty v-else :description="$t('token.cloudUnavailable')" />
+          </div>
+        </div>
+        <div class="token-modal-qr-tip">{{ $t('token.qrCodeHint') }}</div>
+      </div>
+    </a-modal>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted, computed, nextTick, watch } from 'vue'
+import { Message } from '@arco-design/web-vue'
+import { useI18n } from 'vue-i18n'
+import { api } from '@/api'
+import QRCode from 'qrcode'
+
+const { t } = useI18n()
+
+// ==================== 搜索相关 ====================
+const searchForm = reactive({
+  user_name: '',
+  status: undefined
+})
+
+const handleSearch = () => {
+  pagination.current = 1
+  fetchTokenList()
+}
+
+const handleReset = () => {
+  searchForm.user_name = ''
+  searchForm.status = undefined
+  pagination.current = 1
+  fetchTokenList()
+}
+
+// ==================== 表格相关 ====================
+const loading = ref(false)
+const tableData = ref([])
+
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+  showTotal: true,
+  showPageSize: true,
+  pageSizeOptions: [10, 20, 50, 100]
+})
+
+const columns = []
+
+const handlePageChange = (page) => {
+  pagination.current = page
+  fetchTokenList()
+}
+
+const handlePageSizeChange = (pageSize) => {
+  pagination.pageSize = pageSize
+  pagination.current = 1
+  fetchTokenList()
+}
+
+const fetchTokenList = async () => {
+  loading.value = true
+  try {
+    const params = {
+      page: pagination.current,
+      page_size: pagination.pageSize
+    }
+    if (searchForm.user_name) {
+      params.user_name = searchForm.user_name
+    }
+    const res = await api.token.getTokenList(params)
+    let rows = res.rows || res.data?.rows || []
+    const total = res.total || res.data?.total || 0
+
+    // 前端按状态筛选（后端未提供 status 参数）
+    if (searchForm.status) {
+      rows = rows.filter((r) => r.status === searchForm.status)
+    }
+
+    tableData.value = rows
+    pagination.total = searchForm.status ? rows.length : total
+  } catch (e) {
+    console.error(t('token.fetchFailed') + ':', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+// ==================== 创建令牌弹窗 ====================
+const createModalVisible = ref(false)
+const isRegenerate = ref(false)
+const createFormRef = ref(null)
+
+const getDefaultCreateForm = () => ({
+  token_name: '',
+  target_user_id: undefined,
+  token_time_unit: 'permanent',
+  expiration_hours: 24
+})
+
+const createForm = reactive(getDefaultCreateForm())
+
+const createFormRules = {
+  token_name: [
+    { required: true, message: t('token.nameRequired') }
+  ],
+  target_user_id: [
+    { required: true, message: t('token.userRequired') }
+  ],
+  token_time_unit: [
+    { required: true, message: t('token.timeUnitRequired') }
+  ],
+  expiration_hours: [
+    {
+      validator: (value, cb) => {
+        if (createForm.token_time_unit === 'custom' && (!value || value < 1)) {
+          cb(t('token.hoursRequired'))
+        } else {
+          cb()
+        }
+      }
+    }
+  ]
+}
+
+const handleAdd = () => {
+  isRegenerate.value = false
+  Object.assign(createForm, getDefaultCreateForm())
+  createModalVisible.value = true
+}
+
+const handleRegenerate = (record) => {
+  isRegenerate.value = true
+  Object.assign(createForm, getDefaultCreateForm(), {
+    token_name: record.token_name,
+    target_user_id: userList.value.find((u) => u.user_name === record.user_name)?.user_id
+  })
+  createModalVisible.value = true
+}
+
+const handleCreateSubmit = async () => {
+  try {
+    await createFormRef.value?.validate()
+  } catch (e) {
+    return
+  }
+
+  try {
+    const data = {
+      token_name: createForm.token_name,
+      token_time_unit: createForm.token_time_unit,
+      target_user_id: createForm.target_user_id
+    }
+    if (createForm.token_time_unit === 'custom') {
+      data.expiration_hours = createForm.expiration_hours || 24
+    }
+
+    const res = await api.token.createToken(data)
+    const payload = res.data || res
+
+    createModalVisible.value = false
+
+    // 展示创建成功弹窗
+    createdTokenInfo.value = {
+      token: payload.token,
+      token_prefix: payload.token_prefix,
+      token_name: payload.token_name,
+      user_name: payload.user_name,
+      expires_at: payload.expires_at,
+      mcp_config: payload.mcp_config || {},
+      mcpLocalQrCode: payload.mcpLocalQrCode || '',
+      mcpCloudQrCode: payload.mcpCloudQrCode || ''
+    }
+    successModalVisible.value = true
+
+    nextTick(() => {
+      renderQrCode()
+    })
+
+    fetchTokenList()
+  } catch (e) {
+    console.error(t('token.createFailed') + ':', e)
+  }
+}
+
+// ==================== 创建成功弹窗 ====================
+const successModalVisible = ref(false)
+const qrCanvasRef = ref(null)
+const cloudQrCanvasRef = ref(null)
+const createdTokenInfo = ref({
+  token: '',
+  token_prefix: '',
+  token_name: '',
+  user_name: '',
+  expires_at: null,
+  mcp_config: {},
+  mcpLocalQrCode: '',
+  mcpCloudQrCode: ''
+})
+
+// MCP 配置 JSON 文本（格式化后的完整结构，供展示/复制）
+const mcpConfigJsonText = computed(() => {
+  const cfg = createdTokenInfo.value.mcp_config?.mcpLocal
+  if (!cfg || Object.keys(cfg).length === 0) return ''
+  return JSON.stringify(cfg, null, 2)
+})
+
+// 云端 MCP 配置 JSON 文本（格式化，供展示/复制；云端不可用时为空）
+const cloudMcpConfigJsonText = computed(() => {
+  const cfg = createdTokenInfo.value.mcp_config?.mcpCloud
+  if (!cfg || Object.keys(cfg).length === 0) return ''
+  return JSON.stringify(cfg, null, 2)
+})
+
+// 生成二维码：本地 + 云端各一张（编码后端返回的短引用 URL）
+const renderQrCode = async () => {
+  try {
+    // 本地二维码：编码 mcpLocalQrCode
+    if (qrCanvasRef.value && createdTokenInfo.value.mcpLocalQrCode) {
+      await QRCode.toCanvas(qrCanvasRef.value, createdTokenInfo.value.mcpLocalQrCode, {
+        width: qrCanvasRef.value.width,
+        margin: 4,
+        errorCorrectionLevel: 'L'
+      })
+    }
+    // 云端二维码：编码 mcpCloudQrCode
+    if (cloudQrCanvasRef.value && createdTokenInfo.value.mcpCloudQrCode) {
+      await QRCode.toCanvas(cloudQrCanvasRef.value, createdTokenInfo.value.mcpCloudQrCode, {
+        width: cloudQrCanvasRef.value.width,
+        margin: 4,
+        errorCorrectionLevel: 'L'
+      })
+    }
+  } catch (e) {
+    console.error('生成二维码失败:', e)
+  }
+}
+
+// 下载二维码图片（tag: local=本地 / cloud=云端）
+const handleDownloadQrCode = async (canvasRef, tag) => {
+  if (!canvasRef?.value) return
+  try {
+    const link = document.createElement('a')
+    link.download = `mcp-config-${tag}-${createdTokenInfo.value.token_prefix || 'apex'}.png`
+    link.href = canvasRef.value.toDataURL('image/png')
+    link.click()
+    Message.success(t('token.qrDownloaded'))
+  } catch (e) {
+    console.error('下载二维码失败:', e)
+    Message.error(t('common.error'))
+  }
+}
+
+// 通用复制函数：优先使用 Clipboard API，失败则 fallback 到 execCommand
+const copyTextToClipboard = async (text, successMsg, fallbackMsg) => {
+  // 方式一：现代 Clipboard API（需要安全上下文 HTTPS/localhost）
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text)
+      Message.success(successMsg)
+      return true
+    } catch (e) {
+      // 继续 fallback
+    }
+  }
+
+  // 方式二：传统 execCommand + 临时 textarea（兼容 HTTP 等非安全上下文）
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.top = '-1000px'
+    textarea.style.left = '-1000px'
+    textarea.style.opacity = '0'
+    textarea.readOnly = true
+    document.body.appendChild(textarea)
+    textarea.select()
+    textarea.setSelectionRange(0, textarea.value.length)
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    if (ok) {
+      Message.success(successMsg)
+      return true
+    }
+  } catch (e) {
+    // 继续 fallback
+  }
+
+  // 方式三：都失败时，提示用户手动复制
+  Message.info(fallbackMsg)
+  return false
+}
+
+const handleCopyToken = async () => {
+  if (!createdTokenInfo.value.token) {
+    Message.warning(t('token.tokenEmpty'))
+    return
+  }
+  await copyTextToClipboard(
+    createdTokenInfo.value.token,
+    t('token.copiedToken'),
+    t('token.manualCopyToken')
+  )
+}
+
+// 复制 MCP 配置 JSON（type: local=本地 / cloud=云端）
+const handleCopyMcpConfig = async (type) => {
+  const text = type === 'cloud' ? cloudMcpConfigJsonText.value : mcpConfigJsonText.value
+  if (!text) {
+    Message.warning(t('token.mcpEmpty'))
+    return
+  }
+  await copyTextToClipboard(
+    text,
+    t('token.copiedMcp'),
+    t('token.manualCopyMcp')
+  )
+}
+
+// ==================== 撤销令牌 ====================
+const handleRevoke = async (record) => {
+  try {
+    await api.token.revokeToken(record.id)
+    Message.success(t('token.revokeSuccess'))
+    fetchTokenList()
+  } catch (e) {
+    console.error('撤销令牌失败:', e)
+    Message.error(e.msg || e?.data?.msg || t('token.revokeFailed'))
+  }
+}
+
+// ==================== 用户下拉列表 ====================
+const userList = ref([])
+const userSelectLoading = ref(false)
+
+// 当前选中的绑定用户（enable_cloud=1 表示云端用户，用于非云端用户警示）
+const selectedBindUser = computed(() =>
+  userList.value.find((u) => u.user_id === createForm.target_user_id)
+)
+
+const fetchUserList = async () => {
+  userSelectLoading.value = true
+  try {
+    const res = await api.gisUser.getGisUserList({ page: 1, page_size: 999 })
+    userList.value = res.rows || res.data?.rows || []
+  } catch (e) {
+    console.error('获取用户列表失败:', e)
+  } finally {
+    userSelectLoading.value = false
+  }
+}
+
+// ==================== 初始化 ====================
+onMounted(() => {
+  fetchTokenList()
+  fetchUserList()
+})
+</script>
+
+<style lang="scss" scoped>
+.token-index-page {
+  .table-toolbar {
+    margin-bottom: $space-4;
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+</style>
+
+<!-- 全局样式：Modal 内容通过 Portal 挂载到 body，scoped 样式无法命中，必须使用全局样式 -->
+<style lang="scss">
+.token-modal-layout {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.token-modal-col {
+  min-width: 0;
+}
+
+.token-modal-col-label {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--color-text-1);
+  margin: 0 0 8px;
+}
+
+.token-modal-qr-box {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.token-modal-qr-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  margin-bottom: 8px;
+}
+
+.token-modal-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  margin: 4px 0 12px;
+  padding-left: 8px;
+  border-left: 3px solid var(--color-primary-5, #165dff);
+}
+
+.token-modal-qr-wrapper {
+  width: 320px;
+  height: 320px;
+  padding: 8px;
+  border: 1px solid var(--color-border-2, #e5e6eb);
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+  }
+}
+
+.token-modal-qr-tip {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--color-text-3, #86909c);
+  text-align: center;
+}
+</style>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="FDE MCP Blade">
+  <defs>
+    <linearGradient id="fde-mark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B8CFF"/>
+      <stop offset="1" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8.8" fill="url(#fde-mark)"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 16h12"/>
+    <path d="M13.6 12.4 10 16l3.6 3.6"/>
+    <path d="M18.4 12.4 22 16l-3.6 3.6"/>
+  </g>
+</svg>
