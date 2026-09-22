@@ -1,15 +1,17 @@
 {
-  "name": "apex-admin",
+  "name": "fde-mcp-blade-admin",
   "version": "1.0.0",
   "private": true,
-  "description": "智能体工具中枢（PC 端）",
+  "description": "FDE MCP Blade —— 边缘 MCP 双向中控中枢（Web 管理控制台）",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:test": "vite build --mode test",
     "build:prod": "vite build --mode production",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "node scripts/check.mjs",
+    "check:strict": "node scripts/check.mjs --strict"
   },
   "dependencies": {
     "@arco-design/web-vue": "^2.56.0",
