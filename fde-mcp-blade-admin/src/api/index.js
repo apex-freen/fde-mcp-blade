@@ -5,12 +5,7 @@
 
 import * as auth from './modules/auth'
 import * as agent from './modules/agent'
-import * as device from './modules/device'
-import * as user from './modules/user'
-import * as grant from './modules/grant'
 import * as token from './modules/token'
-import * as file from './modules/file'
-import * as system from './modules/system'
 import * as gisUser from './modules/gisUser'
 import * as gisRole from './modules/gisRole'
 import * as gisPermission from './modules/gisPermission'
@@ -18,7 +13,6 @@ import * as gisMenu from './modules/gisMenu'
 import * as gisUserRole from './modules/gisUserRole'
 import * as gisRolePermission from './modules/gisRolePermission'
 import * as gisRoleDept from './modules/gisRoleDept'
-import * as mcpPermission from './modules/mcpPermission'
 import * as pluginService from './modules/pluginService'
 import * as gisSecret from './modules/gisSecret'
 import * as gisEqp from './modules/gisEqp'
@@ -61,12 +55,7 @@ import * as auditExport from './modules/auditExport'
 export const api = {
   auth,
   agent,
-  device,
-  user,
-  grant,
   token,
-  file,
-  system,
   gisUser,
   gisRole,
   gisPermission,
@@ -74,7 +63,6 @@ export const api = {
   gisUserRole,
   gisRolePermission,
   gisRoleDept,
-  mcpPermission,
   pluginService,
   gisSecret,
   gisEqp,

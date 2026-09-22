@@ -231,7 +231,7 @@ import { RISK_LEVEL_MAP } from '@/constants/riskLevel'
 import {
   AGENT_ID_DEFAULT,
   OUT_AGENT_ID_DEFAULT
-} from '@/api/modules/mcpPermission'
+} from '@/api/modules/gisGrant'
 import GrantUserTable from '../components/GrantUserTable.vue'
 import GrantTargetUsersModal from '../components/GrantTargetUsersModal.vue'
 import { useGrantShared } from '../composables/useGrantShared'
@@ -291,7 +291,7 @@ async function loadTargetView() {
 // 已授权用户数：一次拉全部设备类生效授权，按 eqp_id 去重统计用户
 async function fetchGrantedUserCounts() {
   try {
-    const res = await api.mcpPermission.getGrantList({
+    const res = await api.gisGrant.getGrantList({
       grant_type: 'device',
       grant_sta: '1',
       page: 1,
@@ -426,7 +426,7 @@ async function handleGrantAllDevice(device) {
     cancelText: t('commonTable.cancel'),
     onOk: async () => {
       try {
-        await api.mcpPermission.grantAll({
+        await api.gisGrant.grantAll({
           gis_user_id: currentUser.value.user_id,
           gis_agent_id: AGENT_ID_DEFAULT,
           out_agent_id: OUT_AGENT_ID_DEFAULT,
@@ -461,7 +461,7 @@ async function handleRevokeAllDevice(device) {
     okButtonProps: { status: 'danger' },
     onOk: async () => {
       try {
-        await api.mcpPermission.revokeAll({
+        await api.gisGrant.revokeAll({
           // 撤销范围只认「该用户 + 该对象」，gis_user_id 必传
           gis_user_id: currentUser.value.user_id,
           grant_type: 'device',
@@ -482,7 +482,7 @@ async function handleRevokeAllDevice(device) {
 async function handleGrantSingleFun(device, fun) {
   const op = operator.value
   try {
-    await api.mcpPermission.createGrant({
+    await api.gisGrant.createGrant({
       gis_user_id: currentUser.value.user_id,
       gis_agent_id: AGENT_ID_DEFAULT,
       out_agent_id: OUT_AGENT_ID_DEFAULT,
@@ -508,7 +508,7 @@ async function handleGrantSingleFun(device, fun) {
 async function handleRevokeSingleFun(device, fun) {
   const op = operator.value
   try {
-    await api.mcpPermission.revokeGrant(fun._grantId, op.name)
+    await api.gisGrant.revokeGrant(fun._grantId, { updated_by: op.name })
     Message.success(t('mcpPermission.revokeSuccess'))
     await refreshGrantState()
   } catch (e) {

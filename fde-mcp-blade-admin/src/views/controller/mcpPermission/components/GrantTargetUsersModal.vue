@@ -70,7 +70,7 @@ import { api } from '@/api'
 import {
   AGENT_ID_DEFAULT,
   OUT_AGENT_ID_DEFAULT
-} from '@/api/modules/mcpPermission'
+} from '@/api/modules/gisGrant'
 import { useGrantOperator } from '../composables/useGrantShared'
 
 const props = defineProps({
@@ -125,7 +125,7 @@ async function fetchGrantedUserIds() {
   else params.target_name = props.target?.name
 
   try {
-    const res = await api.mcpPermission.getGrantList(params)
+    const res = await api.gisGrant.getGrantList(params)
     const data = res?.data || res || {}
     grantedUserIds.value = (data.rows || []).map(g => g.gis_user_id)
   } catch (e) {
@@ -201,7 +201,7 @@ async function runGrant() {
   try {
     for (const userId of userIds.value) {
       try {
-        await api.mcpPermission.grantAll(buildCreatePayload(userId))
+        await api.gisGrant.grantAll(buildCreatePayload(userId))
         success++
       } catch (e) {
         fail++

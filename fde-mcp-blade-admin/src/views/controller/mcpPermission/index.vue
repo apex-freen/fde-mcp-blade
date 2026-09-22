@@ -378,7 +378,7 @@ import {
 import {
   AGENT_ID_DEFAULT,
   OUT_AGENT_ID_DEFAULT
-} from '@/api/modules/mcpPermission'
+} from '@/api/modules/gisGrant'
 
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -508,7 +508,7 @@ async function openGrantDrawer(user) {
 // 获取该用户的所有授权记录
 async function fetchUserGrants() {
   try {
-    const res = await api.mcpPermission.getGrantList({
+    const res = await api.gisGrant.getGrantList({
       gis_user_id: currentUser.value.user_id,
       page: 1,
       page_size: 1000,
@@ -696,7 +696,7 @@ async function handleGrantAllDevice(device) {
     cancelText: t('commonTable.cancel'),
     onOk: async () => {
       try {
-        await api.mcpPermission.grantAll({
+        await api.gisGrant.grantAll({
           gis_user_id: currentUser.value.user_id,
           gis_agent_id: AGENT_ID_DEFAULT,
           out_agent_id: OUT_AGENT_ID_DEFAULT,
@@ -731,7 +731,7 @@ async function handleRevokeAllDevice(device) {
     okButtonProps: { status: 'danger' },
     onOk: async () => {
       try {
-        await api.mcpPermission.revokeAll({
+        await api.gisGrant.revokeAll({
           // 2026-09-17 契约：撤销范围只认「该用户 + 该对象」，gis_user_id 必传
           gis_user_id: currentUser.value.user_id,
           grant_type: 'device',
@@ -752,7 +752,7 @@ async function handleRevokeAllDevice(device) {
 async function handleGrantSingleFun(device, fun) {
   const op = getOperator()
   try {
-    await api.mcpPermission.createGrant({
+    await api.gisGrant.createGrant({
       gis_user_id: currentUser.value.user_id,
       gis_agent_id: AGENT_ID_DEFAULT,
       out_agent_id: OUT_AGENT_ID_DEFAULT,
@@ -778,7 +778,7 @@ async function handleGrantSingleFun(device, fun) {
 async function handleRevokeSingleFun(device, fun) {
   const op = getOperator()
   try {
-    await api.mcpPermission.revokeGrant(fun._grantId, op.name)
+    await api.gisGrant.revokeGrant(fun._grantId, { updated_by: op.name })
     Message.success(t('mcpPermission.revokeSuccess'))
     await fetchUserGrants()
   } catch (e) {
@@ -801,7 +801,7 @@ async function handleGrantAllService(plugin) {
     cancelText: t('commonTable.cancel'),
     onOk: async () => {
       try {
-        await api.mcpPermission.grantAll({
+        await api.gisGrant.grantAll({
           gis_user_id: currentUser.value.user_id,
           gis_agent_id: AGENT_ID_DEFAULT,
           out_agent_id: OUT_AGENT_ID_DEFAULT,
@@ -839,7 +839,7 @@ async function handleRevokeAllService(plugin) {
     okButtonProps: { status: 'danger' },
     onOk: async () => {
       try {
-        await api.mcpPermission.revokeAll({
+        await api.gisGrant.revokeAll({
           // 2026-09-17 契约：撤销只认「该用户 + 插件名（target_name）」，
           // eqp_client_id 已不参与服务侧匹配
           gis_user_id: currentUser.value.user_id,
@@ -871,7 +871,7 @@ async function handleGrantSingleMethod(plugin, method) {
     return
   }
   try {
-    await api.mcpPermission.createGrant({
+    await api.gisGrant.createGrant({
       gis_user_id: currentUser.value.user_id,
       gis_agent_id: AGENT_ID_DEFAULT,
       out_agent_id: OUT_AGENT_ID_DEFAULT,
@@ -899,7 +899,7 @@ async function handleGrantSingleMethod(plugin, method) {
 async function handleRevokeSingleMethod(plugin, method) {
   const op = getOperator()
   try {
-    await api.mcpPermission.revokeGrant(method._grantId, op.name)
+    await api.gisGrant.revokeGrant(method._grantId, { updated_by: op.name })
     Message.success(t('mcpPermission.revokeSuccess'))
     await fetchUserGrants()
   } catch (e) {

@@ -18,6 +18,14 @@
 
 import { get, post, put } from '@/utils/request'
 
+// ========== 常量 ==========
+//
+// 双主体约定的默认值（原 mcpPermission.js 迁入，2026-09-22 合并重复封装）：
+// gis_agent_id 固定 0；out_agent_id 在 create / grant_all 里仍是必填字段，
+// 但后端不参与任何判定，统一传空串；revoke_all 已从入参移除该字段（传了会被忽略）。
+export const AGENT_ID_DEFAULT = 0
+export const OUT_AGENT_ID_DEFAULT = ''
+
 /**
  * 授权列表
  * @param {Object} params - 全部可选：

@@ -81,7 +81,7 @@ import { api } from '@/api'
 import {
   AGENT_ID_DEFAULT,
   OUT_AGENT_ID_DEFAULT
-} from '@/api/modules/mcpPermission'
+} from '@/api/modules/gisGrant'
 import {
   useGrantOperator,
   fetchGrantsOfUser,
@@ -222,7 +222,7 @@ async function runCopy() {
           skip++
         } else {
           try {
-            await api.mcpPermission.createGrant(buildCreatePayload(grant, targetUserId))
+            await api.gisGrant.createGrant(buildCreatePayload(grant, targetUserId))
             existKeys.add(key)
             success++
           } catch (e) {

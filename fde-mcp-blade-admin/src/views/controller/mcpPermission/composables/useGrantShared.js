@@ -34,7 +34,7 @@ export async function fetchGrantsOfUser(userId, grantType) {
     is_asc: true
   }
   if (grantType) params.grant_type = grantType
-  const res = await api.mcpPermission.getGrantList(params)
+  const res = await api.gisGrant.getGrantList(params)
   const data = res?.data || res || {}
   return data.rows || []
 }
@@ -67,7 +67,7 @@ export function useGrantShared() {
   // grant_type / grant_sta 服务端已生效，返回即目标维度，不再做客户端兜底过滤
   async function fetchUserGrants(grantType) {
     try {
-      const res = await api.mcpPermission.getGrantList({
+      const res = await api.gisGrant.getGrantList({
         gis_user_id: currentUser.value.user_id,
         grant_type: grantType,
         grant_sta: '1',

@@ -81,24 +81,6 @@ export function exchangeSsoCode(code) {
 }
 
 // ==========================================
-// 废弃接口（后端 gis_auth 模块已下线）
-// ==========================================
-
-/**
- * @deprecated 已废弃，后端 `/biz/mobile/auth/loginGis` 已下线
- * GIS 登录改用 MQTT 模块的 `POST /biz/mqtt/client/login`
- */
-export function loginGis(data) {
-  console.warn('[DEPRECATED] loginGis 已废弃，请改用 mqtt/client/login')
-  return request({
-    url: '/biz/mobile/auth/loginGis',
-    method: 'POST',
-    data,
-    showLoading: true
-  })
-}
-
-// ==========================================
 // GIS 云端接口（外部服务，不受 gis_auth 迁移影响）
 // ==========================================
 
