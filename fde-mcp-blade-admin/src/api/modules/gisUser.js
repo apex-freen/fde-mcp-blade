@@ -30,7 +30,37 @@ export function getGisUserList(params) {
 }
 
 /**
+ * 「选用户」下拉专用轻量接口（picker）
+ *
+ * 用途：全站 4 处「选人下拉」的唯一数据源，**替代原本拉 500/999 条再本地筛** 的做法。
+ * 不挂权限点，**登录即可调用**（`/biz/gis_user/list` 挂的是 `controller:user:index`，
+ * 该点当前无任何角色持有；picker 正是为了解耦这个诉求而存在）。
+ *
+ * ⚠️ 契约（后端 2026-09-22 定稿，缺口已全部闭合）：
+ * - 入参：
+ *   · `keyword`  可选。模糊匹配 `user_name` 或 `nick_name`，不传 = 不筛
+ *   · `status`   可选。`'0'` 正常 / `'1'` 停用；**其它值（含空前缀）视为「不筛」**
+ *   · `page`     默认 1
+ *   · `page_size` 默认 100、**上限 100，超限静默夹取（不报 400）**
+ * - 出参：`{ total, rows }`，每项 **6 个字段**：
+ *   `user_id` / `user_name` / `nick_name` / `group_name` / `status` / `enable_cloud`
+ *   · `enable_cloud` 为 `string|null`，`'1'` = 已启用云端（token 页「非云端用户」警示用它）
+ *   · `group_name` 取值域**不受控、不参与任何权限判定** → 前端**只直渲，不做值→文案映射**，
+ *     空值显示 `—`（SSO JIT 按 `sso_jit_group_name` 写入，可能是任意中文）
+ * - 排序：`user_id ASC`
+ * - ⚠️ 仍按**数据范围**过滤（可见部门 ∪ 本人）→ 下拉里找不到人先查角色数据范围，不是接口 bug
+ * - ⚠️ 与 `/biz/gis_user/list` 的区别：picker **不含 `created_time`**（管理表格才需要）
+ *
+ * @param {Object} [params] - { keyword?, status?, page?, page_size? }
+ */
+export function getGisUserPicker(params = {}) {
+  return get('/biz/gis_user/picker', params)
+}
+
+/**
  * 获取所有用户（无分页）
+ *
+ * ⚠️ 出参与 picker 同为 **6 字段** DTO（v1.9 定稿），实测调用点只读 3 个字段 → 零改动。
  */
 export function getGisUserAll() {
   return get('/biz/gis_user/all')
@@ -86,6 +116,31 @@ export function updateGisUser(id, data) {
  */
 export function deleteGisUser(id) {
   return del(`/biz/gis_user/${id}`)
+}
+
+/**
+ * 修改**本人**资料（个人中心「编辑资料」专用）
+ *
+ * ⚠️ 与 updateGisUser 的区别：本接口后端已收紧为**仅本人可改**（传他人 id → 403），
+ * 且只认这 2 个字段 —— **不要把 group_name / user_name / user_perm_level 再传进来**。
+ *
+ * 🔴 硬约束（防止后人改回去，2026-09-22 定稿）：
+ * 1. 字段名是 **snake_case**（`nick_name` / `user_desc`）—— 与本模块 `password` / `settings`
+ *    的 camelCase **不一致，不要"顺手统一"**；
+ * 2. 传白名单以外的字段 → **422（不是 400）**；
+ * 3. **两个字段都不传 → 400**「没有需要更新的字段」；
+ * 4. `user_desc` 传**空串 = 清空简介**（服务端落 NULL）；
+ * 5. 前端需自行校验（**不靠 422 兜底**）：昵称 trim 后非空且 ≤64；简介 ≤255。
+ *
+ * 不受影响：`GET /biz/gis_user/{id}`（读自己，放行）、
+ *          `PUT /biz/gis_user/{id}/password`（改自己密码，字段名是 **camelCase**
+ *          `{ oldPassword, newPassword }`）。
+ *
+ * @param {number} id - **登录人自己的 user_id**（传别人的 → 403）
+ * @param {Object} data - 仅 { nick_name?: string, user_desc?: string }
+ */
+export function updateUserProfile(id, data) {
+  return put(`/biz/gis_user/${id}/profile`, data)
 }
 
 /**

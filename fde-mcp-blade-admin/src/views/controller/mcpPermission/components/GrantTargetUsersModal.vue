@@ -31,6 +31,7 @@
 
     <a-form :model="form" layout="vertical" style="margin-top: 16px">
       <a-form-item :label="$t('mcpPermission.copyTargetUsers')">
+        <!-- 远程搜索下拉：数据源是 picker，不是本地全量列表（见 script 段实现纪律） -->
         <a-select
           v-model="userIds"
           multiple
@@ -39,8 +40,13 @@
           :loading="userLoading"
           :placeholder="$t('mcpPermission.selectUsersPlaceholder')"
           :options="userOptions"
+          :filter-option="false"
+          :search-delay="300"
+          :fallback-option="userFallbackOption"
           :max-tag-count="6"
           style="width: 100%"
+          @search="handleUserSearch"
+          @popup-visible-change="handleUserPopupToggle"
         />
       </a-form-item>
 
@@ -133,33 +139,60 @@ async function fetchGrantedUserIds() {
   }
 }
 
-// 用户下拉：仅启用用户；已授权的置灰并加标记
-async function fetchUsers() {
+// ==================== 用户下拉（picker 远程搜索）====================
+//
+// 数据源 = GET /biz/gis_user/picker（不挂权限点、登录即可），
+// 替代原 getGisUserList({ status:'0', page_size:500 }) —— 会被后端静默夹到 100 条，
+// 超 100 用户时第 100 条之后的人选不到。
+// `status:'0'`（仅启用用户）改由**服务端**筛，不再本地过滤。
+// 四条实现纪律同 1016 §5.1.1（filter-option=false / 空串回首页 / 丢弃过期响应 / 缓存只增不减）。
+const selectedCache = new Map()   // user_id -> 选项对象（含「已授权」标记），供 fallback 回显
+let userFetchSeq = 0
+
+// 已授权的置灰并加标记（后端对重复授权会 400）
+function buildOption(u) {
+  const granted = grantedUserIds.value.includes(u.user_id)
+  const name = u.nick_name ? `${u.nick_name}（${u.user_name}）` : u.user_name
+  const opt = {
+    label: granted ? `${name} · ${t('mcpPermission.alreadyGranted')}` : name,
+    value: u.user_id,
+    disabled: granted
+  }
+  selectedCache.set(u.user_id, opt)
+  return opt
+}
+
+// 已选值不在当前结果页时的标签兜底（Arco fallback-option）——
+// 已选项本身不能被禁用，否则标签会灰掉
+const userFallbackOption = (value) => {
+  if (value === undefined || value === null || value === '') return { value, label: '' }
+  const opt = selectedCache.get(value)
+  return opt ? { ...opt, disabled: false } : { value, label: `#${value}` }
+}
+
+async function fetchUserOptions(keyword = '') {
+  const seq = ++userFetchSeq
   userLoading.value = true
   try {
-    const res = await api.gisUser.getGisUserList({
+    const res = await api.gisUser.getGisUserPicker({
+      keyword,
       status: '0',
       page: 1,
-      page_size: 500,
-      order_by: 'user_id',
-      is_asc: true
+      page_size: 100
     })
+    if (seq !== userFetchSeq) return
     const data = res?.data || res || {}
-    const rows = data.rows || []
-    userOptions.value = rows.map(u => {
-      const granted = grantedUserIds.value.includes(u.user_id)
-      const name = u.nick_name ? `${u.nick_name}（${u.user_name}）` : u.user_name
-      return {
-        label: granted ? `${name} · ${t('mcpPermission.alreadyGranted')}` : name,
-        value: u.user_id,
-        disabled: granted
-      }
-    })
+    userOptions.value = (data.rows || []).map(buildOption)
   } catch (e) {
     Message.error(t('mcpPermission.fetchUserFailed'))
   } finally {
-    userLoading.value = false
+    if (seq === userFetchSeq) userLoading.value = false
   }
+}
+
+const handleUserSearch = (v) => fetchUserOptions(v || '')
+const handleUserPopupToggle = (visible) => {
+  if (visible) fetchUserOptions('')
 }
 
 function buildCreatePayload(userId) {
@@ -248,7 +281,8 @@ watch(
     totalCount.value = 0
     if (!hasServerUrl.value) return
     await fetchGrantedUserIds()
-    await fetchUsers()
+    // 预热第一页（下拉打开时还会再走一次 @popup-visible-change）
+    await fetchUserOptions()
   }
 )
 </script>

@@ -96,16 +96,21 @@
                 :rules="profileRules"
                 layout="vertical"
               >
+                <!-- 长度上限前端自己拦：昵称 ≤64、简介 ≤255（不靠后端 422 兜底） -->
                 <a-form-item field="nick_name" :label="$t('profile.nickname')">
                   <a-input
                     v-model="profileForm.nick_name"
                     :placeholder="$t('profile.nicknamePlaceholder')"
+                    :max-length="64"
+                    show-word-limit
                   />
                 </a-form-item>
                 <a-form-item field="user_desc" :label="$t('profile.userDesc')">
                   <a-textarea
                     v-model="profileForm.user_desc"
                     :placeholder="$t('profile.descPlaceholder')"
+                    :max-length="255"
+                    show-word-limit
                     :auto-size="{ minRows: 2, maxRows: 5 }"
                   />
                 </a-form-item>
@@ -430,7 +435,9 @@ import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
-import { getGisUserById, updateGisUser, changePassword } from '@/api/modules/gisUser'
+// ⚠️ 编辑资料走 updateUserProfile（PUT /biz/gis_user/{id}/profile，仅本人、只认 2 字段），
+//    不要换回 updateGisUser —— 那是管理员的整表单提交接口，会 403 / 422。
+import { getGisUserById, updateUserProfile, changePassword } from '@/api/modules/gisUser'
 import { api } from '@/api'
 import { isSuperAdmin } from '@/utils/permission'
 import { useRiskLevelDict } from '@/constants/riskLevel'
@@ -679,8 +686,17 @@ const profileForm = reactive({
   user_desc: ''
 })
 
+// 昵称：必填 + trim 后不能为空（长度 ≤64 由 input 的 max-length 拦）
 const profileRules = {
-  nick_name: [{ required: true, message: t('profile.nicknameRequired') }]
+  nick_name: [
+    { required: true, message: t('profile.nicknameRequired') },
+    {
+      validator: (value, cb) => {
+        if (!String(value ?? '').trim()) return cb(t('profile.nicknameRequired'))
+        cb()
+      }
+    }
+  ]
 }
 
 async function handleSaveProfile() {
@@ -692,11 +708,14 @@ async function handleSaveProfile() {
 
   profileLoading.value = true
   try {
-    await updateGisUser(userInfo.value.userId, {
-      group_name: fullUser.value.group_name || '',
-      user_name: fullUser.value.user_name || userInfo.value.userName || '',
-      user_perm_level: fullUser.value.user_perm_level || '0',
-      nick_name: profileForm.nick_name,
+    // 🔴 只传这 2 个字段（PUT /biz/gis_user/{id}/profile，后端已收紧为「仅本人可改」）：
+    //  · 传白名单外字段 → 422（不是 400）；group_name / user_name / user_perm_level
+    //    以前是回填值顺手上传，user_perm_level 首发即 422 —— 已全部删掉，别再改回去；
+    //  · 两个都不传 → 400「没有需要更新的字段」；
+    //  · user_desc 传空串 = 清空简介（服务端落 NULL），这是允许的；
+    //  · 字段名是 snake_case，与本模块 password / settings 的 camelCase 不一致，不要统一。
+    await updateUserProfile(userInfo.value.userId, {
+      nick_name: profileForm.nick_name.trim(),
       user_desc: profileForm.user_desc
     })
     // 刷新 store 中的用户信息

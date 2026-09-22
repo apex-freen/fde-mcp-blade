@@ -28,6 +28,7 @@
       </a-form-item>
 
       <a-form-item :label="$t('mcpPermission.copyTargetUsers')">
+        <!-- 远程搜索下拉：数据源是 picker，不是本地全量列表（见 script 段实现纪律） -->
         <a-select
           v-model="targetUserIds"
           multiple
@@ -36,8 +37,13 @@
           :loading="userLoading"
           :placeholder="$t('mcpPermission.copyTargetPlaceholder')"
           :options="targetUserOptions"
+          :filter-option="false"
+          :search-delay="300"
+          :fallback-option="userFallbackOption"
           :max-tag-count="6"
           style="width: 100%"
+          @search="handleUserSearch"
+          @popup-visible-change="handleUserPopupToggle"
         />
       </a-form-item>
 
@@ -126,30 +132,54 @@ const canCopy = computed(() =>
   copyableGrants.value.length > 0 && targetUserIds.value.length > 0 && !copying.value
 )
 
-// 目标用户下拉：仅启用用户，排除源用户本人
-async function fetchTargetUsers() {
+// ==================== 目标用户下拉（picker 远程搜索）====================
+//
+// 数据源 = GET /biz/gis_user/picker（不挂权限点、登录即可），
+// 替代原 getGisUserList({ status:'0', page_size:500 }) —— 会被后端静默夹到 100 条。
+// `status:'0'`（仅启用用户）由**服务端**筛；「排除源用户本人」是纯展示规则，仍在本地过滤。
+// 四条实现纪律同 1016 §5.1.1（filter-option=false / 空串回首页 / 丢弃过期响应 / 缓存只增不减）。
+const selectedCache = new Map()   // user_id -> 选项对象，供已选标签回显
+let userFetchSeq = 0
+
+function buildTargetOption(u) {
+  const opt = {
+    label: u.nick_name ? `${u.nick_name}（${u.user_name}）` : u.user_name,
+    value: u.user_id
+  }
+  selectedCache.set(u.user_id, opt)
+  return opt
+}
+
+const userFallbackOption = (value) => {
+  if (value === undefined || value === null || value === '') return { value, label: '' }
+  return selectedCache.get(value) || { value, label: `#${value}` }
+}
+
+async function fetchTargetUsers(keyword = '') {
+  const seq = ++userFetchSeq
   userLoading.value = true
   try {
-    const res = await api.gisUser.getGisUserList({
+    const res = await api.gisUser.getGisUserPicker({
+      keyword,
       status: '0',
       page: 1,
-      page_size: 500,
-      order_by: 'user_id',
-      is_asc: true
+      page_size: 100
     })
+    if (seq !== userFetchSeq) return
     const data = res?.data || res || {}
-    const rows = data.rows || []
-    targetUserOptions.value = rows
+    targetUserOptions.value = (data.rows || [])
       .filter(u => u.user_id !== props.sourceUser?.user_id)
-      .map(u => ({
-        label: u.nick_name ? `${u.nick_name}（${u.user_name}）` : u.user_name,
-        value: u.user_id
-      }))
+      .map(buildTargetOption)
   } catch (e) {
     Message.error(t('mcpPermission.fetchUserFailed'))
   } finally {
-    userLoading.value = false
+    if (seq === userFetchSeq) userLoading.value = false
   }
+}
+
+const handleUserSearch = (v) => fetchTargetUsers(v || '')
+const handleUserPopupToggle = (visible) => {
+  if (visible) fetchTargetUsers('')
 }
 
 // 源用户可复制的授权：生效中且永久

@@ -125,20 +125,20 @@
           </a-col>
           <a-col :span="12">
             <a-form-item field="userId" :label="$t('agentManage.bindUser')">
+              <!-- 远程搜索下拉：数据源是 picker，不是本地全量列表（见 script 段实现纪律） -->
               <a-select
                 v-model="formData.userId"
                 :placeholder="$t('agentManage.bindUserPlaceholder')"
                 allow-clear
+                allow-search
                 :loading="userLoading"
-              >
-                <a-option
-                  v-for="u in userOptions"
-                  :key="u.user_id"
-                  :value="u.user_id"
-                >
-                  {{ u.nick_name || u.user_name }}({{ u.user_id }})
-                </a-option>
-              </a-select>
+                :filter-option="false"
+                :search-delay="300"
+                :options="userOptions"
+                :fallback-option="userFallbackOption"
+                @search="handleUserSearch"
+                @popup-visible-change="handleUserPopupToggle"
+              />
             </a-form-item>
           </a-col>
         </a-row>
@@ -396,25 +396,56 @@ const fetchList = async () => {
   }
 }
 
-// ==================== 用户下拉 ====================
-const userOptions = ref([])
+// ==================== 用户下拉（picker 远程搜索）====================
+//
+// 数据源 = GET /biz/gis_user/picker（不挂权限点、登录即可），
+// 替代原 getGisUserList({ page_size: 999 }) —— 原写法被后端静默夹到 100 条，
+// 用户数超 100 时第 100 条之后的人搜不到。
+// ⚠️ 本页在本版菜单中隐藏，但仍按 picker 一并改造，避免留下同一个坑。
+// 四条实现纪律同 1016 §5.1.1（filter-option=false / 空串回首页 / 丢弃过期响应 / 缓存只增不减）。
+const userCache = new Map()      // user_id -> 完整用户对象（表格列 getUserName 也读它）
+const userOptions = ref([])      // a-select 用的 { label, value }
 const userLoading = ref(false)
+let userFetchSeq = 0
 
-const fetchUserOptions = async () => {
+const userLabel = (u) => `${u.nick_name || u.user_name}(${u.user_id})`
+
+const toUserOption = (u) => {
+  userCache.set(u.user_id, u)
+  return { label: userLabel(u), value: u.user_id }
+}
+
+// 已选值不在当前结果页时的标签兜底（Arco fallback-option）
+const userFallbackOption = (value) => {
+  if (value === undefined || value === null || value === '') return { value, label: '' }
+  const u = userCache.get(value)
+  return { value, label: u ? userLabel(u) : `#${value}` }
+}
+
+const fetchUserOptions = async (keyword = '') => {
+  const seq = ++userFetchSeq
   userLoading.value = true
   try {
-    const res = await api.gisUser.getGisUserList({ page_size: 999 })
-    userOptions.value = res.rows || res.data?.rows || []
+    const res = await api.gisUser.getGisUserPicker({ keyword, page: 1, page_size: 100 })
+    if (seq !== userFetchSeq) return
+    userOptions.value = (res.rows || res.data?.rows || []).map(toUserOption)
   } catch (e) {
     console.error('获取用户列表失败:', e)
   } finally {
-    userLoading.value = false
+    if (seq === userFetchSeq) userLoading.value = false
   }
 }
 
+const handleUserSearch = (v) => fetchUserOptions(v || '')
+const handleUserPopupToggle = (visible) => {
+  if (visible) fetchUserOptions('')
+}
+
+// 表格列：user_id → 显示名。命中缓存用昵称，未命中回落原始 ID
+// （覆盖范围与旧行为一致：后端本来就只返回前 100 条）
 const getUserName = (userId) => {
   if (userId === undefined || userId === null || userId === '') return '-'
-  const u = userOptions.value.find(item => item.user_id === userId)
+  const u = userCache.get(userId)
   return u ? (u.nick_name || u.user_name) : String(userId)
 }
 

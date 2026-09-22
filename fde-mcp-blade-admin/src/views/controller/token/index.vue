@@ -132,20 +132,19 @@
           <a-input v-model="createForm.token_name" :placeholder="$t('token.tokenNamePlaceholder')" />
         </a-form-item>
         <a-form-item field="target_user_id" :label="$t('token.bindUserLabel')">
+          <!-- 远程搜索下拉：数据源是 picker，不是本地全量列表（见 script 段的实现纪律） -->
           <a-select
             v-model="createForm.target_user_id"
             :placeholder="$t('token.bindUserPlaceholder')"
             :loading="userSelectLoading"
             allow-search
-          >
-            <a-option
-              v-for="user in userList"
-              :key="user.user_id"
-              :value="user.user_id"
-            >
-              {{ user.user_name }}（{{ user.nick_name || user.user_name }}）
-            </a-option>
-          </a-select>
+            :filter-option="false"
+            :search-delay="300"
+            :options="userOptions"
+            :fallback-option="userFallbackOption"
+            @search="handleUserSearch"
+            @popup-visible-change="handleUserPopupToggle"
+          />
         </a-form-item>
         <!-- 所选绑定用户非云端用户时提前警示 -->
         <a-alert
@@ -404,11 +403,32 @@ const handleAdd = () => {
   createModalVisible.value = true
 }
 
-const handleRegenerate = (record) => {
+const handleRegenerate = async (record) => {
   isRegenerate.value = true
+
+  // 令牌列表只回 `user_name`（无 user_id），要回填下拉必须反查 user_id。
+  // ⚠️ 不能再用本地 userList.find —— 改远程搜索后本地不再持有全量列表。
+  //    改为回 picker 按用户名精确匹配；查不到就留空，让用户自己重选
+  //    （下拉已能搜到全量用户，不会卡住）。
+  let targetUserId
+  try {
+    const res = await api.gisUser.getGisUserPicker({
+      keyword: record.user_name,
+      page: 1,
+      page_size: 100
+    })
+    const hit = (res.rows || res.data?.rows || []).find((u) => u.user_name === record.user_name)
+    if (hit) {
+      targetUserId = hit.user_id
+      userCache.set(hit.user_id, hit)   // 塞进缓存，保证标签能正常回显
+    }
+  } catch (e) {
+    console.error('回填绑定用户失败:', e)
+  }
+
   Object.assign(createForm, getDefaultCreateForm(), {
     token_name: record.token_name,
-    target_user_id: userList.value.find((u) => u.user_name === record.user_name)?.user_id
+    target_user_id: targetUserId
   })
   createModalVisible.value = true
 }
@@ -604,31 +624,64 @@ const handleRevoke = async (record) => {
   }
 }
 
-// ==================== 用户下拉列表 ====================
-const userList = ref([])
+// ==================== 用户下拉（picker 远程搜索）====================
+//
+// 数据源 = GET /biz/gis_user/picker（不挂权限点、登录即可），
+// 替代原先的 getGisUserList({ page_size: 999 }) —— 那个写法会被后端静默夹到 100 条，
+// 用户数超 100 时第 100 条之后的人**根本搜不到**（静默截断缺陷）。
+//
+// 四条实现纪律（见 1016 §5.1.1）：
+//   1. `:filter-option="false"` 必须显式写 —— 否则 Arco 会在服务端结果上再筛一次，
+//      出现「明明搜到了、列表却是空」的诡异现象；
+//   2. `@search` 收到空串要回「第一页列表」，不要返回空；
+//   3. `userFetchSeq` 丢弃过期响应 —— 不做的话慢请求后返回会覆盖新结果；
+//   4. `userCache` 会话级**只增不减** —— 已选用户不在当前结果页时，
+//      标签（fallback-option）与 enable_cloud 判断都靠它兜住。
+const userCache = new Map()      // user_id -> 完整用户对象（含 enable_cloud）
+const userOptions = ref([])      // a-select 用的 { label, value }
 const userSelectLoading = ref(false)
+let userFetchSeq = 0
 
-// 当前选中的绑定用户（enable_cloud=1 表示云端用户，用于非云端用户警示）
-const selectedBindUser = computed(() =>
-  userList.value.find((u) => u.user_id === createForm.target_user_id)
-)
+const userLabel = (u) => `${u.user_name}（${u.nick_name || u.user_name}）`
 
-const fetchUserList = async () => {
+// 当前选中的绑定用户（enable_cloud === '1' 表示云端用户，用于非云端用户警示）
+// ⚠️ 必须查 userCache 而非 userOptions：已选用户可能已被后续搜索挤出结果页
+const selectedBindUser = computed(() => userCache.get(createForm.target_user_id))
+
+const toUserOption = (u) => {
+  userCache.set(u.user_id, u)
+  return { label: userLabel(u), value: u.user_id }
+}
+
+// 已选值不在当前结果页时的标签兜底（Arco fallback-option）
+const userFallbackOption = (value) => {
+  if (value === undefined || value === null || value === '') return { value, label: '' }
+  const u = userCache.get(value)
+  return { value, label: u ? userLabel(u) : `#${value}` }
+}
+
+const fetchUsers = async (keyword = '') => {
+  const seq = ++userFetchSeq
   userSelectLoading.value = true
   try {
-    const res = await api.gisUser.getGisUserList({ page: 1, page_size: 999 })
-    userList.value = res.rows || res.data?.rows || []
+    const res = await api.gisUser.getGisUserPicker({ keyword, page: 1, page_size: 100 })
+    if (seq !== userFetchSeq) return
+    userOptions.value = (res.rows || res.data?.rows || []).map(toUserOption)
   } catch (e) {
     console.error('获取用户列表失败:', e)
   } finally {
-    userSelectLoading.value = false
+    if (seq === userFetchSeq) userSelectLoading.value = false
   }
+}
+
+const handleUserSearch = (v) => fetchUsers(v || '')
+const handleUserPopupToggle = (visible) => {
+  if (visible) fetchUsers('')
 }
 
 // ==================== 初始化 ====================
 onMounted(() => {
   fetchTokenList()
-  fetchUserList()
 })
 </script>
 
