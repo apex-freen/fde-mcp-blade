@@ -33,7 +33,7 @@ export default {
   },
 
   layout: {
-    brandTitle: 'Apex Hub',
+    brandTitle: 'FDE MCP Blade Console',
     confirmLogout: 'Confirm Logout',
     confirmLogoutContent: 'Are you sure you want to logout?',
     confirmLogoutOk: 'Logout',
@@ -105,11 +105,11 @@ export default {
 
   // ==================== Login Page ====================
   login: {
-    brandName: 'Apex Agent Tool Local Service Center',
-    slogan: 'Five-Layer Security + Tool Convergence + Pure On-Premise Deployment',
-    desc1: 'Enable AI Agents to Safely Control Any Device and Service',
-    desc2: 'Service Plugins & Hardware Templates, Both MIT Licensed. Agents Can Be Generated from Templates',
-    copyright: '© 2026 Apex Mcp Bridge. All rights reserved.',
+    brandName: 'FDE MCP Blade',
+    slogan: 'Tool Convergence · Five-Layer Security · Pure On-Premise',
+    desc1: 'Standard tools up to agents; enterprise plugins down to your systems.',
+    desc2: 'Plugin engine, five-layer security and a full audit trail — shipped as a local Docker image. Your data never leaves the intranet.',
+    copyright: '© 2026 FDE MCP Blade. All rights reserved.',
     title: 'Account Login',
     subtitle: 'Welcome back, please enter your account information',
     username: 'Username',

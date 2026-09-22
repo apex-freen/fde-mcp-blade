@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import env from '@/config/env'
 import i18n, { getStoredLocale, setStoredLocale, getStoredColorMode, setStoredColorMode } from '@/locales'
+import { applyTheme } from '@/utils/theme'
 import { updateGisUserSettings } from '@/api/modules/gisUser'
 import { useUserStore } from '@/stores/user'
 
@@ -68,10 +69,13 @@ export const useAppStore = defineStore('app', {
 
     /**
      * 设置颜色模式
+     * @param {'light'|'dark'|'auto'} theme auto = 跟随系统
      */
     async setTheme(theme) {
       this.theme = theme
       setStoredColorMode(theme)
+      // 落到 DOM：html[data-theme] + body[arco-theme]
+      applyTheme(theme)
       // 同步到后端用户 settings
       const userStore = useUserStore()
       const userId = userStore.userInfo?.userId
@@ -85,11 +89,12 @@ export const useAppStore = defineStore('app', {
     },
 
     /**
-     * 切换颜色模式
+     * 循环切换颜色模式：亮 → 暗 → 跟随系统 → 亮
      */
     toggleTheme() {
-      const newTheme = this.theme === 'light' ? 'dark' : 'light'
-      this.setTheme(newTheme)
+      const order = ['light', 'dark', 'auto']
+      const next = order[(order.indexOf(this.theme) + 1) % order.length]
+      this.setTheme(next)
     }
   }
 })

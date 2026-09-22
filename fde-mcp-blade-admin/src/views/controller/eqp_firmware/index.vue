@@ -28,7 +28,7 @@ const contentZh = ref(`# 固件说明
 
 ## 1. 简介
 
-本固件为智能体工具中枢的物联网设备端固件，目前已支持 **ESP32-S3** 和 **ESP32-C3** 两款芯片平台，未来还将逐步加入更多物联网芯片框架支持（如 ESP32-C6、ESP32-P4 等），覆盖更广泛的硬件生态。
+本固件为 FDE MCP Blade 的物联网设备端固件，目前已支持 **ESP32-S3** 和 **ESP32-C3** 两款芯片平台，未来还将逐步加入更多物联网芯片框架支持（如 ESP32-C6、ESP32-P4 等），覆盖更广泛的硬件生态。
 
 ### 支持平台
 | 芯片平台 | 状态 | 说明 |
@@ -66,7 +66,7 @@ const contentEn = ref(`# Firmware Documentation
 
 ## 1. Introduction
 
-This firmware is the IoT device-side firmware for the Agent Tool Hub (智能体工具中枢). It currently supports both **ESP32-S3** and **ESP32-C3** chip platforms, with plans to gradually add support for more IoT chip frameworks (such as ESP32-C6, ESP32-P4, etc.), covering a broader hardware ecosystem.
+This firmware is the IoT device-side firmware for FDE MCP Blade. It currently supports both **ESP32-S3** and **ESP32-C3** chip platforms, with plans to gradually add support for more IoT chip frameworks (such as ESP32-C6, ESP32-P4, etc.), covering a broader hardware ecosystem.
 
 ### Supported Platforms
 | Chip Platform | Status | Description |

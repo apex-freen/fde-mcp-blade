@@ -28,7 +28,7 @@ const contentZh = ref(`# 插件说明
 
 ## 1. 简介
 
-插件系统是智能体工具中枢的核心扩展机制，允许用户通过安装各类服务插件来扩展平台功能。插件涵盖音乐播放、文件管理、智能家居、AI 服务等多种场景，支持按需安装、独立启停、灵活配置。
+插件系统是 FDE MCP Blade 的核心扩展机制，允许用户通过安装各类服务插件来扩展平台功能。插件涵盖音乐播放、文件管理、智能家居、AI 服务等多种场景，支持按需安装、独立启停、灵活配置。
 
 ### 源码仓库
 - **中文仓库（Gitee）**：[https://gitee.com/freen/service-plugins](https://gitee.com/freen/service-plugins)
@@ -58,7 +58,7 @@ const contentEn = ref(`# Plugin Documentation
 
 ## 1. Introduction
 
-The plugin system is the core extension mechanism of the Agent Tool Hub (智能体工具中枢), allowing users to extend platform functionality by installing various service plugins. Plugins cover scenarios such as music playback, file management, smart home, and AI services, with support for on-demand installation, independent start/stop, and flexible configuration.
+The plugin system is the core extension mechanism of FDE MCP Blade, allowing users to extend platform functionality by installing various service plugins. Plugins cover scenarios such as music playback, file management, smart home, and AI services, with support for on-demand installation, independent start/stop, and flexible configuration.
 
 ### Source Code Repositories
 - **Chinese (Gitee)**：[https://gitee.com/freen/service-plugins](https://gitee.com/freen/service-plugins)

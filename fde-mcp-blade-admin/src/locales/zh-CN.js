@@ -33,7 +33,7 @@ export default {
   },
 
   layout: {
-    brandTitle: '智能体工具中枢',
+    brandTitle: 'FDE MCP Blade 控制台',
     confirmLogout: '确认退出',
     confirmLogoutContent: '确定要退出登录吗？',
     confirmLogoutOk: '确定退出',
@@ -105,11 +105,11 @@ export default {
 
   // ==================== 登录页 ====================
   login: {
-    brandName: 'Apex 智能体工具本地服务中心',
-    slogan: '五层安全 + 工具收敛 + 纯本地部署',
-    desc1: '让 AI 智能体安全控制任意设备与服务',
-    desc2: '服务插件与硬件模板双 MIT 开源，智能体可按模板生成',
-    copyright: '© 2026 Apex Mcp Bridge. All rights reserved.',
+    brandName: 'FDE MCP Blade',
+    slogan: '工具收敛 · 五层安全 · 纯本地交付',
+    desc1: '向上为 Agent 提供标准工具，向下调度企业系统插件。',
+    desc2: '插件引擎 + 5 层安全 + 全链路审计，本地 Docker 部署，数据不出内网。',
+    copyright: '© 2026 FDE MCP Blade. All rights reserved.',
     title: '账户登录',
     subtitle: '欢迎回来，请输入您的账户信息',
     username: '用户名',

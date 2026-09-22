@@ -1,40 +1,46 @@
 // ==========================================
 // 全局样式变量
-// 所有颜色、间距、圆角统一在此定义
-// 如需更换主题/品牌色，只需修改此处
+//
+// ⚠️ 颜色一律映射到 src/styles/tokens.scss 里的 CSS 自定义属性，
+//    不再写死字面色值 —— 否则亮/暗主题切换不会生效。
+//    间距 / 字号 / 圆角 / 布局这类与主题无关的量，保持编译期常量。
+//
+// 本文件由 vite.config.js 的 additionalData 注入到每个 SCSS 块，
+// 因此**只能包含变量声明**，不得出现 :root 等选择器（会被重复注入）。
 // ==========================================
 
 // ---------- 品牌色 ----------
-$color-primary: #165DFF;
-$color-primary-hover: #4080FF;
-$color-primary-light: #E8F3FF;
-$color-primary-lighter: #F2F7FF;
+$color-primary: var(--c-blue);
+$color-primary-hover: var(--c-blue-hover);
+$color-primary-active: var(--c-blue-active);
+$color-primary-light: var(--c-blue-soft);
+$color-primary-lighter: var(--c-blue-lighter);
 
 // ---------- 功能色 ----------
-$color-success: #00B42A;
-$color-warning: #FF7D00;
-$color-danger: #F53F3F;
-$color-info: #86909C;
+$color-success: var(--c-green);
+$color-warning: var(--c-amber);
+$color-danger: var(--c-red);
+$color-info: var(--text-3);
 
 // ---------- 模块主题色 ----------
-$color-audit: #14C9C9;
-$color-setting: #FF7D00;
-$color-admin: #722ED1;
+$color-audit: var(--c-module-audit);
+$color-setting: var(--c-module-setting);
+$color-admin: var(--c-module-admin);
 
 // ---------- 中性色 ----------
-$color-bg: #F2F3F5;
-$color-bg-page: #F2F3F5;
-$color-bg-card: #FFFFFF;
-$color-bg-muted: #F7F8FA;
-$color-bg-hover: #F2F3F5;
+$color-bg: var(--bg);
+$color-bg-page: var(--bg);
+$color-bg-card: var(--card);
+$color-bg-muted: var(--panel-2);
+$color-bg-hover: var(--hover);
 
-$color-text: #1D2129;
-$color-text-secondary: #4E5969;
-$color-text-tertiary: #86909C;
-$color-text-quaternary: #C9CDD4;
+$color-text: var(--text);
+$color-text-secondary: var(--text-2);
+$color-text-tertiary: var(--text-3);
+$color-text-quaternary: var(--text-4);
 
-$color-border: #E5E6EB;
-$color-border-light: #F2F3F5;
+$color-border: var(--line);
+$color-border-light: var(--line-soft);
 
 // ---------- 圆角 ----------
 $radius-sm: 4px;
@@ -78,6 +84,6 @@ $header-height: 56px;
 
 // ---------- 阴影 ----------
 $shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
-$shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+$shadow: var(--shadow);
 $shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
 $shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);

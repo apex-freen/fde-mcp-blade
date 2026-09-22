@@ -1,5 +1,8 @@
 // 样式入口文件
 
+// 设计令牌（CSS 自定义属性）：务必只在本文件导入一次
+@use './tokens';
+
 // 全局样式变量已通过 vite.config.js 的 additionalData 自动注入
 // 不需要在这里重复导入
 @use './screen-theme' as tech;

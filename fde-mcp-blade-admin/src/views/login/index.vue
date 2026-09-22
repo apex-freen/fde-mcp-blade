@@ -4,7 +4,7 @@
       <!-- 左侧品牌区 -->
       <div class="login-left">
         <div class="brand-logo-row">
-          <div class="brand-logo">A</div>
+          <img class="brand-logo" :src="logoMark" alt="FDE MCP Blade" />
           <span class="brand-name">{{ $t('login.brandName') }}</span>
         </div>
         <div class="brand-hero">
@@ -139,6 +139,7 @@ import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
 import env from '@/config/env'
+import logoMark from '@/assets/brand/logo-mark.svg'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -291,14 +292,7 @@ onMounted(() => {
 .brand-logo {
   width: 44px;
   height: 44px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border-radius: $radius;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  font-weight: 600;
+  display: block;
 }
 
 .brand-name {
@@ -453,7 +447,8 @@ onMounted(() => {
   color: $color-primary;
 
   &:hover {
-    background: rgba($color-primary, 0.05);
+    // 主色是 CSS 变量，不能再用 rgba($color-primary, .05)（编译期取值），改走令牌
+    background: var(--c-blue-soft);
   }
 }
 

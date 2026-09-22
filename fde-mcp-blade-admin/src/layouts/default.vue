@@ -10,7 +10,7 @@
     <!-- 侧边栏 -->
     <aside class="sidebar" :class="{ collapsed: appStore.sidebarCollapsed }">
       <div class="sidebar-brand" @click="handleBrandClick">
-        <div class="brand-logo">A</div>
+        <img class="brand-logo" :src="logoMark" alt="FDE MCP Blade" />
         <span v-if="!appStore.sidebarCollapsed" class="brand-title">{{ t('layout.brandTitle') }}</span>
       </div>
       <a-menu
@@ -150,6 +150,7 @@ import { Message, Modal } from '@arco-design/web-vue'
 // 图标通过 ArcoVueIcon 全局注册，无需单独导入
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
+import logoMark from '@/assets/brand/logo-mark.svg'
 
 const { t, tm, te } = useI18n()
 
@@ -382,13 +383,7 @@ function handleLogout() {
 .brand-logo {
   width: 32px;
   height: 32px;
-  background: $color-primary;
-  border-radius: $radius;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 600;
+  display: block;
   flex-shrink: 0;
 }
 

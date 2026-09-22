@@ -1,0 +1,145 @@
+// ==========================================
+// 设计令牌（CSS 自定义属性）
+//
+// ⚠️ 本文件只允许在 src/styles/index.scss 中 @use 一次。
+//    绝不可在其他文件 @import —— 否则 :root 块会被编译进每个入口，
+//    产物里出现几十份重复令牌（门禁 npm run check 的验收项之一）。
+//
+// 命名约定
+//   --c-*        品牌调色板（不随主题变化）
+//   --arcoblue-* Arco 主色阶，值为 "R,G,B" 三元组，供 Arco 的 rgb(var(--arcoblue-N)) 消费
+//   --bg/--text… 语义令牌（亮暗两套值）
+// ==========================================
+
+// ---------------------------------------------------------------- 亮色（默认）
+:root {
+  // ---------- 品牌调色板 ----------
+  --c-blue: #4d7cfe;
+  --c-blue-hover: #6e97fe; // 亮色下 hover 变浅
+  --c-blue-active: #1852fe; // 亮色下 active 变深
+  --c-blue-soft: rgba(77, 124, 254, 0.14);
+  --c-blue-lighter: #ebf2ff;
+
+  --c-violet: #8b5cf6;
+  --c-teal: #14b8a6;
+  --c-amber: #f59e0b;
+  --c-green: #22c55e;
+  --c-red: #ef4444;
+
+  // ---------- 四模块色 ----------
+  --c-module-use: var(--c-blue); // 使用中心
+  --c-module-admin: var(--c-violet); // 管理中心
+  --c-module-audit: var(--c-teal); // 审计中心
+  --c-module-setting: var(--c-amber); // 设置中心
+
+  // ---------- Arco 主色阶（亮）----------
+  // 由品牌主色 #4D7CFE 生成，阶梯形状对齐 Arco 官方 #165DFF，
+  // 使 Arco 组件（按钮/链接/选中态…）与自研样式同色。
+  --arcoblue-1: 235, 242, 255;
+  --arcoblue-2: 204, 221, 255;
+  --arcoblue-3: 174, 199, 255;
+  --arcoblue-4: 143, 176, 254;
+  --arcoblue-5: 110, 151, 254;
+  --arcoblue-6: 77, 124, 254; // = --c-blue
+  --arcoblue-7: 24, 82, 254;
+  --arcoblue-8: 16, 63, 213;
+  --arcoblue-9: 9, 45, 172;
+  --arcoblue-10: 3, 29, 129;
+
+  // ---------- 语义：底色 ----------
+  --bg: #f3f6fc; // 页面底
+  --panel: #ffffff; // 容器底
+  --panel-2: #f5f8fd; // 次级底（表头 / 分组）
+  --card: #ffffff; // 卡片底
+  --nav: #ffffff; // 侧边栏底
+  --hover: rgba(15, 23, 42, 0.04); // 悬停底
+
+  // ---------- 语义：描边 ----------
+  --line: rgba(15, 23, 42, 0.08);
+  --line-strong: rgba(15, 23, 42, 0.14);
+  --line-soft: rgba(15, 23, 42, 0.05);
+
+  // ---------- 语义：文本 ----------
+  --text: #0e1729; // 主文本
+  --text-2: #5a6683; // 次级文本
+  --text-3: #94a1b8; // 三级文本 / 占位
+  --text-4: #c3cbda; // 四级 / 禁用 / 滚动条
+
+  // ---------- 语义：投影 ----------
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+  // ---------- 字体 / 圆角 / 布局（两套主题共用）----------
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --nav-w: 238px;
+  --top-h: 56px;
+}
+
+// ---------------------------------------------------------------- 暗色
+// 同时命中 html 与其下的 body：
+// Arco 的暗色变量定义在 body[arco-theme='dark'] 上，若只写在 html 上，
+// body 内的元素会优先继承 body 的值，导致主色阶覆盖失效。
+@mixin dark-tokens {
+  --c-blue: #4d7cfe;
+  --c-blue-hover: #3467fe; // 暗色下 hover 变深
+  --c-blue-active: #7199fe; // 暗色下 active 变浅
+  --c-blue-soft: rgba(77, 124, 254, 0.2);
+  --c-blue-lighter: #16203a;
+
+  --c-module-use: var(--c-blue);
+  --c-module-admin: var(--c-violet);
+  --c-module-audit: var(--c-teal);
+  --c-module-setting: var(--c-amber);
+
+  // Arco 主色阶（暗）：index 越大越亮，6 保持品牌主色本身
+  --arcoblue-1: 8, 28, 114;
+  --arcoblue-2: 9, 41, 165;
+  --arcoblue-3: 8, 54, 217;
+  --arcoblue-4: 15, 70, 250;
+  --arcoblue-5: 52, 103, 254;
+  --arcoblue-6: 77, 124, 254;
+  --arcoblue-7: 113, 153, 254;
+  --arcoblue-8: 154, 183, 254;
+  --arcoblue-9: 189, 209, 255;
+  --arcoblue-10: 225, 234, 255;
+
+  --bg: #0a0d14;
+  --panel: #0f131c;
+  --panel-2: #151b27;
+  --card: #111722;
+  --nav: #0b0f17;
+  --hover: rgba(255, 255, 255, 0.05);
+
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.13);
+  --line-soft: rgba(255, 255, 255, 0.04);
+
+  --text: #e8edf7;
+  --text-2: #94a0b8;
+  --text-3: #5c6880;
+  --text-4: #3a4459;
+
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme='dark'] {
+  @include dark-tokens;
+}
+
+html[data-theme='dark'] body {
+  @include dark-tokens;
+}
+
+// ---------------------------------------------------------------- 过渡
+// 主题切换时给底色与文字加过渡，避免闪白；用户关闭动效时不生效
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme] body {
+    transition:
+      background-color 0.22s ease,
+      color 0.22s ease;
+  }
+}

@@ -5,7 +5,7 @@
 
 export const env = {
   // 应用标题
-  title: import.meta.env.VITE_APP_TITLE || '智能体工具中枢',
+  title: import.meta.env.VITE_APP_TITLE || 'FDE MCP Blade',
 
   // API 基础路径
   baseURL: import.meta.env.VITE_API_BASE_URL || '/prod-api',
