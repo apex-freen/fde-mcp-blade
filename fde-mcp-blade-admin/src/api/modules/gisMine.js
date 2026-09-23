@@ -32,6 +32,20 @@ export function getMineMessage() {
 }
 
 /**
+ * 我的消息明细列表（1017 §2.1，P0 已上线）——「我的消息」独立页数据源
+ * - 出参 {total, rows}，字段与 getMineMessage 逐字段一致（message_id/event_key/event_level/
+ *   title/content/biz_ref_type/biz_ref_id/biz_ref_route/created_time），前端同一个渲染函数复用；
+ * - event_level ∈ todo / alert / notice / risk（主筛），event_key 可选精确筛，AND 组合；
+ * - 排序后端固定 created_time DESC, message_id DESC（与首屏卡片前 10 条一致），前端不传排序；
+ * - 本版不做已读/未读（无 read 入参/出参）；
+ * - 跳转直接用 rows[].biz_ref_route，前端不自己拼路由。
+ * @param {{event_level?: 'todo'|'alert'|'notice'|'risk', event_key?: string, page?: number, page_size?: number}} [params]
+ */
+export function getMineMessageList(params = {}) {
+  return get('/biz/gis_mine/message/list', params)
+}
+
+/**
  * 我的调用：total / success / failed / success_rate / trend[] / days
  * success_rate 是百分数（81.34 表示 81.34%）；无调用时为 null
  * trend 只返回有调用的那天，缺失日期需前端自行补 0

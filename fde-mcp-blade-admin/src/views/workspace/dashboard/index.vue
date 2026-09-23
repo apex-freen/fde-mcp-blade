@@ -222,6 +222,11 @@
           <a-button type="text" size="mini" :loading="cardLoading.message" @click="refreshCard('message')">
             <template #icon><icon-refresh /></template>
           </a-button>
+          <!-- 全部明细 → 我的消息独立页 -->
+          <a-button type="text" size="mini" @click="goDrill('message')">
+            {{ $t('workspace.viewAll') }}
+            <template #icon><icon-right /></template>
+          </a-button>
         </div>
         <div class="card-bd">
           <a-empty v-if="isDegraded('message') || !messageItems.length" :description="$t('commonTable.noData')" />
@@ -613,10 +618,18 @@ function goRoute(route) {
   router.push(route).catch(() => {})
 }
 
-// 卡片下钻：跳到个人中心并定位到对应 Tab（工作台只放摘要，长列表在个人中心）
+// 卡片下钻：明细已迁出为独立个人域菜单页（1016 §4.1），不再进个人中心 Tab
+const DRILL_ROUTES = {
+  cmd: '/workspace/mine/call/index',
+  grant: '/workspace/mine/grant/index',
+  token: '/workspace/mine/token/index',
+  message: '/workspace/mine/message/index'
+}
+
 function goDrill(tab) {
-  if (!tab) return
-  router.push({ path: '/workspace/profile/index', query: { tab } })
+  const path = DRILL_ROUTES[tab]
+  if (!path) return
+  router.push(path).catch(() => {})
 }
 
 onMounted(() => {

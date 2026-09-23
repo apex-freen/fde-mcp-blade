@@ -909,7 +909,72 @@ export default {
     tokenNotice: 'The full token is shown only once at issuance and is never stored by the platform, so it cannot be viewed or copied here. If lost, revoke it and issue a new one.',
     tokenRevoke: 'Revoke',
     tokenRevokeConfirm: 'Revocation takes effect immediately and the token will no longer be able to call APIs. Confirm?',
-    tokenRevokeSuccess: 'Token revoked'
+    tokenRevokeSuccess: 'Token revoked',
+    // My Grants
+    grantTotal: 'Total Grants',
+    expiringSoon: 'Expiring Soon',
+    // My Calls
+    callNotice: 'This page shows call result summaries only. For security reasons, request/response payloads are not returned; to inspect call details, go to Audit Center → Operation Audit.',
+    // My Messages
+    messageNotice: 'Messages related to you (to-dos, alerts, notices, risks). Click an item to jump to the corresponding page.',
+    messageGoDetail: 'Handle it',
+    levelTodo: 'To-do',
+    levelAlert: 'Alert',
+    levelNotice: 'Notice',
+    levelRisk: 'Risk'
+  },
+
+  // ==================== Capability Overview (GET /biz/capabilities, 1016 §4.1 Page 5) ====================
+  cap: {
+    title: 'Capability Overview',
+    degradedHint: 'Capability info is temporarily unavailable; defaults are shown below.',
+    product: 'Product',
+    edition: 'Edition',
+    version: 'Version',
+    buildTime: 'Build Time',
+    imageTag: 'Image Tag',
+    imageDigest: 'Image Digest',
+    modulesTitle: 'Modules',
+    moduleKey: 'Module Key',
+    moduleName: 'Module Name',
+    moduleEnabled: 'Status',
+    moduleNote: 'Notes',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+    footNote: 'Data on this page is reported truthfully by the platform backend; "Disabled" means the capability is off in the current deployment and does not affect other features.',
+    module: {
+      plugin_engine: 'Plugin Engine',
+      security_pii: 'PII Masking',
+      security_shadow: 'Shadow Drill',
+      audit_export: 'Audit Export',
+      ai_vector: 'Vector Knowledge Base',
+      integration_cloud: 'Cloud Connection',
+      hardware_mqtt: 'MQTT Broker',
+      hardware_bluetooth: 'Bluetooth'
+    },
+    note: {
+      plugin_engine: 'Built in, always enabled.',
+      security_pii: 'Built in, always enabled.',
+      security_shadow: 'Built in, always enabled.',
+      audit_export: 'Built in, always enabled.',
+      ai_vector: 'Depends on the local ONNX model.',
+      integration_cloud: 'Depends on cloud credential configuration.',
+      hardware_mqtt: 'Depends on MQTT configuration.',
+      hardware_bluetooth: 'Not enabled in this version.'
+    }
+  },
+
+  // ==================== Cmd+K Command Palette ====================
+  palette: {
+    title: 'Command Palette',
+    placeholder: 'Search menus or features…',
+    groupActions: 'Quick Actions',
+    groupMenu: 'Menus',
+    actToken: 'My Tokens · Self-service Revoke',
+    actShadow: 'Shadow Drill',
+    actAuditExport: 'Audit Export',
+    navHint: 'Navigate',
+    openHint: 'Open'
   },
 
   // ==================== Audit Stats Page ====================

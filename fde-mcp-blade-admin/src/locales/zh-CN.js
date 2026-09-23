@@ -909,7 +909,72 @@ export default {
     tokenNotice: '令牌仅在签发时展示一次，平台不保存完整令牌，因此本页不提供查看或复制。如令牌丢失，请撤销后重新申请。',
     tokenRevoke: '撤销',
     tokenRevokeConfirm: '撤销后立即生效，该令牌将无法再调用 API。确认撤销？',
-    tokenRevokeSuccess: '令牌已撤销'
+    tokenRevokeSuccess: '令牌已撤销',
+    // 我的授权
+    grantTotal: '累计授权',
+    expiringSoon: '即将到期',
+    // 我的调用
+    callNotice: '本页只展示调用结果摘要。出于安全考虑，接口不返回调用的入参与出参；如需查看调用明细，请前往「审计中心 → 操作审计」。',
+    // 我的消息
+    messageNotice: '这里是与您相关的消息（待办、提醒、通知、风险）。点击条目可跳转到对应页面处理。',
+    messageGoDetail: '去处理',
+    levelTodo: '待办',
+    levelAlert: '提醒',
+    levelNotice: '通知',
+    levelRisk: '风险'
+  },
+
+  // ==================== 能力总览（GET /biz/capabilities，1016 §4.1 页 5） ====================
+  cap: {
+    title: '能力总览',
+    degradedHint: '能力清单暂时不可用，以下按默认能力展示。',
+    product: '产品',
+    edition: '版本类型',
+    version: '程序版本',
+    buildTime: '构建时间',
+    imageTag: '镜像 Tag',
+    imageDigest: '镜像 Digest',
+    modulesTitle: '模块清单',
+    moduleKey: '模块 Key',
+    moduleName: '模块名称',
+    moduleEnabled: '状态',
+    moduleNote: '口径说明',
+    enabled: '已启用',
+    disabled: '未启用',
+    footNote: '本页数据由平台后端如实上报；「未启用」表示当前部署未开启该能力，不影响其它功能。',
+    module: {
+      plugin_engine: '插件引擎',
+      security_pii: 'PII 脱敏',
+      security_shadow: '影子演练',
+      audit_export: '审计导出',
+      ai_vector: '向量知识库',
+      integration_cloud: '云端连接',
+      hardware_mqtt: 'MQTT Broker',
+      hardware_bluetooth: '蓝牙'
+    },
+    note: {
+      plugin_engine: '本产品内置，恒定启用。',
+      security_pii: '本产品内置，恒定启用。',
+      security_shadow: '本产品内置，恒定启用。',
+      audit_export: '本产品内置，恒定启用。',
+      ai_vector: '取决于本地 ONNX 模型是否就绪。',
+      integration_cloud: '取决于云端凭据配置。',
+      hardware_mqtt: '取决于 MQTT 配置。',
+      hardware_bluetooth: '本版本未启用。'
+    }
+  },
+
+  // ==================== Cmd+K 命令面板 ====================
+  palette: {
+    title: '命令面板',
+    placeholder: '搜索菜单或功能…',
+    groupActions: '快捷入口',
+    groupMenu: '菜单',
+    actToken: '我的令牌 · 自助撤销',
+    actShadow: '影子演练',
+    actAuditExport: '审计导出',
+    navHint: '选择',
+    openHint: '打开'
   },
 
   // ==================== 审计统计页 ====================

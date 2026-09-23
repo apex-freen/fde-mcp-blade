@@ -169,6 +169,9 @@
       </main>
     </div>
 
+    <!-- ==================== Cmd+K 命令面板（1016 §4.1 页 7） ==================== -->
+    <CommandPalette ref="paletteRef" />
+
     <!-- ==================== 小屏底部 Tab（1016 §5.1 第 6 项） ==================== -->
     <nav v-if="!isScreenMode" class="mobile-tabbar" :class="{ show: isSmallScreen }">
       <button
@@ -196,6 +199,9 @@ import { useAppStore } from '@/stores/app'
 import { api } from '@/api'
 import logoMark from '@/assets/brand/logo-mark.svg'
 import NavIcon from '@/components/common/NavIcon.vue'
+import CommandPalette from '@/components/global/CommandPalette.vue'
+
+const paletteRef = ref(null)
 
 const { t, tm, te } = useI18n()
 
@@ -465,8 +471,8 @@ function go(item) {
 }
 
 function handleSearchClick() {
-  // M4 会用 components/global/CommandPalette.vue 接管这里（Cmd+K）
-  Message.info(t('layout.searchComingSoon'))
+  // Cmd+K 命令面板（components/global/CommandPalette.vue）已接管
+  paletteRef.value?.open()
 }
 
 function handleBrandClick() {
