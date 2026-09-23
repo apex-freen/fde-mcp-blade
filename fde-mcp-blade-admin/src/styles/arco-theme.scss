@@ -1,0 +1,436 @@
+// ==========================================
+// Arco 组件外观对齐 v1 设计令牌
+//
+// 为什么需要这一层：
+//   M1 把「我们的」样式令牌化了，但 95 个页面里的 a-card / a-table / a-btn …
+//   仍然穿的是 Arco 默认皮肤 —— 于是控件不像 FDE MCP Blade，只有自研区块像。
+//   本文件把 Arco 的**语义变量层**整体重映射到 tokens.scss，再对少量组件做
+//   形状/细节修正，使全站（含未改动的既有页面）一次性获得 v1 观感。
+//
+// 只允许在 src/styles/index.scss 中 @use 一次。
+// index.scss 在 main.js 里 **晚于** `@arco-design/web-vue/dist/arco.css` 引入，
+// 因此同权重选择器我们后来居上；Arco 的暗色变量写在 body[arco-theme='dark'] 上，
+// 权重更高，故下面用 `html[data-theme='dark'] body` 把权重顶回去。
+// ==========================================
+
+// ---------------------------------------------------------------- 1. 语义变量重映射
+// 这一层几乎不写组件选择器 —— Arco 内部全部消费这些变量，改一次全站生效。
+// 选择器三连的目的：无论主题开关落在 html 还是 body 上（theme.js 两处都写），
+// 无论亮暗，都命中同一组「指向我们令牌」的映射。
+body,
+body[arco-theme='dark'],
+html[data-theme='dark'] body {
+  // ---- 文本 ----
+  --color-text-1: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-text-4: var(--text-4);
+
+  // ---- 描边 ----
+  --color-border: var(--line);
+  --color-border-1: var(--line-soft);
+  --color-border-2: var(--line);
+  --color-border-3: var(--line-strong);
+  --color-border-4: var(--text-3);
+
+  // ---- 填充 ----
+  --color-fill-1: var(--hover);
+  --color-fill-2: var(--line-soft);
+  --color-fill-3: var(--line);
+  --color-fill-4: var(--line-strong);
+
+  // ---- 容器底 ----
+  --color-bg-1: var(--card);
+  --color-bg-2: var(--card);
+  --color-bg-3: var(--card);
+  --color-bg-4: var(--panel-2);
+  --color-bg-5: var(--panel-2);
+  --color-bg-popup: var(--card);
+  --color-bg-white: var(--card);
+
+  // ---- 中性阶（Arco 有直接 rgb(var(--gray-N)) 的用法，一并拉齐）----
+  --color-neutral-1: var(--hover);
+  --color-neutral-2: var(--line-soft);
+  --color-neutral-3: var(--line);
+  --color-neutral-4: var(--line-strong);
+  --color-neutral-5: var(--line-strong);
+  --color-neutral-6: var(--text-3);
+  --color-neutral-7: var(--text-3);
+  --color-neutral-8: var(--text-2);
+  --color-neutral-9: var(--text-2);
+  --color-neutral-10: var(--text);
+
+  // ---- 遮罩 / 骨架屏 ----
+  --color-mask-bg: rgba(0, 0, 0, 0.55);
+  --color-spin-layer-bg: rgba(0, 0, 0, 0.35);
+
+  // ---- 圆角：Arco 默认 2/4/8px 太尖，v1 是 8/12/16 ----
+  --border-radius-small: 6px;
+  --border-radius-medium: 10px;
+  --border-radius-large: 14px;
+}
+
+// 亮色中性阶（rgb 三元组，供 rgb(var(--gray-N)) 直接消费）
+body {
+  --gray-1: 245, 248, 253;
+  --gray-2: 238, 242, 249;
+  --gray-3: 228, 233, 242;
+  --gray-4: 205, 212, 226;
+  --gray-5: 195, 203, 218;
+  --gray-6: 148, 161, 184;
+  --gray-7: 122, 134, 158;
+  --gray-8: 90, 102, 131;
+  --gray-9: 40, 53, 80;
+  --gray-10: 14, 23, 41;
+}
+
+// 暗色中性阶：权重高于上面的 body，故写在后面且用更具体的选择器
+body[arco-theme='dark'],
+html[data-theme='dark'] body {
+  --gray-1: 21, 27, 39;
+  --gray-2: 28, 35, 49;
+  --gray-3: 36, 45, 62;
+  --gray-4: 48, 58, 78;
+  --gray-5: 58, 68, 89;
+  --gray-6: 92, 104, 128;
+  --gray-7: 118, 131, 157;
+  --gray-8: 148, 160, 184;
+  --gray-9: 190, 200, 216;
+  --gray-10: 232, 237, 247;
+}
+
+// ---------------------------------------------------------------- 2. 基础
+body {
+  font-family: var(--font);
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+// 主题切换时容器色平滑过渡（用户关闭动效时不生效）
+@media (prefers-reduced-motion: no-preference) {
+  .arco-card,
+  .arco-modal,
+  .arco-drawer,
+  .arco-input-wrapper,
+  .arco-select-view,
+  .arco-table-th {
+    transition:
+      background-color 0.22s ease,
+      border-color 0.22s ease,
+      color 0.22s ease;
+  }
+}
+
+// ---------------------------------------------------------------- 3. 卡片
+// 关键决定：即使页面写了 :bordered="false" 也补上 1px 描边 ——
+// v1 的卡片语言是「描边 + 大圆角 + 无投影」，靠描边区分层级而非投影。
+.arco-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background-color: var(--card);
+  transition:
+    border-color 0.2s,
+    background-color 0.3s ease;
+}
+
+.arco-card-bordered {
+  border: 1px solid var(--line);
+}
+
+.arco-card:hover {
+  border-color: var(--line-strong);
+}
+
+.arco-card-header {
+  padding: 15px 17px;
+  border-bottom: 1px solid var(--line);
+  background-color: transparent;
+}
+
+.arco-card-header-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.1px;
+  color: var(--text);
+}
+
+.arco-card-body {
+  padding: 16px 17px;
+}
+
+// ---------------------------------------------------------------- 4. 按钮
+.arco-btn {
+  font-family: var(--font);
+  border-radius: 9px;
+}
+
+.arco-btn-size-default {
+  height: 34px;
+}
+
+// 主按钮：v1 的蓝紫渐变 + 主色投影 + hover 微抬
+.arco-btn-primary:not(.arco-btn-disabled) {
+  border-color: transparent;
+  background: var(--grad-primary);
+  box-shadow: var(--c-blue-shadow);
+  transition: all 0.22s;
+}
+
+.arco-btn-primary:not(.arco-btn-disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--c-blue-shadow-hover);
+}
+
+.arco-btn-primary:not(.arco-btn-disabled):active {
+  transform: translateY(0);
+  box-shadow: var(--c-blue-shadow);
+}
+
+.arco-btn-secondary:not(.arco-btn-disabled),
+.arco-btn-outline:not(.arco-btn-disabled) {
+  border-color: var(--line-strong);
+  background-color: transparent;
+  color: var(--text-2);
+}
+
+.arco-btn-secondary:not(.arco-btn-disabled):hover,
+.arco-btn-outline:not(.arco-btn-disabled):hover {
+  border-color: var(--c-blue);
+  background-color: transparent;
+  color: var(--text);
+}
+
+// ---------------------------------------------------------------- 5. 表单控件
+// v1 的输入框语言：panel-2 实底 + 1px 描边 + 聚焦主色光环
+.arco-input-wrapper,
+.arco-textarea-wrapper,
+.arco-select-view,
+.arco-picker {
+  background-color: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.arco-input-wrapper:hover,
+.arco-textarea-wrapper:hover,
+.arco-select-view:hover,
+.arco-picker:hover {
+  background-color: var(--panel-2);
+  border-color: var(--line-strong);
+}
+
+.arco-input-wrapper.arco-input-focus,
+.arco-textarea-wrapper.arco-textarea-focus,
+.arco-select-view-focus,
+.arco-picker-focused {
+  background-color: var(--panel);
+  border-color: var(--c-blue);
+  box-shadow: var(--glow);
+}
+
+.arco-input-wrapper.arco-input-error,
+.arco-textarea-wrapper.arco-textarea-error,
+.arco-select-view-error {
+  background-color: var(--panel-2);
+  border-color: var(--c-red);
+  box-shadow: none;
+}
+
+.arco-input::placeholder,
+.arco-textarea::placeholder {
+  color: var(--text-3);
+}
+
+// 表单标签：v1 是 12.5px / 600 / text-2
+.arco-form-label-item > label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.arco-form-item-message {
+  font-size: 12px;
+}
+
+// ---------------------------------------------------------------- 6. 表格
+.arco-table-container {
+  border-color: var(--line);
+  border-radius: var(--r-md);
+}
+
+.arco-table-th {
+  height: auto;
+  padding: 11px 14px;
+  background-color: var(--panel-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  border-color: var(--line);
+}
+
+.arco-table-td {
+  padding: 12px 14px;
+  font-size: 13px;
+  border-color: var(--line);
+}
+
+.arco-table-tr:hover .arco-table-td {
+  background-color: var(--hover);
+}
+
+.arco-table-border .arco-table-container,
+.arco-table-border-cell .arco-table-td,
+.arco-table-border-cell .arco-table-th {
+  border-color: var(--line);
+}
+
+.arco-table-pagination {
+  margin-top: 14px;
+}
+
+// ---------------------------------------------------------------- 7. 导航类
+.arco-tabs-nav-ink {
+  background-color: var(--c-blue);
+  height: 2px;
+  border-radius: 2px;
+}
+
+.arco-tabs-tab-active .arco-tabs-tab-title {
+  color: var(--c-blue);
+  font-weight: 600;
+}
+
+.arco-tabs-tab:hover .arco-tabs-tab-title {
+  color: var(--text);
+}
+
+.arco-tabs-type-rounded .arco-tabs-tab-active {
+  background-color: var(--c-blue-tint);
+}
+
+.arco-tabs-type-rounded .arco-tabs-tab-active .arco-tabs-tab-title {
+  color: var(--ink-blue);
+}
+
+.arco-breadcrumb {
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+
+.arco-breadcrumb-item:last-child {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.arco-breadcrumb-item-separator {
+  color: var(--text-3);
+}
+
+.arco-pagination-item {
+  border-radius: var(--r-xs);
+}
+
+.arco-pagination-item-active {
+  background-color: var(--c-blue);
+  border-color: var(--c-blue);
+}
+
+// ---------------------------------------------------------------- 8. 浮层
+.arco-dropdown,
+.arco-select-dropdown,
+.arco-picker-container,
+.arco-dropdown-menu {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background-color: var(--card);
+  box-shadow: var(--shadow-lg);
+}
+
+.arco-dropdown-option:hover,
+.arco-select-option-hover,
+.arco-select-option-active {
+  background-color: var(--hover);
+}
+
+.arco-select-option-selected {
+  color: var(--c-blue);
+  font-weight: 600;
+}
+
+.arco-tooltip-content-inner {
+  border-radius: var(--r-xs);
+  font-size: 12px;
+}
+
+.arco-modal {
+  border-radius: var(--r-lg);
+  background-color: var(--card);
+}
+
+.arco-modal-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.arco-modal-footer {
+  border-top: 1px solid var(--line);
+}
+
+.arco-drawer {
+  background-color: var(--card);
+}
+
+.arco-drawer-header {
+  border-bottom: 1px solid var(--line);
+}
+
+// ---------------------------------------------------------------- 9. 反馈 / 标记
+.arco-message {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background-color: var(--card);
+  box-shadow: var(--shadow-lg);
+}
+
+.arco-notification {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background-color: var(--card);
+  box-shadow: var(--shadow-lg);
+}
+
+.arco-badge-number,
+.arco-badge-dot {
+  background-color: var(--c-red);
+}
+
+.arco-tag {
+  border-radius: var(--r-xs);
+  font-size: 11.5px;
+}
+
+.arco-alert {
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+
+.arco-empty-description {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.arco-descriptions-item-label {
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.arco-divider {
+  border-color: var(--line);
+}
+
+.arco-switch-checked {
+  background-color: var(--c-blue);
+}
+
+.arco-progress-line-bar {
+  border-radius: var(--r-full, 999px);
+}

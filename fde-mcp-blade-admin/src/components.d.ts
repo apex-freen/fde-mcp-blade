@@ -10,6 +10,7 @@ declare module 'vue' {
     BarChart: typeof import('./components/charts/BarChart.vue')['default']
     BaseChart: typeof import('./components/charts/BaseChart.vue')['default']
     LineChart: typeof import('./components/charts/LineChart.vue')['default']
+    NavIcon: typeof import('./components/common/NavIcon.vue')['default']
     PieChart: typeof import('./components/charts/PieChart.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

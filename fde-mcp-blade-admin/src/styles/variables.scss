@@ -78,7 +78,8 @@ $line-height-xl: 26px;
 $line-height-xxl: 32px;
 
 // ---------- 布局尺寸 ----------
-$sidebar-width: 220px;
+// 侧栏宽度对齐 tokens.scss 的 --nav-w（v1 设计稿 238px）
+$sidebar-width: 238px;
 $sidebar-width-collapsed: 64px;
 $header-height: 56px;
 

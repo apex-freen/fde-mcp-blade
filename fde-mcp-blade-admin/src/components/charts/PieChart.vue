@@ -5,7 +5,8 @@
 <script setup>
 import { computed } from 'vue'
 import BaseChart from './BaseChart.vue'
-import { CHART_SERIES } from './theme'
+import { chartSeries, uiTokens } from './theme'
+import { useAppStore } from '@/stores/app'
 
 const props = defineProps({
   data: {
@@ -23,7 +24,7 @@ const props = defineProps({
   },
   colors: {
     type: Array,
-    default: () => CHART_SERIES
+    default: null // null = 用当前主题的序列色板
   },
   donut: {
     type: Boolean,
@@ -39,23 +40,31 @@ const props = defineProps({
   }
 })
 
+const appStore = useAppStore()
+
 const composedOption = computed(() => {
+  // ⚠️ 响应式依赖（同 BarChart）：让切主题时 option 重算，画布随之重绘
+  appStore.theme
+
+  const palette = props.colors && props.colors.length ? props.colors : chartSeries()
+  const { text, text2, text3, line, card } = uiTokens()
+
   const radius = props.donut ? ['45%', '70%'] : ['0%', '70%']
 
   return {
     tooltip: {
       trigger: 'item',
-      backgroundColor: 'rgba(255, 255, 255, 0.96)',
-      borderColor: '#e5e6eb',
+      backgroundColor: card,
+      borderColor: line,
       borderWidth: 1,
-      textStyle: { color: '#1d2129', fontSize: 13 },
+      textStyle: { color: text, fontSize: 13 },
       formatter: '{b}: {c} ({d}%)'
     },
     legend: {
       orient: 'vertical',
       right: 10,
       top: 'center',
-      textStyle: { color: '#4e5969', fontSize: 13 },
+      textStyle: { color: text2, fontSize: 13 },
       itemWidth: 10,
       itemHeight: 10
     },
@@ -67,8 +76,8 @@ const composedOption = computed(() => {
             left: '32%',
             top: 'center',
             textAlign: 'center',
-            textStyle: { fontSize: 22, fontWeight: 600, color: '#1d2129' },
-            subtextStyle: { fontSize: 13, color: '#86909c' }
+            textStyle: { fontSize: 22, fontWeight: 600, color: text },
+            subtextStyle: { fontSize: 13, color: text3 }
           }
         }
       : {}),
@@ -82,23 +91,23 @@ const composedOption = computed(() => {
           show: !props.donut,
           formatter: '{b}\n{d}%',
           fontSize: 12,
-          color: '#4e5969'
+          color: text2
         },
         labelLine: {
           show: !props.donut,
-          lineStyle: { color: '#c9cdd4' }
+          lineStyle: { color: text3 }
         },
         emphasis: {
           label: { show: true, fontSize: 14, fontWeight: 600 },
           itemStyle: {
             shadowBlur: 10,
             shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.12)'
+            shadowColor: line
           }
         },
         data: props.data.map((item, index) => ({
           ...item,
-          itemStyle: { color: props.colors[index % props.colors.length] }
+          itemStyle: { color: palette[index % palette.length] }
         }))
       }
     ]

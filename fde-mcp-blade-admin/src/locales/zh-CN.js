@@ -29,7 +29,8 @@ export default {
     rememberMe: '记住我',
     language: '语言',
     chinese: '中文',
-    english: 'English'
+    english: 'English',
+    user: '用户'
   },
 
   layout: {
@@ -38,7 +39,16 @@ export default {
     confirmLogoutContent: '确定要退出登录吗？',
     confirmLogoutOk: '确定退出',
     confirmLogoutCancel: '取消',
-    logoutSuccess: '已退出登录'
+    logoutSuccess: '已退出登录',
+    // 顶栏 / 侧栏（v1 视觉落地新增）
+    searchPlaceholder: '搜索插件、工具、日志…',
+    searchComingSoon: '命令面板（⌘K）将在下个里程碑接入',
+    themeLight: '亮色',
+    themeDark: '暗色',
+    themeAuto: '跟随系统',
+    notificationPending: '待办审批',
+    collapseSidebar: '收起侧栏',
+    expandSidebar: '展开侧栏'
   },
 
   menu: {
@@ -138,7 +148,17 @@ export default {
     ldapUsername: '域账号',
     ldapUsernamePlaceholder: '请输入域账号（sAMAccountName 或 UPN）',
     orUse: '或使用',
-    ssoLogin: '企业单点登录（SSO）'
+    ssoLogin: '企业单点登录（SSO）',
+    // 登录页 v1 分栏版式（左品牌面板 / 右表单面板）
+    eyebrow: 'Edge MCP Control Plane',
+    heroLine1: '边缘 MCP',
+    heroLine2: '双向中控中枢',
+    capPlugin: '插件引擎',
+    capSecurity: '5 层安全',
+    capAudit: '全链路审计',
+    capDocker: '本地 Docker',
+    footOnPrem: '本地部署 · 数据不出内网',
+    securityNote: '登录行为记入审计日志（IP · 时间 · 结果）。'
   },
 
   // ==================== SSO 回调页 ====================
@@ -1693,6 +1713,8 @@ export default {
     dashboardSubtitle: '工作台只展示与你个人相关的信息。',
     generatedAt: '数据截至 {time}',
     todoTitle: '我要做什么',
+    pendingMine: '待我处理',
+    kpiHint: '近 {days} 天',
     todoEmpty: '暂无待处理事项',
     todoNoPermission: '当前账号暂无「授权待办」的查看权限，请联系管理员配置权限点',
     viewAll: '查看全部',

@@ -5,7 +5,15 @@
 <script setup>
 import { computed } from 'vue'
 import BaseChart from './BaseChart.vue'
-import { CHART_SERIES, commonTooltip, commonLegend, commonAxis, commonGrid } from './theme'
+import {
+  chartSeries,
+  withAlpha,
+  commonTooltip,
+  commonLegend,
+  commonAxis,
+  commonGrid
+} from './theme'
+import { useAppStore } from '@/stores/app'
 
 const props = defineProps({
   categories: {
@@ -34,9 +42,15 @@ const props = defineProps({
   }
 })
 
+const appStore = useAppStore()
+
 const composedOption = computed(() => {
+  // ⚠️ 响应式依赖（同 BarChart）：让切主题时 option 重算，画布随之重绘
+  appStore.theme
+
+  const palette = chartSeries()
   const seriesData = props.series.map((s, index) => {
-    const color = CHART_SERIES[index % CHART_SERIES.length]
+    const color = palette[index % palette.length]
     return {
       name: s.name,
       type: 'line',
@@ -51,10 +65,15 @@ const composedOption = computed(() => {
             areaStyle: {
               color: {
                 type: 'linear',
-                x: 0, y: 0, x2: 0, y2: 1,
+                x: 0,
+                y: 0,
+                x2: 0,
+                y2: 1,
+                // 用 withAlpha 而不是 `color + '40'`：后者只在 hex 上成立，
+                // 令牌一旦解析成 rgb()/rgba() 就会拼出非法色值
                 colorStops: [
-                  { offset: 0, color: color + '40' },
-                  { offset: 1, color: color + '05' }
+                  { offset: 0, color: withAlpha(color, 0.28) },
+                  { offset: 1, color: withAlpha(color, 0.02) }
                 ]
               }
             }
@@ -63,19 +82,21 @@ const composedOption = computed(() => {
     }
   })
 
+  const axis = commonAxis()
+
   return {
-    tooltip: { ...commonTooltip },
-    legend: { ...commonLegend },
+    tooltip: { ...commonTooltip() },
+    legend: { ...commonLegend() },
     grid: { ...commonGrid },
     xAxis: {
       type: 'category',
       data: props.categories,
-      ...commonAxis,
+      ...axis,
       boundaryGap: false
     },
     yAxis: {
       type: 'value',
-      ...commonAxis
+      ...axis
     },
     series: seriesData
   }

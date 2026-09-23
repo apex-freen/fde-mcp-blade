@@ -51,6 +51,8 @@ import * as gisRiskInterceptLog from './modules/gisRiskInterceptLog'
 import * as gisMine from './modules/gisMine'
 // Doc 77：审计中心 · 归档导出
 import * as auditExport from './modules/auditExport'
+// 能力清单（GET /biz/capabilities）—— 要求登录、不要求权限码
+import * as capabilities from './modules/capabilities'
 
 export const api = {
   auth,
@@ -99,7 +101,9 @@ export const api = {
   // Doc 103
   gisMine,
   // Doc 77
-  auditExport
+  auditExport,
+  // 能力清单
+  capabilities
 }
 
 export default api

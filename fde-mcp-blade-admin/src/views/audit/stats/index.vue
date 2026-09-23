@@ -125,7 +125,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api'
-import { LineChart, BarChart, PieChart, RISK_COLORS } from '@/components/charts'
+import { LineChart, BarChart, PieChart } from '@/components/charts'
 
 const { t } = useI18n()
 

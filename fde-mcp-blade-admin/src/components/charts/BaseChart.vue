@@ -5,6 +5,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, nextTick, shallowRef } from 'vue'
 import * as echarts from 'echarts'
+import { loadingColors } from './theme'
 
 const props = defineProps({
   option: {
@@ -47,17 +48,15 @@ watch(
 watch(
   () => props.loading,
   (val) => {
-    if (chartInstance.value) {
-      if (val) {
-        chartInstance.value.showLoading('default', {
-          text: '加载中...',
-          color: '#6d5ce7',
-          textColor: '#999',
-          maskColor: 'rgba(255, 255, 255, 0.6)'
-        })
-      } else {
-        chartInstance.value.hideLoading()
-      }
+    if (!chartInstance.value) return
+    if (val) {
+      // 取色走令牌（含兜底）：暗色主题下不给白底遮罩，旧品牌紫/灰已作废
+      chartInstance.value.showLoading('default', {
+        text: '加载中...',
+        ...loadingColors()
+      })
+    } else {
+      chartInstance.value.hideLoading()
     }
   }
 )

@@ -18,6 +18,7 @@ import {
 } from '@/utils/auth'
 import { transformRouters, toMenuTree, findFirstMenuPath } from '@/router/router-transform'
 import { useAppStore } from '@/stores/app'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 
 export const useUserStore = defineStore('user', {
   state: () => {
@@ -312,6 +313,8 @@ export const useUserStore = defineStore('user', {
       this.routesLoaded = false
       this.firstMenuPath = ''
       this.envInfo = { is_docker: false }
+      // 能力清单随账号走，登出必须复位，避免残留上个账号的视图
+      useCapabilitiesStore().reset()
       clearAuth()
     },
 

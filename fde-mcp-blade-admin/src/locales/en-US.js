@@ -29,7 +29,8 @@ export default {
     rememberMe: 'Remember me',
     language: 'Language',
     chinese: '中文',
-    english: 'English'
+    english: 'English',
+    user: 'User'
   },
 
   layout: {
@@ -38,7 +39,16 @@ export default {
     confirmLogoutContent: 'Are you sure you want to logout?',
     confirmLogoutOk: 'Logout',
     confirmLogoutCancel: 'Cancel',
-    logoutSuccess: 'Logged out successfully'
+    logoutSuccess: 'Logged out successfully',
+    // Top bar / sidebar (added with the v1 visual pass)
+    searchPlaceholder: 'Search plugins, tools, logs…',
+    searchComingSoon: 'The command palette (⌘K) arrives in the next milestone',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    themeAuto: 'System',
+    notificationPending: 'Pending approvals',
+    collapseSidebar: 'Collapse sidebar',
+    expandSidebar: 'Expand sidebar'
   },
 
   menu: {
@@ -138,7 +148,17 @@ export default {
     ldapUsername: 'Domain Account',
     ldapUsernamePlaceholder: 'Enter domain account (sAMAccountName or UPN)',
     orUse: 'or use',
-    ssoLogin: 'Single Sign-On (SSO)'
+    ssoLogin: 'Single Sign-On (SSO)',
+    // Login page v1 split layout (brand panel / form panel)
+    eyebrow: 'Edge MCP Control Plane',
+    heroLine1: 'Edge MCP',
+    heroLine2: 'Bi-Directional Control Plane',
+    capPlugin: 'Plugin engine',
+    capSecurity: 'Five-layer security',
+    capAudit: 'Full audit trail',
+    capDocker: 'Local Docker',
+    footOnPrem: 'On-premise · data never leaves the intranet',
+    securityNote: 'Sign-ins are recorded in the audit log (IP · time · result).'
   },
 
   // ==================== SSO Callback ====================
@@ -1696,6 +1716,8 @@ export default {
     dashboardSubtitle: 'The dashboard only shows information related to you.',
     generatedAt: 'Data as of {time}',
     todoTitle: 'To Do',
+    pendingMine: 'Pending Action',
+    kpiHint: 'Last {days} days',
     todoEmpty: 'No pending items',
     todoNoPermission: 'Your account has no permission to view pending approvals. Please contact an administrator.',
     viewAll: 'View All',

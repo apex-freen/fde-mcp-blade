@@ -7,128 +7,152 @@
   </div>
 
   <div v-else class="app-layout">
-    <!-- 侧边栏 -->
-    <aside class="sidebar" :class="{ collapsed: appStore.sidebarCollapsed }">
-      <div class="sidebar-brand" @click="handleBrandClick">
-        <img class="brand-logo" :src="logoMark" alt="FDE MCP Blade" />
-        <span v-if="!appStore.sidebarCollapsed" class="brand-title">{{ t('layout.brandTitle') }}</span>
+    <!-- ==================== 侧边导航 ==================== -->
+    <aside class="side" :class="{ 'side-hidden': appStore.sidebarCollapsed }">
+      <div class="side-head" @click="handleBrandClick">
+        <img class="side-logo" :src="logoMark" alt="FDE MCP Blade" />
+        <div class="side-name">{{ t('layout.brandTitle') }}</div>
+        <div class="side-env">{{ envBadge }}</div>
       </div>
-      <a-menu
-        class="sidebar-menu"
-        :selected-keys="selectedKeys"
-        v-model:open-keys="openKeys"
-        theme="light"
-      >
-        <template v-for="group in userStore.menuList" :key="group.key">
-          <a-sub-menu v-if="group.children && group.children.length" :key="group.key">
-            <template #title>
-              <span class="menu-group-title">{{ getMenuTitle(group) }}</span>
-            </template>
-            <template v-for="item in group.children" :key="item.key">
-              <a-sub-menu v-if="item.children && item.children.length" :key="item.key">
-                <template #title>{{ getMenuTitle(item) }}</template>
-                <a-menu-item
-                  v-for="sub in item.children"
-                  :key="sub.key"
-                  @click="handleMenuItemClick(sub)"
+
+      <nav class="side-nav">
+        <div v-for="(group, gi) in userStore.menuList" :key="group.key" class="grp">
+          <!-- 一级：有子项 → 分组标题（不可折叠，与 v1 设计一致） -->
+          <div v-if="hasChildren(group)" class="grp-head" :class="'g-' + groupTone(gi)">
+            <i class="grp-bar"></i>
+            <span class="grp-label">{{ getMenuTitle(group) }}</span>
+          </div>
+          <!-- 一级：无子项 → 直接就是页面 -->
+          <button v-else class="nav-item" :class="{ on: isActive(group) }" @click="go(group)">
+            <NavIcon :item="group" />
+            <span class="nav-label">{{ getMenuTitle(group) }}</span>
+          </button>
+
+          <!-- 二级 / 三级 -->
+          <template v-for="lv2 in group.children || []" :key="lv2.key">
+            <div v-if="hasChildren(lv2)" class="sub">
+              <button class="sub-head" @click="toggleSub(lv2.key)">
+                <span class="sub-label">{{ getMenuTitle(lv2) }}</span>
+                <icon-down class="sub-chev" :class="{ open: isSubOpen(lv2.key) }" />
+              </button>
+              <div v-show="isSubOpen(lv2.key)" class="sub-body">
+                <button
+                  v-for="lv3 in lv2.children"
+                  :key="lv3.key"
+                  class="nav-item lv3"
+                  :class="{ on: isActive(lv3) }"
+                  @click="go(lv3)"
                 >
-                  {{ getMenuTitle(sub) }}
-                </a-menu-item>
-              </a-sub-menu>
-              <a-menu-item v-else :key="item.key" @click="handleMenuItemClick(item)">
-                {{ getMenuTitle(item) }}
-              </a-menu-item>
-            </template>
-          </a-sub-menu>
-          <a-menu-item v-else :key="group.key" @click="handleMenuItemClick(group)">
-            {{ getMenuTitle(group) }}
-          </a-menu-item>
-        </template>
-      </a-menu>
+                  <NavIcon :item="lv3" />
+                  <span class="nav-label">{{ getMenuTitle(lv3) }}</span>
+                </button>
+              </div>
+            </div>
+            <button v-else class="nav-item" :class="{ on: isActive(lv2) }" @click="go(lv2)">
+              <NavIcon :item="lv2" />
+              <span class="nav-label">{{ getMenuTitle(lv2) }}</span>
+            </button>
+          </template>
+        </div>
+      </nav>
+
+      <div class="side-foot">
+        <a-dropdown trigger="click" position="tl">
+          <div class="user">
+            <div class="user-avatar">{{ userInitial }}</div>
+            <div class="user-info">
+              <b>{{ userStore.userName }}</b>
+              <span>{{ userSubtitle }}</span>
+            </div>
+            <icon-up class="user-chev" />
+          </div>
+          <template #content>
+            <a-doption @click="handleProfileClick">
+              <template #icon><icon-user /></template>
+              {{ t('common.profile') }}
+            </a-doption>
+            <a-doption @click="handleLogout">
+              <template #icon><icon-poweroff /></template>
+              {{ t('common.logout') }}
+            </a-doption>
+          </template>
+        </a-dropdown>
+      </div>
     </aside>
 
-    <!-- 主内容区 -->
+    <!-- ==================== 主区 ==================== -->
     <div class="main-area">
-      <!-- 顶部栏 -->
-      <header class="header">
-        <div class="header-top">
-          <div class="header-left">
-            <a-button type="text" class="collapse-btn" @click="appStore.toggleSidebar">
-              <template #icon><icon-menu-fold v-if="!appStore.sidebarCollapsed" /><icon-menu-unfold v-else /></template>
-            </a-button>
-            <a-breadcrumb class="breadcrumb">
-              <a-breadcrumb-item v-for="(item, index) in breadcrumbList" :key="index">
-                {{ item }}
-              </a-breadcrumb-item>
-            </a-breadcrumb>
-          </div>
-          <div class="header-right">
-          <a-tooltip :content="t('common.search')">
-            <a-button type="text" class="header-btn">
-              <template #icon><icon-search /></template>
-            </a-button>
-          </a-tooltip>
-          <a-tooltip :content="t('common.help')">
-            <a-button type="text" class="header-btn">
-              <template #icon><icon-question-circle /></template>
-            </a-button>
-          </a-tooltip>
-          <a-badge :count="3" :dot="true">
-            <a-tooltip :content="t('common.notification')">
-              <a-button type="text" class="header-btn">
-                <template #icon><icon-notification /></template>
-              </a-button>
-            </a-tooltip>
-          </a-badge>
+      <header class="top">
+        <button
+          class="tb-ic"
+          :title="appStore.sidebarCollapsed ? t('layout.expandSidebar') : t('layout.collapseSidebar')"
+          @click="appStore.toggleSidebar"
+        >
+          <icon-menu-unfold v-if="appStore.sidebarCollapsed" />
+          <icon-menu-fold v-else />
+        </button>
 
-          <a-dropdown>
-            <a-tooltip :content="t('common.language')">
-              <a-button type="text" class="header-btn lang-btn">
-                <template #icon><icon-language /></template>
-                <span class="lang-text">{{ appStore.locale === 'zh-CN' ? '中' : 'EN' }}</span>
-              </a-button>
-            </a-tooltip>
-            <template #content>
-              <a-doption @click="appStore.setLocale('zh-CN')">
-                <template #icon><icon-check v-if="appStore.locale === 'zh-CN'" /></template>
-                {{ t('common.chinese') }}
-              </a-doption>
-              <a-doption @click="appStore.setLocale('en-US')">
-                <template #icon><icon-check v-if="appStore.locale === 'en-US'" /></template>
-                {{ t('common.english') }}
-              </a-doption>
-            </template>
-          </a-dropdown>
+        <a-breadcrumb class="breadcrumb">
+          <a-breadcrumb-item v-for="(item, index) in breadcrumbList" :key="index">
+            {{ item }}
+          </a-breadcrumb-item>
+        </a-breadcrumb>
 
-          <a-dropdown>
-            <div class="user-info">
-              <a-avatar :size="32" :style="{ background: 'linear-gradient(135deg, #165DFF, #4080FF)' }">
-                {{ userStore.userName.charAt(0).toUpperCase() }}
-              </a-avatar>
-              <span class="user-name">{{ userStore.userName }}</span>
-              <icon-down />
-            </div>
-            <template #content>
-              <a-doption @click="handleProfileClick">
-                <template #icon><icon-user /></template>
-                {{ t('common.profile') }}
-              </a-doption>
-              <a-doption @click="handleLogout">
-                <template #icon><icon-poweroff /></template>
-                {{ t('common.logout') }}
-              </a-doption>
-            </template>
-          </a-dropdown>
-          </div>
+        <!-- 搜索入口：命令面板在 M4 接入，当前给出明确反馈，不做"点了没反应"的假 UI -->
+        <div class="tb-search" @click="handleSearchClick">
+          <icon-search />
+          <span class="tb-search-text">{{ t('layout.searchPlaceholder') }}</span>
+          <span class="kbd">{{ kbdHint }}</span>
         </div>
-        <!-- 功能模块简介栏 -->
-        <div class="page-description" v-if="pageDescription">
-          <icon-info-circle class="page-description-icon" />
-          <span>{{ pageDescription }}</span>
+
+        <!-- 待办红点：数据源 gis_approval_request/pending，且仅权限点 7 才发起请求 -->
+        <a-tooltip v-if="canSeeApproval" :content="t('layout.notificationPending')">
+          <button class="tb-ic" @click="handleBellClick">
+            <icon-notification />
+            <span v-if="pendingCount > 0" class="tb-dot">{{ pendingText }}</span>
+          </button>
+        </a-tooltip>
+
+        <div class="seg" role="group" :aria-label="t('common.language')">
+          <button :class="{ on: appStore.locale === 'zh-CN' }" @click="appStore.setLocale('zh-CN')">
+            中
+          </button>
+          <button :class="{ on: appStore.locale === 'en-US' }" @click="appStore.setLocale('en-US')">
+            EN
+          </button>
+        </div>
+
+        <div class="seg" role="group">
+          <button
+            :class="{ on: appStore.theme === 'light' }"
+            :title="t('layout.themeLight')"
+            @click="appStore.setTheme('light')"
+          >
+            <icon-sun />
+          </button>
+          <button
+            :class="{ on: appStore.theme === 'dark' }"
+            :title="t('layout.themeDark')"
+            @click="appStore.setTheme('dark')"
+          >
+            <icon-moon />
+          </button>
+          <button
+            :class="{ on: appStore.theme === 'auto' }"
+            :title="t('layout.themeAuto')"
+            @click="appStore.setTheme('auto')"
+          >
+            <icon-desktop />
+          </button>
         </div>
       </header>
 
-      <!-- 内容区 -->
+      <!-- 功能模块简介栏 -->
+      <div v-if="pageDescription" class="page-description">
+        <icon-info-circle class="page-description-icon" />
+        <span>{{ pageDescription }}</span>
+      </div>
+
       <main class="content">
         <router-view v-slot="{ Component, route }">
           <transition name="fade" mode="out-in">
@@ -143,14 +167,16 @@
 </template>
 
 <script setup>
-import { computed, watch, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Message, Modal } from '@arco-design/web-vue'
 // 图标通过 ArcoVueIcon 全局注册，无需单独导入
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
+import { api } from '@/api'
 import logoMark from '@/assets/brand/logo-mark.svg'
+import NavIcon from '@/components/common/NavIcon.vue'
 
 const { t, tm, te } = useI18n()
 
@@ -162,6 +188,20 @@ const appStore = useAppStore()
 // 数据大屏路由：/screen 前缀 → 隐藏侧边栏 / 顶栏（Doc 37 §2.2）
 const isScreenMode = computed(() => route.path.startsWith('/screen'))
 
+// 环境标（纯标识，不做 i18n：DEV / TEST / PROD 是通用缩写，与 design-preview 一致）
+const envBadge = computed(() => {
+  const m = (import.meta.env.MODE || '').toLowerCase()
+  if (m.startsWith('dev')) return 'DEV'
+  if (m.startsWith('test')) return 'TEST'
+  return 'PROD'
+})
+
+// ⌘K 还是 Ctrl K：按平台给提示，不做想当然的 mac 化
+const kbdHint = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘K' : 'Ctrl K'
+
+const userInitial = computed(() => (userStore.userName || '?').charAt(0).toUpperCase())
+const userSubtitle = computed(() => userStore.roles?.[0] || t('common.user'))
+
 function getMenuTitle(item) {
   if (item.i18nKey && te(item.i18nKey)) {
     return t(item.i18nKey)
@@ -169,28 +209,11 @@ function getMenuTitle(item) {
   return item.title || ''
 }
 
-const selectedKeys = ref([])
-const openKeys = ref([])
+const hasChildren = (item) => Array.isArray(item?.children) && item.children.length > 0
 
-function findParentKeys(menuList, path) {
-  const keys = []
-  function traverse(items) {
-    for (const item of items) {
-      if (item.path === path) {
-        return keys
-      }
-      if (item.children && item.children.length) {
-        keys.push(item.key)
-        const found = traverse(item.children)
-        if (found) return keys
-        keys.pop()
-      }
-    }
-    return null
-  }
-  traverse(menuList)
-  return keys
-}
+// ==================== 菜单选中 / 展开 ====================
+const selectedKey = ref('')
+const openSubs = ref([])
 
 function findMenuKeyByPath(menuList, path) {
   function traverse(items) {
@@ -208,13 +231,44 @@ function findMenuKeyByPath(menuList, path) {
   return traverse(menuList)
 }
 
-function updateMenuState() {
-  if (userStore.menuList.length > 0) {
-    const menuKey = findMenuKeyByPath(userStore.menuList, route.path)
-    selectedKeys.value = menuKey ? [menuKey] : []
-    openKeys.value = findParentKeys(userStore.menuList, route.path)
+/** 当前路由在菜单树上的祖先链（level2 的 key 列表），用于自动展开所在分组 */
+function findAncestorKeys(menuList, path) {
+  const trail = []
+  function traverse(items) {
+    for (const item of items) {
+      if (item.path === path) return true
+      if (item.children && item.children.length) {
+        trail.push(item.key)
+        if (traverse(item.children)) return true
+        trail.pop()
+      }
+    }
+    return false
   }
+  traverse(menuList)
+  return trail
 }
+
+function updateMenuState() {
+  if (userStore.menuList.length === 0) return
+  selectedKey.value = findMenuKeyByPath(userStore.menuList, route.path) || ''
+  // 只增不减：用户手动展开的分组不会因为切路由被收起来
+  const ancestors = findAncestorKeys(userStore.menuList, route.path)
+  openSubs.value = [...new Set([...openSubs.value, ...ancestors])]
+}
+
+const isActive = (item) => !!item?.key && item.key === selectedKey.value
+const isSubOpen = (key) => openSubs.value.includes(key)
+
+function toggleSub(key) {
+  openSubs.value = isSubOpen(key)
+    ? openSubs.value.filter((k) => k !== key)
+    : [...openSubs.value, key]
+}
+
+/** 分组彩条取色：按顺序循环 蓝 → 紫 → 青 → 琥珀（与 v1 四中心配色对应） */
+const TONES = ['blue', 'violet', 'teal', 'amber']
+const groupTone = (index) => TONES[index % TONES.length]
 
 function findMenuItemByPath(menuList, path) {
   function traverse(items) {
@@ -251,6 +305,52 @@ const pageDescription = computed(() => {
   return route.meta?.description || ''
 })
 
+// ==================== 待办红点（1016 §5.1 第 2 项）====================
+// 数据源：GET /biz/gis_approval_request/pending 的 total。
+//
+// 🔴 必须只对**持有权限点 7（workspace:approval:pending）**的账号发起：
+//    该接口挂在该权限点上，无权限账号调用会 403；而且它本来就看不到「授权待办」
+//    菜单，给它渲染红点没有意义。所以这里是「先判权限，再发请求」，
+//    不是「先请求，失败再隐藏」——后者会在控制台留下一串 403。
+const APPROVAL_PERM = 'workspace:approval:pending'
+const pendingCount = ref(0)
+
+const canSeeApproval = computed(() => (userStore.permissions || []).includes(APPROVAL_PERM))
+
+const pendingText = computed(() => (pendingCount.value > 99 ? '99+' : String(pendingCount.value)))
+
+async function fetchPendingCount() {
+  if (!canSeeApproval.value) return
+  try {
+    // page_size 传 1：只要 total，不拉数据
+    const res = await api.gisApprovalRequest.getPendingApprovals({ page: 1, page_size: 1 })
+    const data = res?.data || res || {}
+    pendingCount.value = Number(data.total) || 0
+  } catch (e) {
+    // 该模块统一 showError:false，这里静默；红点不是关键路径，失败就不显示
+    pendingCount.value = 0
+  }
+}
+
+// 菜单路径里找「授权待办」的落点：不写死 URL，跟着后端菜单走
+const approvalPath = computed(() => {
+  let hit = ''
+  function traverse(items) {
+    for (const item of items) {
+      if (!hit && typeof item.path === 'string' && item.path.includes('/workspace/approval')) {
+        hit = item.path
+      }
+      if (item.children?.length) traverse(item.children)
+    }
+  }
+  traverse(userStore.menuList)
+  return hit
+})
+
+function handleBellClick() {
+  if (approvalPath.value) router.push(approvalPath.value)
+}
+
 watch(
   () => userStore.menuList,
   () => {
@@ -267,7 +367,16 @@ watch(
   { immediate: true }
 )
 
-function handleMenuItemClick(item) {
+watch(canSeeApproval, (ok) => {
+  if (ok) fetchPendingCount()
+})
+
+onMounted(() => {
+  fetchPendingCount()
+})
+
+// ==================== 交互 ====================
+function go(item) {
   // 支持外链：若菜单项配置了 external_url，则在新标签页打开
   if (item && item.external_url) {
     window.open(item.external_url, '_blank', 'noopener,noreferrer')
@@ -277,6 +386,11 @@ function handleMenuItemClick(item) {
   if (path && path !== route.path) {
     router.push(path)
   }
+}
+
+function handleSearchClick() {
+  // M4 会用 components/global/CommandPalette.vue 接管这里（Cmd+K）
+  Message.info(t('layout.searchComingSoon'))
 }
 
 function handleBrandClick() {
@@ -306,32 +420,29 @@ function handleLogout() {
 <style lang="scss" scoped>
 // 数据大屏容器：深空渐变底 + 网格 + 扫描线，整屏不出现页面级滚动条（Doc 37 §3.6）
 // 背景只是「舞台」，不承载信息；三层径向渐变制造纵深，网格层中心清晰、四周淡出
+// 色值统一收在 tokens.scss 的 --ds-* 里，本文件不出现颜色字面量
 .screen-shell {
   position: relative;
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background-color: #050a16;
-  background-image:
-    radial-gradient(58vw 62vh at 10% -10%, rgba(53, 230, 255, 0.18), transparent 62%),
-    radial-gradient(52vw 56vh at 92% -6%, rgba(77, 141, 255, 0.22), transparent 60%),
-    radial-gradient(70vw 60vh at 50% 118%, rgba(139, 92, 246, 0.16), transparent 66%),
-    linear-gradient(180deg, #071026 0%, #060c1c 46%, #04080f 100%);
+  background-color: var(--ds-stage-base);
+  background-image: var(--ds-stage-image);
 
   &::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-      repeating-linear-gradient(0deg, rgba(90, 150, 255, 0.06) 0 1px, transparent 1px 48px),
-      repeating-linear-gradient(90deg, rgba(90, 150, 255, 0.06) 0 1px, transparent 1px 48px);
+      repeating-linear-gradient(0deg, var(--ds-grid-line) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, var(--ds-grid-line) 0 1px, transparent 1px 48px);
     -webkit-mask-image: radial-gradient(
       circle at 50% 45%,
-      #000 0%,
+      black 0%,
       rgba(0, 0, 0, 0.5) 58%,
       transparent 100%
     );
-    mask-image: radial-gradient(circle at 50% 45%, #000 0%, rgba(0, 0, 0, 0.5) 58%, transparent 100%);
+    mask-image: radial-gradient(circle at 50% 45%, black 0%, rgba(0, 0, 0, 0.5) 58%, transparent 100%);
     pointer-events: none;
   }
 
@@ -341,7 +452,7 @@ function handleLogout() {
     inset: 0;
     background-image: repeating-linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.02) 0 1px,
+      var(--ds-scan-line) 0 1px,
       transparent 1px 3px
     );
     pointer-events: none;
@@ -352,58 +463,296 @@ function handleLogout() {
   display: flex;
   height: 100vh;
   width: 100%;
-  background: $color-bg;
+  background: var(--bg);
 }
 
-.sidebar {
-  width: $sidebar-width;
-  background: $color-bg-card;
-  border-right: 1px solid $color-border-light;
+// ==================== 侧边导航 ====================
+.side {
+  width: var(--nav-w);
+  flex: none;
+  background: var(--nav);
+  border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  transition: width 0.2s ease;
-  flex-shrink: 0;
+  overflow: hidden;
+  transition:
+    width 0.24s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 
-  &.collapsed {
-    width: $sidebar-width-collapsed;
+  // 收起即完全隐藏。
+  // 说明：老实现的"64px 图标条"其实是坏的 —— a-menu 没有传 :collapsed，
+  // 窄栏里塞的还是完整文案，只会溢出。本版按"收起=让位给内容"处理。
+  &.side-hidden {
+    width: 0;
+    border-right-color: transparent;
   }
 }
 
-.sidebar-brand {
-  height: $header-height;
+.side-head {
+  height: var(--top-h);
+  flex: none;
   display: flex;
   align-items: center;
-  gap: $space-3;
-  padding: 0 $space-5;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
-  border-bottom: 1px solid $color-border-light;
-  flex-shrink: 0;
-}
-
-.brand-logo {
-  width: 32px;
-  height: 32px;
-  display: block;
-  flex-shrink: 0;
-}
-
-.brand-title {
-  font-size: $font-size-lg;
-  font-weight: 600;
-  color: $color-text;
   white-space: nowrap;
 }
 
-.sidebar-menu {
+.side-logo {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: block;
+}
+
+.side-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-env {
+  margin-left: auto;
+  font-size: 10px;
+  font-family: var(--mono);
+  color: var(--c-green);
+  background: var(--tint-green);
+  border: 1px solid var(--line-strong);
+  padding: 2px 6px;
+  border-radius: 5px;
+  letter-spacing: 0.3px;
+  flex: none;
+}
+
+.side-nav {
   flex: 1;
-  border: none;
-  padding: $space-2 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 10px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 3px;
+  }
 }
 
-.menu-group-title {
-  font-weight: 500;
+.grp {
+  margin-bottom: 14px;
 }
 
+.grp-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 1.1px;
+  white-space: nowrap;
+}
+
+.grp-bar {
+  width: 3px;
+  height: 11px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.g-blue .grp-bar {
+  background: var(--c-blue);
+}
+
+.g-violet .grp-bar {
+  background: var(--c-violet);
+}
+
+.g-teal .grp-bar {
+  background: var(--c-teal);
+}
+
+.g-amber .grp-bar {
+  background: var(--c-amber);
+}
+
+.grp-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 9px;
+  margin-bottom: 1px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: var(--font);
+  font-size: 13.2px;
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.16s;
+
+  &:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  &.on {
+    background: var(--c-blue-tint);
+    color: var(--ink-blue);
+    font-weight: 600;
+
+    // 选中左条
+    &::before {
+      content: '';
+      position: absolute;
+      left: -10px;
+      top: 9px;
+      bottom: 9px;
+      width: 3px;
+      background: var(--c-blue);
+      border-radius: 0 3px 3px 0;
+    }
+  }
+
+  &.lv3 {
+    padding-left: 20px;
+  }
+}
+
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub {
+  margin: 2px 0 4px;
+}
+
+.sub-head {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: all 0.16s;
+
+  &:hover {
+    color: var(--text-2);
+    background: var(--hover);
+  }
+}
+
+.sub-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub-chev {
+  margin-left: auto;
+  font-size: 11px;
+  transition: transform 0.18s;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.sub-body {
+  padding-top: 1px;
+}
+
+.side-foot {
+  flex: none;
+  border-top: 1px solid var(--line);
+  padding: 10px;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.16s;
+
+  &:hover {
+    background: var(--hover);
+  }
+}
+
+.user-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex: none;
+  background: var(--grad-primary);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-primary);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+
+  b {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    font-size: 10.5px;
+    color: var(--text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.user-chev {
+  font-size: 12px;
+  color: var(--text-3);
+  flex: none;
+}
+
+// ==================== 顶栏 ====================
 .main-area {
   flex: 1;
   display: flex;
@@ -412,98 +761,166 @@ function handleLogout() {
   overflow: hidden;
 }
 
-.header {
-  background: $color-bg-card;
-  border-bottom: 1px solid $color-border-light;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.header-top {
-  height: $header-height;
+.top {
+  height: var(--top-h);
+  flex: none;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 $space-6;
+  gap: 12px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: $space-4;
+.tb-ic {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  transition: all 0.16s;
+
+  &:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
 }
 
-.collapse-btn {
-  font-size: 18px;
+.tb-dot {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  background: var(--c-red);
+  color: var(--on-primary);
+  font-size: 9.5px;
+  font-weight: 700;
+  font-family: var(--mono);
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--panel);
+  line-height: 1;
 }
 
 .breadcrumb {
-  font-size: $font-size-base;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.tb-search {
+  margin-left: auto;
+  width: 250px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.18s;
+
+  &:hover {
+    border-color: var(--line-strong);
+  }
+
+  :deep(svg) {
+    width: 14px;
+    height: 14px;
+    flex: none;
+  }
+}
+
+.tb-search-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kbd {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--text-3);
+  flex: none;
+}
+
+.seg {
+  display: flex;
+  flex: none;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 2px;
+  gap: 1px;
+
+  button {
+    border: 0;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.16s;
+
+    &:hover {
+      color: var(--text-2);
+    }
+
+    &.on {
+      background: var(--seg-on-bg);
+      color: var(--text);
+      box-shadow: var(--shadow-xs);
+    }
+  }
 }
 
 .page-description {
   display: flex;
   align-items: center;
-  gap: $space-2;
-  font-size: $font-size-sm;
-  color: $color-text-tertiary;
-  padding: $space-2 $space-6;
-  background: $color-bg;
-  border-top: 1px solid $color-border-light;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  padding: 8px 22px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line-soft);
   line-height: 1.4;
+  flex: none;
 
   &-icon {
     flex-shrink: 0;
-    font-size: 14px;
+    font-size: 13px;
   }
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-}
-
-.header-btn {
-  font-size: 16px;
-}
-
-.lang-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.lang-text {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  padding: $space-1 $space-3;
-  border-radius: $radius;
-  cursor: pointer;
-  transition: background 0.15s;
-  margin-left: $space-2;
-
-  &:hover {
-    background: $color-bg-hover;
-  }
-}
-
-.user-name {
-  font-size: $font-size-base;
-  font-weight: 500;
-  color: $color-text;
 }
 
 .content {
   flex: 1;
-  padding: $space-6;
+  padding: 22px;
   overflow-y: auto;
 }
 
@@ -515,5 +932,15 @@ function handleLogout() {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 860px) {
+  .tb-search {
+    display: none;
+  }
+
+  .content {
+    padding: 16px;
+  }
 }
 </style>

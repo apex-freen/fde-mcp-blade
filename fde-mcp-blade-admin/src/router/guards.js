@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/user'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 
 const whiteList = ['/login', '/sso', '/404', '/403']
 
@@ -65,6 +66,13 @@ export function setupRouterGuards(router) {
       try {
         if (!userStore.userInfo) {
           await userStore.fetchUserInfo()
+        }
+        // 能力清单：fire-and-forget，**绝不 await**
+        // 理由（1016 §5.3 验证清单第 13 项 ④）：接口未上线/失败时不能阻塞登录与首屏，
+        // 拿不到就按「有则显示」降级（见 stores/capabilities.js）
+        const capabilitiesStore = useCapabilitiesStore()
+        if (!capabilitiesStore.loaded) {
+          capabilitiesStore.fetchCapabilities()
         }
         await userStore.fetchMenuRoutes()
         registerMenuRoutes(router, userStore.menuRoutes)

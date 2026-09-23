@@ -26,6 +26,77 @@
   --c-green: #22c55e;
   --c-red: #ef4444;
 
+  // ---------- 品牌色 RGB 三元组 ----------
+  // 供半透明着色使用：rgba(var(--c-blue-rgb), 0.13)
+  // 目的：.vue 里不再出现 rgba(77,124,254,…) 这类字面量（硬编码色基线要往下收敛）
+  // 这组值亮暗一致，只声明在 :root，不随主题重写
+  --c-blue-rgb: 77, 124, 254;
+  --c-violet-rgb: 139, 92, 246;
+  --c-teal-rgb: 20, 184, 166;
+  --c-amber-rgb: 245, 158, 11;
+  --c-green-rgb: 34, 197, 94;
+  --c-red-rgb: 239, 68, 68;
+
+  // ---------- 主色渐变（按钮 / 头像 / Logo 底）----------
+  --grad-primary: linear-gradient(135deg, #4d7cfe, #6a7cfb 45%, #8b5cf6);
+
+  // ---------- 主色深浅档（投影 / 着色底）----------
+  // 收拢在此处，.vue 里就不必再写 rgba(77,124,254,…) 这类字面量
+  --c-blue-tint: rgba(77, 124, 254, 0.13);
+  --c-blue-tint-strong: rgba(77, 124, 254, 0.2);
+  --c-blue-shadow: 0 6px 16px rgba(77, 124, 254, 0.28);
+  --c-blue-shadow-hover: 0 9px 22px rgba(77, 124, 254, 0.4);
+
+  // ---------- 「色调底 + 亮字」标签对（pill / chip / 图标底）----------
+  // 亮暗两套主题共用同一组值（与 design-preview v1 一致），故只声明在 :root
+  --tint-blue: rgba(77, 124, 254, 0.13);
+  --tint-violet: rgba(139, 92, 246, 0.14);
+  --tint-teal: rgba(20, 184, 166, 0.14);
+  --tint-amber: rgba(245, 158, 11, 0.14);
+  --tint-green: rgba(34, 197, 94, 0.13);
+  --tint-red: rgba(239, 68, 68, 0.14);
+
+  // 亮色主题取「深墨」档保证浅底上的对比度；暗色主题在 dark-tokens 里换成亮档
+  // （design-preview 展示的是暗色方案，两套都按同一视觉语言走）
+  --ink-blue: #3159d6;
+  --ink-violet: #6d3fd4;
+  --ink-teal: #0d8a7c;
+  --ink-amber: #b06a05;
+  --ink-green: #15803d;
+  --ink-red: #dc2626;
+
+  // ---------- 恒定深色品牌面板（登录页左侧，不随主题变）----------
+  // 品牌调性需要它「永远是深的」：亮色主题下也保持深色，形成对比
+  --brand-1: #070a11;
+  --brand-2: #0f1829;
+  --brand-3: #101b2e;
+  --brand-line: rgba(255, 255, 255, 0.07);
+  --brand-text: #eaf0fb;
+  --brand-text-2: #93a3c0;
+  --brand-text-3: #67748e;
+  // 登录页品牌面板内的细节色（同样恒定，不随主题变）
+  --brand-eyebrow: #7fa0e8;
+  --brand-hero: #f2f6ff;
+  --brand-label: #a9bbda;
+  --brand-node-fill: rgba(255, 255, 255, 0.05);
+  --brand-node-line: rgba(255, 255, 255, 0.14);
+  --brand-accent: #7fa6ff;
+  --brand-accent-2: #b79cff;
+  --brand-grad-text: linear-gradient(96deg, #7fa6ff 0%, #b79cff 55%, #5fe3d0 100%);
+  --brand-grad-mark: linear-gradient(135deg, #5b8cff, #8b5cf6);
+  --brand-grad-flow: linear-gradient(90deg, #4d7cfe, #8b5cf6);
+
+  // ---------- 数据大屏「舞台」底（恒定深色，不随主题变）----------
+  // 抽到这里是为了让 layouts/default.vue 不再出现颜色字面量
+  --ds-stage-base: #050a16;
+  --ds-stage-image:
+    radial-gradient(58vw 62vh at 10% -10%, rgba(53, 230, 255, 0.18), transparent 62%),
+    radial-gradient(52vw 56vh at 92% -6%, rgba(77, 141, 255, 0.22), transparent 60%),
+    radial-gradient(70vw 60vh at 50% 118%, rgba(139, 92, 246, 0.16), transparent 66%),
+    linear-gradient(180deg, #071026 0%, #060c1c 46%, #04080f 100%);
+  --ds-grid-line: rgba(90, 150, 255, 0.06);
+  --ds-scan-line: rgba(255, 255, 255, 0.02);
+
   // ---------- 四模块色 ----------
   --c-module-use: var(--c-blue); // 使用中心
   --c-module-admin: var(--c-violet); // 管理中心
@@ -67,14 +138,25 @@
 
   // ---------- 语义：投影 ----------
   --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 28px 70px rgba(15, 23, 42, 0.14);
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.1);
+  // 输入框聚焦光环
+  --glow: 0 0 0 4px rgba(77, 124, 254, 0.16);
+
+  // ---------- 反色前景 / 分段控件选中底 ----------
+  // --on-primary：主色渐变之上的文字/图形色（头像首字母、红点数字）
+  --on-primary: #ffffff;
+  --seg-on-bg: var(--card);
 
   // ---------- 字体 / 圆角 / 布局（两套主题共用）----------
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', system-ui, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+  --r-xs: 6px;
   --r-sm: 8px;
   --r-md: 12px;
   --r-lg: 16px;
+  --r-xl: 22px;
   --nav-w: 238px;
   --top-h: 56px;
 }
@@ -94,6 +176,14 @@
   --c-module-admin: var(--c-violet);
   --c-module-audit: var(--c-teal);
   --c-module-setting: var(--c-amber);
+
+  // 暗色主题的「亮墨」档：与 design-preview 暗色方案取值一致
+  --ink-blue: #6e96ff;
+  --ink-violet: #a98bff;
+  --ink-teal: #2dd4bf;
+  --ink-amber: #f5a524;
+  --ink-green: #22c55e;
+  --ink-red: #ff6b6b;
 
   // Arco 主色阶（暗）：index 越大越亮，6 保持品牌主色本身
   --arcoblue-1: 8, 28, 114;
@@ -124,6 +214,15 @@
   --text-4: #3a4459;
 
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 28px 70px rgba(0, 0, 0, 0.6);
+  --shadow-xs: none;
+  --glow: 0 0 0 4px rgba(77, 124, 254, 0.18);
+  --seg-on-bg: #212a3b;
+
+  // 恒定深色品牌面板：暗色主题下比页面底再深一档，保持"面板感"
+  --brand-1: #06090f;
+  --brand-2: #0d1626;
+  --brand-3: #101b2e;
 }
 
 html[data-theme='dark'] {
