@@ -61,7 +61,7 @@ export default {
     auditExport: '审计导出',
 
     workspace: '工作台',
-    workspaceDashboard: '工作台',
+    workspaceDashboard: '数据概览',
     workspaceAgentList: '智能体列表',
     workspaceAgentChat: '智能体对话',
     workspaceAgentDetail: '智能体详情',
@@ -329,6 +329,20 @@ export default {
   },
 
   // ==================== 通用模块骨架页 ====================
+  // ==================== 技能库（占位页） ====================
+  skillLib: {
+    heroTitle: '技能库建设中',
+    heroDesc: '技能库用于集中管理智能体可复用的技能（SKILL）与行业模板包知识库内容：技能注册、版本管理、参数约束与审计配置将在此统一维护。',
+    statusMenuLabel: '菜单入口',
+    statusMenuValue: '已由管理中心下发，本页为占位页，避免点击落 404',
+    statusApiLabel: '接口契约',
+    statusApiValue: '尚未定义（1017 未收录），待后端出契约后实现',
+    statusPageLabel: '页面功能',
+    statusPageValue: '契约就绪后在本页实现，期间不影响其他模块使用',
+    hint: '期间如需配置技能相关能力，请通过「MCP 服务类授权」与「插件配置」完成。'
+  },
+
+  // ==================== 模块骨架 ====================
   moduleSkeleton: {
     inDevelopment: '页面开发中',
     apiReady: 'API 层已就绪：'

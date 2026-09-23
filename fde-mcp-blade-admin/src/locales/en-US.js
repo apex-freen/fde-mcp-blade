@@ -61,7 +61,7 @@ export default {
     auditExport: 'Audit Export',
 
     workspace: 'Workspace',
-    workspaceDashboard: 'Dashboard',
+    workspaceDashboard: 'Data Overview',
     workspaceAgentList: 'Agent List',
     workspaceAgentChat: 'Agent Chat',
     workspaceAgentDetail: 'Agent Detail',
@@ -329,6 +329,19 @@ export default {
   },
 
   // ==================== Generic Module Skeleton ====================
+  // ==================== Skill Library (placeholder) ====================
+  skillLib: {
+    heroTitle: 'Skill Library — Under Construction',
+    heroDesc: 'The Skill Library centralizes reusable agent skills (SKILL) and industry template knowledge: skill registration, versioning, parameter constraints, and audit configuration will be managed here.',
+    statusMenuLabel: 'Menu entry',
+    statusMenuValue: 'Published under Management Center; this placeholder page prevents a 404 fallback',
+    statusApiLabel: 'API contract',
+    statusApiValue: 'Not yet defined (not covered by Doc 1017); to be implemented once the contract is ready',
+    statusPageLabel: 'Page features',
+    statusPageValue: 'Will be implemented here when the contract is ready; other modules are unaffected',
+    hint: 'Meanwhile, configure skill-related capabilities via "MCP Service Permissions" and "Plugin Configuration".'
+  },
+
   moduleSkeleton: {
     inDevelopment: 'Page under development',
     apiReady: 'API layer ready: '
