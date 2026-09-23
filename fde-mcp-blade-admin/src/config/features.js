@@ -18,7 +18,17 @@ export const FEATURES = {
   connectionBluetoothTab: false,
 
   /** 连接设置页 · MQTT 连接配置 Tab（同上） */
-  connectionMqttTab: false
+  connectionMqttTab: false,
+
+  /**
+   * 登录页 · 图形验证码（本版暂不启用）
+   *
+   * 说明：当前验证码是**纯前端本地校验**（前端随机生成 4 位、前端比对），
+   * `/login` 请求体里并不包含 captcha 字段，后端也没校验 —— 它挡不住脚本，
+   * 属于观感型控件。上线要真验码时，应由后端出图 + 后端校验，
+   * 再把这个布尔翻回 true（模板与校验逻辑都还在，无需重写）。
+   */
+  loginCaptcha: false
 }
 
 export default FEATURES

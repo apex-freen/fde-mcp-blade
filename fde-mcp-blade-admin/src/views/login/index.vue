@@ -234,9 +234,9 @@
             </a-input-password>
           </a-form-item>
 
-          <!-- 验证码仅本地密码登录需要 -->
+          <!-- 验证码仅本地密码登录需要；本版由 FEATURES.loginCaptcha 收起（见 config/features.js） -->
           <a-form-item
-            v-if="formData.loginType === 'local'"
+            v-if="FEATURES.loginCaptcha && formData.loginType === 'local'"
             field="captcha"
             :label="t('login.captcha')"
           >
@@ -313,6 +313,7 @@ import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
+import { FEATURES } from '@/config/features'
 import env from '@/config/env'
 import logoMark from '@/assets/brand/logo-mark.svg'
 
@@ -359,7 +360,10 @@ const rules = {
   captcha: [
     {
       validator: (value, cb) => {
-        if (formData.loginType === 'local' && !value) {
+        // 开关关闭时不校验（Arco 会遍历全部 rules，即便表单项没渲染）
+        if (!FEATURES.loginCaptcha) {
+          cb()
+        } else if (formData.loginType === 'local' && !value) {
           cb(new Error(t('login.captchaRequired')))
         } else {
           cb()
@@ -380,8 +384,12 @@ function refreshCaptcha() {
 }
 
 async function handleSubmit({ values }) {
-  // 本地登录需校验验证码（不区分大小写）
-  if (values.loginType === 'local' && values.captcha.toUpperCase() !== captchaCode.value.toUpperCase()) {
+  // 本地登录需校验验证码（不区分大小写）；开关关闭时整段跳过
+  if (
+    FEATURES.loginCaptcha &&
+    values.loginType === 'local' &&
+    values.captcha.toUpperCase() !== captchaCode.value.toUpperCase()
+  ) {
     Message.error(t('login.captchaError'))
     refreshCaptcha()
     return
@@ -414,7 +422,7 @@ function handleSsoLogin() {
 }
 
 onMounted(() => {
-  refreshCaptcha()
+  if (FEATURES.loginCaptcha) refreshCaptcha()
 })
 </script>
 
