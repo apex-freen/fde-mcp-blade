@@ -1,5 +1,23 @@
 <template>
   <div class="vector-page">
+    <!-- 说明区块（107 §一之三，可折叠） -->
+    <a-card :bordered="false" style="margin-top: 16px">
+      <div class="help-head" @click="helpOpen = !helpOpen">
+        <icon-down v-if="helpOpen" />
+        <icon-right v-else />
+        <span class="help-title">{{ t('vectorKb.helpTitle') }}</span>
+      </div>
+      <div v-show="helpOpen" class="help-body">
+        <p>{{ t('vectorKb.helpWhat') }}</p>
+        <p class="help-sub">{{ t('vectorKb.helpWhereTitle') }}</p>
+        <pre class="help-pre">{{ t('vectorKb.helpWhere') }}</pre>
+        <p class="help-sub">{{ t('vectorKb.helpReqTitle') }}</p>
+        <pre class="help-pre">{{ t('vectorKb.helpReq') }}</pre>
+        <p class="help-sub">{{ t('vectorKb.helpUpdateTitle') }}</p>
+        <pre class="help-pre">{{ t('vectorKb.helpUpdate') }}</pre>
+      </div>
+    </a-card>
+
     <!-- 语义检索 -->
     <a-card :bordered="false" style="margin-top: 16px" :title="t('vectorKb.searchTitle')">
       <a-form :model="searchForm" layout="inline" class="search-bar">
@@ -55,6 +73,12 @@
         <a-button :loading="indexLoading" @click="loadIndexes">
           <template #icon><icon-refresh /></template>
           {{ t('commonTable.refresh') }}
+        </a-button>
+        <!-- 重新同步（107 §6.2，仅管理员可见）：扫 knowledge_lib/system/ 的小写 .md 整体入库。
+             注意按钮必须叫「重新同步」而不是「重建索引」——rebuild 只补算向量、不会扫出新文档（107 §八） -->
+        <a-button v-if="isAdmin" type="primary" :loading="syncing" @click="handleSync">
+          <template #icon><icon-sync /></template>
+          {{ t('vectorKb.sync') }}
         </a-button>
         <span v-if="selectedIndex" class="selected-hint">
           {{ t('vectorKb.selectedIndex') }}：{{ selectedIndex.index_name }}
@@ -159,15 +183,27 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Message } from '@arco-design/web-vue'
+import { Message, Notification } from '@arco-design/web-vue'
+import { useUserStore } from '@/stores/user'
 import {
   getVectorIndexList,
   getVectorDocList,
   vectorSearch,
-  rebuildVectorIndex
+  rebuildVectorIndex,
+  syncSystemKnowledge
 } from '@/api/modules/gisVector'
 
 const { t } = useI18n()
+const userStore = useUserStore()
+
+// 管理员判定（107 D4：同步仅管理员；role_key='admin' 旁路放行）
+const isAdmin = computed(() => {
+  const rs = userStore.roles || []
+  return rs.includes('admin') || rs.includes('管理员组')
+})
+
+// ---------- 说明区块 ----------
+const helpOpen = ref(false)
 
 const DOC_PAGE_SIZE = 20
 
@@ -257,6 +293,34 @@ async function handleRebuild(record) {
   } catch (_) { /* request.js 已弹错 */ }
 }
 
+// ---------- 重新同步（107 §5.1：scanned/changed 两条语义必须体现在 UI 上） ----------
+const syncing = ref(false)
+
+async function handleSync() {
+  syncing.value = true
+  try {
+    const res = await syncSystemKnowledge()
+    const d = res.data || res
+    const scanned = d?.scanned ?? 0
+    const changed = d?.changed ?? 0
+    if (scanned === 0) {
+      // 大概率 embedding 模型未就绪（后端按设计不报错只记告警）→ 警告而非成功
+      Notification.warning({ title: t('vectorKb.sync'), content: t('vectorKb.syncZeroScanned'), duration: 6000 })
+    } else if (changed === 0) {
+      Message.info(t('vectorKb.syncNoChange'))
+    } else {
+      Message.success(t('vectorKb.syncChanged', { count: changed }))
+    }
+    // 同步成功后刷新索引与文档列表（107 §6.2）
+    await loadIndexes()
+    if (selectedIndex.value) {
+      docPage.value = 1
+      await loadDocs()
+    }
+  } catch (_) { /* request.js 已弹错 */ }
+  finally { syncing.value = false }
+}
+
 async function handleSearch() {
   if (!searchForm.query.trim()) {
     Message.warning(t('vectorKb.queryRequired'))
@@ -282,6 +346,47 @@ onMounted(loadIndexes)
 </script>
 
 <style lang="scss" scoped>
+.help-head {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  cursor: pointer;
+  user-select: none;
+}
+
+.help-title {
+  font-weight: 600;
+  color: $color-text;
+}
+
+.help-body {
+  margin-top: $space-3;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+
+  p {
+    margin: 0 0 $space-2;
+    line-height: 1.7;
+  }
+}
+
+.help-sub {
+  font-weight: 600;
+  color: $color-text;
+}
+
+.help-pre {
+  margin: 0 0 $space-3;
+  padding: $space-3;
+  background: $color-bg-muted;
+  border-radius: $radius;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: $font-size-xs;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .search-bar {
   row-gap: $space-2;
 }

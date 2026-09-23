@@ -44,6 +44,8 @@ import * as gisProjectMilestone from './modules/gisProjectMilestone'
 import * as gisScreen from './modules/gisScreen'
 // Doc 47：影子演练（宿主能力）
 import * as gisShadow from './modules/gisShadow'
+// Doc 107：技能库（目录即真相源，仅管理员可写）
+import * as gisSkill from './modules/gisSkill'
 // Doc 72：消息中心 / 风险拦截记录
 import * as gisMessage from './modules/gisMessage'
 import * as gisRiskInterceptLog from './modules/gisRiskInterceptLog'
@@ -95,6 +97,8 @@ export const api = {
   gisScreen,
   // Doc 47
   gisShadow,
+  // Doc 107
+  gisSkill,
   // Doc 72
   gisMessage,
   gisRiskInterceptLog,

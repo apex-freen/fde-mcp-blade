@@ -9,6 +9,20 @@ import { get, post } from '@/utils/request'
 // ---------- 索引管理 ----------
 
 /**
+ * 触发内置知识库同步（107 文档 §5.1，仅管理员）
+ *
+ * 扫描 knowledge_lib/system/ 下的小写 .md，整体手动同步（不做单文件同步/上传）。
+ * 返回 { scanned, changed }，两条语义必须体现在 UI 上（107 §5.1）：
+ *   · scanned=0 → 大概率 embedding 模型未就绪（后端不报错只记告警）→ 警告
+ *   · changed=0 且 scanned>0 → 正常幂等 →「已是最新，本次无变更」
+ *   · changed>0 →「已同步，新增/更新 N 个文档」
+ * 注意：这是「重新同步」，不是「重建索引」（rebuild 只补算向量、不扫新文档）
+ */
+export function syncSystemKnowledge() {
+  return post('/biz/gis_vector/sync_system', {}, { showLoading: true })
+}
+
+/**
  * 查询向量索引列表
  *
  * Doc 19 §4.2：system 索引全部可见，user 索引仅 owner 可见

@@ -197,6 +197,7 @@ const PATH_RULES = [
   [/dept/, 'tree'],
   [/user/, 'user'],
   [/vector|db|database/, 'database'],
+  [/skill/, 'book'],
   [/doc|knowledge/, 'book'],
   [/capabilit|overview|connection|maintenance|config|setting/, 'gear'],
   [/screen/, 'chart']
