@@ -80,7 +80,7 @@
 
       <a-alert v-if="connectError" type="error" closable @close="connectError = ''">
         {{ connectError }}
-        <a-button v-if="tokenExpired" type="text" size="small" @click="openLoginModal">
+        <a-button v-if="showRelogin" type="text" size="small" @click="openLoginModal">
           重新登录
         </a-button>
       </a-alert>
@@ -160,7 +160,8 @@ const loading = ref(false)
 const connecting = ref(false)
 const disconnecting = ref(false)
 const connectError = ref('')
-const tokenExpired = ref(false)
+// 连接失败即提供「重新登录」入口（msg 是 opaque 文案，不做字符串匹配判断失败类型）
+const showRelogin = ref(false)
 
 const config = reactive({
   server_username: '',
@@ -193,7 +194,7 @@ const loadConfig = async () => {
       mcp_is_connected: d.mcp_is_connected ?? false
     })
     connectError.value = ''
-    tokenExpired.value = false
+    showRelogin.value = false
   } catch (e) {
     // 错误已由拦截器提示
   } finally {
@@ -224,20 +225,16 @@ const handleConnect = async () => {
   }
   connecting.value = true
   connectError.value = ''
-  tokenExpired.value = false
+  showRelogin.value = false
   try {
     await connectCloud()
     Message.success('云端连接成功')
     loadConfig()
   } catch (e) {
-    const msg = e?.response?.data?.msg || e?.message || ''
+    // msg / message 一律 opaque 直渲；失败类型判断只认 code（此处无结构化失败码 → 统一给「重新登录」入口）
+    const msg = e?.response?.data?.msg || e?.msg || e?.message || ''
     connectError.value = msg || '云端连接失败'
-    // 判断是否为 token 失效类错误
-    if (msg.includes('token') || msg.includes('Token') || msg.includes('凭证') || msg.includes('权限') || msg.includes('失效')) {
-      tokenExpired.value = true
-      Message.error('云端凭证已失效，请重新登录')
-      setTimeout(openLoginModal, 500)
-    }
+    showRelogin.value = true
   } finally {
     connecting.value = false
   }

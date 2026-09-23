@@ -14,5 +14,7 @@ declare module 'vue' {
     PieChart: typeof import('./components/charts/PieChart.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SafeMarkdown: typeof import('./components/common/SafeMarkdown.vue')['default']
+    TableSettings: typeof import('./components/common/TableSettings.vue')['default']
   }
 }

@@ -48,7 +48,8 @@ export default {
     themeAuto: '跟随系统',
     notificationPending: '待办审批',
     collapseSidebar: '收起侧栏',
-    expandSidebar: '展开侧栏'
+    expandSidebar: '展开侧栏',
+    smallScreenHint: '小屏设备已切换为只读视图，配置类操作请在桌面端完成。'
   },
 
   menu: {
@@ -890,6 +891,25 @@ export default {
     noData: '暂无数据',
     yes: '是',
     no: '否'
+  },
+
+  // ==================== 表格显示设置（列自定义 + 密度） ====================
+  tableSettings: {
+    title: '显示设置',
+    density: '密度',
+    compact: '紧凑',
+    cozy: '适中',
+    relaxed: '宽松',
+    displayColumns: '显示列'
+  },
+
+  // ==================== 工作台 · 个人域页面 ====================
+  mine: {
+    tokenTitle: '我的令牌',
+    tokenNotice: '令牌仅在签发时展示一次，平台不保存完整令牌，因此本页不提供查看或复制。如令牌丢失，请撤销后重新申请。',
+    tokenRevoke: '撤销',
+    tokenRevokeConfirm: '撤销后立即生效，该令牌将无法再调用 API。确认撤销？',
+    tokenRevokeSuccess: '令牌已撤销'
   },
 
   // ==================== 审计统计页 ====================

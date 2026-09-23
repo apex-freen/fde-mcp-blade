@@ -153,6 +153,11 @@
         <span>{{ pageDescription }}</span>
       </div>
 
+      <!-- 小屏提示：配置类页面（管理中心）在 ≤860px 只给提示，不做移动端表单适配（1016 §5.1 第 6 项） -->
+      <a-alert v-if="isSmallScreen && isConfigRoute" type="warning" class="sm-hint">
+        {{ t('layout.smallScreenHint') }}
+      </a-alert>
+
       <main class="content">
         <router-view v-slot="{ Component, route }">
           <transition name="fade" mode="out-in">
@@ -163,11 +168,25 @@
         </router-view>
       </main>
     </div>
+
+    <!-- ==================== 小屏底部 Tab（1016 §5.1 第 6 项） ==================== -->
+    <nav v-if="!isScreenMode" class="mobile-tabbar" :class="{ show: isSmallScreen }">
+      <button
+        v-for="tab in mobileTabs"
+        :key="tab.key"
+        class="mtab"
+        :class="{ on: tab.key === activeTabKey }"
+        @click="go(tab.path)"
+      >
+        <NavIcon :item="tab.icon" />
+        <span class="mtab-label">{{ tab.label }}</span>
+      </button>
+    </nav>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Message, Modal } from '@arco-design/web-vue'
@@ -374,6 +393,63 @@ watch(canSeeApproval, (ok) => {
 onMounted(() => {
   fetchPendingCount()
 })
+
+// ==================== 小屏只读视图（1016 §5.1 第 6 项） ====================
+// ≤860px：侧栏收起为底部 Tab（顶级菜单分组）；配置类页面（管理中心）提示用桌面端。
+// 断点与既有 CSS 媒体查询（.tb-search 隐藏）保持一致。
+const isSmallScreen = ref(false)
+let smMql = null
+
+function updateSmallScreen() {
+  isSmallScreen.value = !!smMql?.matches
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    smMql = window.matchMedia('(max-width: 860px)')
+    updateSmallScreen()
+    if (smMql.addEventListener) smMql.addEventListener('change', updateSmallScreen)
+    else smMql.addListener(updateSmallScreen)
+  }
+})
+
+onUnmounted(() => {
+  if (!smMql) return
+  if (smMql.removeEventListener) smMql.removeEventListener('change', updateSmallScreen)
+  else smMql.removeListener(updateSmallScreen)
+})
+
+const isConfigRoute = computed(() => route.path.startsWith('/controller'))
+
+// 底部 Tab = 顶级菜单分组；分组点击落到其第一个叶子页面（不写死 URL，跟着菜单树走）
+const mobileTabs = computed(() =>
+  (userStore.menuList || [])
+    .map((group) => {
+      let target = group
+      let guard = 0
+      while (hasChildren(target) && guard++ < 5) target = target.children[0]
+      return { key: group.key, label: getMenuTitle(group), path: target.path || group.path, icon: group }
+    })
+    .filter((tab) => !!tab.path)
+)
+
+/** 当前路由所属的顶级分组 key（用于 Tab 选中态） */
+function findRootKey(menuList, path) {
+  function traverse(items, rootKey) {
+    for (const item of items) {
+      const rk = rootKey || item.key
+      if (item.path === path) return rk
+      if (item.children?.length) {
+        const found = traverse(item.children, rk)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  return traverse(menuList, null)
+}
+
+const activeTabKey = computed(() => findRootKey(userStore.menuList, route.path) || '')
 
 // ==================== 交互 ====================
 function go(item) {
@@ -934,13 +1010,69 @@ function handleLogout() {
   opacity: 0;
 }
 
+.sm-hint {
+  margin: 0 22px 12px;
+}
+
+// 小屏底部 Tab：桌面端不渲染；≤860px 顶替侧栏（1016 §5.1 第 6 项）
+.mobile-tabbar {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .tb-search {
     display: none;
   }
 
+  .side {
+    display: none;
+  }
+
   .content {
     padding: 16px;
+    padding-bottom: 76px;
+  }
+
+  .sm-hint {
+    margin: 0 16px 12px;
+  }
+
+  .mobile-tabbar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 56px;
+    z-index: 200;
+    background: var(--color-bg-2);
+    border-top: 1px solid var(--color-border-2);
+
+    .mtab {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: none;
+      background: transparent;
+      color: var(--color-text-3);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 4px 0;
+
+      .mtab-label {
+        max-width: 72px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      &.on {
+        color: var(--color-primary);
+      }
+    }
   }
 }
 </style>

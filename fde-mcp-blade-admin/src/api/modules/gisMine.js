@@ -11,7 +11,7 @@
 //     前端可以用同一个渲染函数处理。
 // ==========================================
 
-import { get } from '@/utils/request'
+import { get, del } from '@/utils/request'
 
 /**
  * 工作台首屏：一次返回全部卡片（后端内部并发查 5 个域）
@@ -91,9 +91,23 @@ export function getMineCmdList(params = {}) {
 
 /**
  * 我的令牌列表
- * 注：库里只存 token_jti 与 token_prefix，拿不到令牌本身 → 本页只读，不做复制与撤销
+ * 注：库里只存 token_jti 与 token_prefix，拿不到令牌本身 → 本页**永不提供"查看 / 复制令牌"**，
+ *     只提供「自助撤销」（1016 §5.1 第 7 项）。
+ *     出参已补 `id`（= gis_token.id = gis_token_log.token_id），row-key 用 `id`（1017 §3.3）。
  * @param {{status?: 'active'|'revoked', page?: number, page_size?: number}} params
  */
 export function getMineTokenList(params = {}) {
   return get('/biz/gis_mine/token/list', params)
+}
+
+/**
+ * 用户自助撤销令牌（1017 §2.3 / §3.5）
+ * - DELETE /biz/gis_mine/token/{id}，**不挂权限点**，服务端强制按登录人过滤：
+ *   非本人 403 / 不存在 404 / 已撤销 200（幂等，不重复写日志）；
+ * - 管理员调用也只能撤自己的（撤别人的走管理端 DELETE /biz/tokens/{id}）；
+ * - 撤销后立即生效（进黑名单），前端成功后重拉列表即可。
+ * @param {number|string} id - 令牌 ID（取自 getMineTokenList 的 `id`）
+ */
+export function revokeMineToken(id) {
+  return del(`/biz/gis_mine/token/${id}`)
 }

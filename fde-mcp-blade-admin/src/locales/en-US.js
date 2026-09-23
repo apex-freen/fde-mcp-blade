@@ -48,7 +48,8 @@ export default {
     themeAuto: 'System',
     notificationPending: 'Pending approvals',
     collapseSidebar: 'Collapse sidebar',
-    expandSidebar: 'Expand sidebar'
+    expandSidebar: 'Expand sidebar',
+    smallScreenHint: 'Read-only view on small screens. Please use a desktop device for configuration actions.'
   },
 
   menu: {
@@ -890,6 +891,25 @@ export default {
     noData: 'No data',
     yes: 'Yes',
     no: 'No'
+  },
+
+  // ==================== Table Display Settings (column custom + density) ====================
+  tableSettings: {
+    title: 'Display Settings',
+    density: 'Density',
+    compact: 'Compact',
+    cozy: 'Cozy',
+    relaxed: 'Relaxed',
+    displayColumns: 'Visible Columns'
+  },
+
+  // ==================== Workspace · Personal-domain pages ====================
+  mine: {
+    tokenTitle: 'My Tokens',
+    tokenNotice: 'The full token is shown only once at issuance and is never stored by the platform, so it cannot be viewed or copied here. If lost, revoke it and issue a new one.',
+    tokenRevoke: 'Revoke',
+    tokenRevokeConfirm: 'Revocation takes effect immediately and the token will no longer be able to call APIs. Confirm?',
+    tokenRevokeSuccess: 'Token revoked'
   },
 
   // ==================== Audit Stats Page ====================

@@ -66,6 +66,11 @@
             <template #icon><icon-download /></template>
             {{ $t('commonTable.export') }}
           </a-button>
+          <TableSettings
+            :columns="colDefs"
+            v-model:hidden-keys="hiddenKeys"
+            v-model:density="density"
+          />
         </a-space>
       </div>
 
@@ -74,13 +79,16 @@
         :data="tableData"
         :loading="loading"
         :pagination="pagination"
+        :size="tableSize"
+        :scroll="{ x: 1310, y: 480 }"
+        :virtual-list-props="{ height: 480, threshold: 100 }"
         row-key="log_id"
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
       >
         <template #columns>
-          <a-table-column :title="$t('auditLog.logId')" data-index="log_id" :width="80" />
-          <a-table-column :title="$t('auditLog.riskLevel')" :width="100">
+          <a-table-column v-if="!isColHidden('log_id')" :title="$t('auditLog.logId')" data-index="log_id" :width="80" />
+          <a-table-column v-if="!isColHidden('risk_level')" :title="$t('auditLog.riskLevel')" :width="100">
             <template #cell="{ record }">
               <a-tag v-if="riskLevelMap[record.risk_level]" :color="riskLevelMap[record.risk_level].color" size="small">
                 {{ riskLevelMap[record.risk_level].label }}
@@ -88,34 +96,34 @@
               <span v-else>{{ record.risk_level || '-' }}</span>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('auditLog.cmdType')" :width="110">
+          <a-table-column v-if="!isColHidden('cmd_type')" :title="$t('auditLog.cmdType')" :width="110">
             <template #cell="{ record }">
               <a-tag color="arcoblue" size="small">{{ cmdTypeLabel(record.cmd_type) }}</a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('auditLog.username')" :width="120">
+          <a-table-column v-if="!isColHidden('user_name')" :title="$t('auditLog.username')" :width="120">
             <template #cell="{ record }">
               {{ record.user_name }}
               <a-tag v-if="record.is_admin" color="purple" size="small">{{ $t('auditLog.isAdmin') }}</a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('auditLog.toolName')" data-index="tool_name" :width="140" :ellipsis="true" />
-          <a-table-column :title="$t('auditLog.funKey')" data-index="fun_key" :width="150" :ellipsis="true" />
-          <a-table-column :title="$t('auditLog.deviceClientId')" data-index="eqp_client_id" :width="180" :ellipsis="true" />
-          <a-table-column :title="$t('auditLog.elapsed')" :width="90">
+          <a-table-column v-if="!isColHidden('tool_name')" :title="$t('auditLog.toolName')" data-index="tool_name" :width="140" :ellipsis="true" />
+          <a-table-column v-if="!isColHidden('fun_key')" :title="$t('auditLog.funKey')" data-index="fun_key" :width="150" :ellipsis="true" />
+          <a-table-column v-if="!isColHidden('eqp_client_id')" :title="$t('auditLog.deviceClientId')" data-index="eqp_client_id" :width="180" :ellipsis="true" />
+          <a-table-column v-if="!isColHidden('elapsed')" :title="$t('auditLog.elapsed')" :width="90">
             <template #cell="{ record }">
               <span :class="record.elapsed_ms > 1000 ? 'slow-warn' : ''">{{ record.elapsed_ms }}ms</span>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('commonTable.status')" :width="80">
+          <a-table-column v-if="!isColHidden('success')" :title="$t('commonTable.status')" :width="80">
             <template #cell="{ record }">
               <a-tag :color="record.success ? 'green' : 'red'" size="small">
                 {{ record.success ? $t('commonTable.success') : $t('commonTable.failure') }}
               </a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('auditLog.time')" data-index="created_time" :width="180" />
-          <a-table-column :title="$t('commonTable.operation')" :width="80" fixed="right">
+          <a-table-column v-if="!isColHidden('created_time')" :title="$t('auditLog.time')" data-index="created_time" :width="180" />
+          <a-table-column v-if="!isColHidden('op')" :title="$t('commonTable.operation')" :width="80" fixed="right">
             <template #cell="{ record }">
               <a-button type="text" size="small" @click="showDetail(record)">
                 {{ $t('commonTable.details') }}
@@ -146,12 +154,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Message } from '@arco-design/web-vue'
 import { api } from '@/api'
 import { useAuditLogDict } from '@/constants/auditDict'
 import { downloadBlob, getFilenameFromHeaders } from '@/utils/download'
+import { useTableSettings } from '@/hooks/useTableSettings'
 
 const { t } = useI18n()
 const { riskLevelOptions, riskLevelMap, cmdTypeOptions } = useAuditLogDict()
@@ -221,6 +230,22 @@ const pagination = reactive({
   pageSizeOptions: [10, 20, 50, 100]
 })
 const columns = []
+
+// ==================== 表格显示设置（列自定义 + 密度） ====================
+const colDefs = computed(() => [
+  { key: 'log_id', label: t('auditLog.logId') },
+  { key: 'risk_level', label: t('auditLog.riskLevel') },
+  { key: 'cmd_type', label: t('auditLog.cmdType') },
+  { key: 'user_name', label: t('auditLog.username') },
+  { key: 'tool_name', label: t('auditLog.toolName') },
+  { key: 'fun_key', label: t('auditLog.funKey') },
+  { key: 'eqp_client_id', label: t('auditLog.deviceClientId') },
+  { key: 'elapsed', label: t('auditLog.elapsed') },
+  { key: 'success', label: t('commonTable.status') },
+  { key: 'created_time', label: t('auditLog.time') },
+  { key: 'op', label: t('commonTable.operation') }
+])
+const { hiddenKeys, density, tableSize, isColHidden } = useTableSettings('audit_operation_log')
 
 function handlePageChange(page) {
   pagination.current = page

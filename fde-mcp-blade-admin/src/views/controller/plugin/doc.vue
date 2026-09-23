@@ -9,8 +9,8 @@
         </a-radio-group>
       </div>
 
-      <!-- Markdown 渲染区域 -->
-      <div class="markdown-body" v-html="renderedContent"></div>
+      <!-- Markdown 渲染区域（SafeMarkdown：转义 HTML + 链接协议白名单 + noopener） -->
+      <SafeMarkdown :content="md" />
     </a-card>
   </div>
 </template>
@@ -83,113 +83,13 @@ Please read this documentation carefully and follow the instructions to install 
 3. Bilingual (Chinese/English) descriptions are recommended
 `)
 
-// 简易 Markdown 渲染（占位实现，后续可替换为成熟的 markdown 渲染库）
-const renderMarkdown = (md) => {
-  if (!md) return ''
-  let html = md
-  // 转义 HTML 特殊字符
-  html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  // 标题
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>')
-  // 引用
-  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-  // 表格（简易处理）
-  html = html.replace(/\|(.+)\|/g, (match) => {
-    const cells = match.split('|').filter((c) => c.trim() !== '')
-    if (cells.every((c) => /^[\s-]+$/.test(c))) return ''
-    return '<tr>' + cells.map((c) => `<td>${c.trim()}</td>`).join('') + '</tr>'
-  })
-  html = html.replace(/(<tr>[\s\S]*?<\/tr>)/g, '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin:8px 0;">$1</table>')
-  // 有序列表
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ol>$1</ol>')
-  // 无序列表
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  // 段落（连续非标签行）
-  html = html.replace(/^(?!<[a-z/])(.+)$/gm, '<p>$1</p>')
-  return html
-}
-
-const renderedContent = computed(() => {
-  const md = lang.value === 'zh' ? contentZh.value : contentEn.value
-  return renderMarkdown(md)
-})
+const md = computed(() => (lang.value === 'zh' ? contentZh.value : contentEn.value))
 </script>
 
 <style lang="scss" scoped>
 .plugin-doc-page {
   .lang-switch {
     margin-bottom: 16px;
-  }
-
-  .markdown-body {
-    line-height: 1.7;
-    color: var(--color-text-1);
-
-    :deep(h1) {
-      font-size: 24px;
-      font-weight: 600;
-      margin: 16px 0 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--color-border-2);
-    }
-
-    :deep(h2) {
-      font-size: 20px;
-      font-weight: 600;
-      margin: 14px 0 10px;
-    }
-
-    :deep(h3) {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 12px 0 8px;
-    }
-
-    :deep(p) {
-      margin: 8px 0;
-    }
-
-    :deep(blockquote) {
-      margin: 8px 0;
-      padding: 8px 12px;
-      background: var(--color-fill-2);
-      border-left: 4px solid var(--color-primary-light-2);
-      color: var(--color-text-3);
-    }
-
-    :deep(table) {
-      width: 100%;
-      margin: 12px 0;
-      font-size: 14px;
-
-      td {
-        padding: 6px 10px;
-        border: 1px solid var(--color-border-2);
-      }
-
-      tr:first-child td {
-        font-weight: 600;
-        background: var(--color-fill-1);
-      }
-    }
-
-    :deep(ol),
-    :deep(ul) {
-      margin: 8px 0;
-      padding-left: 24px;
-
-      li {
-        margin: 4px 0;
-        list-style: disc;
-      }
-    }
-
-    :deep(ol) li {
-      list-style: decimal;
-    }
   }
 }
 </style>
