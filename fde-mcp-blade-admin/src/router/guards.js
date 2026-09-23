@@ -40,7 +40,7 @@ export function setupRouterGuards(router) {
     const userStore = useUserStore()
 
     if (to.meta?.title) {
-      document.title = `${to.meta.title} - APEX - 本地智能体工具服务`
+      document.title = `${to.meta.title} - FDE MCP Blade`
     }
 
     // 登录态失效：回收动态路由（覆盖登出、token 过期两种场景）
