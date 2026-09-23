@@ -112,6 +112,7 @@ export default {
     controllerSettingsOverview: '系统概览',
     controllerSettingsConnection: '连接配置',
     controllerSettingsMaintenance: '系统维护',
+    controllerSettingsCapabilities: '能力总览',
 
     message: '消息中心',
     messageNotification: '系统通知',

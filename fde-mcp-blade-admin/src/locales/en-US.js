@@ -112,6 +112,7 @@ export default {
     controllerSettingsOverview: 'System Overview',
     controllerSettingsConnection: 'Connection Config',
     controllerSettingsMaintenance: 'System Maintenance',
+    controllerSettingsCapabilities: 'Capability Overview',
 
     message: 'Message Center',
     messageNotification: 'System Notifications',
