@@ -527,17 +527,23 @@ const normalizeMcpConfig = (info) => {
   const loc = window.location
   // 本地开发（localhost 访问）不归一化
   if (loc.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(loc.hostname)) return
-  const local = info.mcp_config?.mcpLocal
-  if (local && typeof local === 'object') {
-    for (const key of Object.keys(local)) {
-      const entry = local[key]
-      if (entry && typeof entry.url === 'string' && /^https?:\/\//i.test(entry.url)) {
-        const before = entry.url
-        entry.url = rewriteOrigin(entry.url)
-        if (entry.url !== before) mcpUrlAdapted.value = true
+  // 后端结构是 mcpLocal.mcpServers.<server名>.url（可能还有别的包裹层），
+  // 递归深改：凡是 mcpLocal 子树里挂了 http(s) url 属性的对象都按当前访问地址改写。
+  // ⚠️ 只处理 mcpLocal；mcpCloud 指向云端中转、域名不同，不改写。
+  const rewriteDeep = (node) => {
+    if (!node || typeof node !== 'object') return
+    for (const key of Object.keys(node)) {
+      const v = node[key]
+      if (!v || typeof v !== 'object') continue
+      if (typeof v.url === 'string' && /^https?:\/\//i.test(v.url)) {
+        const before = v.url
+        v.url = rewriteOrigin(v.url)
+        if (v.url !== before) mcpUrlAdapted.value = true
       }
+      rewriteDeep(v)
     }
   }
+  rewriteDeep(info.mcp_config?.mcpLocal)
   // 本地二维码内容若是 http(s) 链接，同样按当前访问地址改写
   if (info.mcpLocalQrCode && /^https?:\/\//i.test(info.mcpLocalQrCode)) {
     const before = info.mcpLocalQrCode
