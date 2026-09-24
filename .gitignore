@@ -31,3 +31,9 @@ Thumbs.db
 npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# 部署包运行产物（真实密钥与数据，严禁入库；模板 .env_ 不受影响）
+fde-mcp-blade/.env
+fde-mcp-blade/.env.*
+fde-mcp-blade/backups/
+fde-mcp-blade/data/
