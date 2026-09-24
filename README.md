@@ -100,7 +100,18 @@ curl http://localhost:8018/health        # returns OK
 
 **Requirements**: Docker 20.10+ / Compose v2; minimum 1 core / 1 GB / 16 GB, recommended 2 cores / 4 GB / 32 GB; linux/amd64 images today (arm64 in testing).
 
-> 📖 **Full deployment guide** (both install methods, ports, backup & restore, upgrade & rollback, ops commands, troubleshooting): [`fde-mcp-blade/README.en.md`](./fde-mcp-blade/README.en.md).
+> 📖 **Full deployment guide** (both install methods, ports, backup & restore, upgrade & rollback, ops commands, troubleshooting): [`fde-mcp-blade/README.md`](./fde-mcp-blade/README.md).
+
+## Four steps to your MVP (recommended order)
+
+Don't let the 5-domain / 49-page console scare you — each step takes under 30 minutes and hand-verifies one selling point:
+
+| # | What you try | How | What you'll see / what it proves |
+|---|---|---|---|
+| **1** | **Let the agent answer for you** (live demo · 5 min · zero install) | Sign in at <https://fde.agent-plat.com> → create an admin token → paste the MCP config into Claude / Cursor / Coze etc. → ask **"What's in the knowledge base?"** | The agent lists the system's capabilities one by one. ✔ Your customers' simple questions get answered by the agent, not by you; ✔ this very Q&A is already audited — the value dashboard now has its first datapoint |
+| **2** | **Local deploy, local calls** (30 min) | Follow Quick start above — `install.ps1` on Windows, `install.sh` on Linux | The full system running on your own machine, data never leaves it. ✔ Fast install, zero SaaS dependency |
+| **3** | **Install your first plugin, touch the agent's boundary** (Feishu · 20 min) | Install the Feishu plugin → fill in your Feishu app credentials (vaulted server-side, the agent never sees them) → ask **"Zhang San's phone number"**: with PII masking on by default you get 138\*\*\*\*5678 → disable the rule or whitelist it → ask again: full number → set up the Feishu bot and have the agent message you or a group | A message lands in your Feishu from "the agent". ✔ Install a plugin = connect a system; ✔ encryption & masking are on by default; ✔ you define the boundary |
+| **4** | **Write your own plugin from the template** (~half a day) | Take the plugin template, fill in your intranet system's address / APIs / credentials; well-documented systems are even easier — **OpenAPI-to-MCP in 10 minutes** | Your own system shows up in the agent's tool list. ✔ No need to modify Blade or wait for us (template & SDK ship with the beta) |
 
 ## Connect your AI (MCP)
 
