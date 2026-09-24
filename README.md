@@ -19,17 +19,17 @@
 
 > **One-line pitch**: consolidate your enterprise systems into **one unified MCP tool entry point**, so AI agents from any platform can call enterprise capabilities under explicit permissions and full auditing — data never leaves your network, every action is logged, no agent-platform lock-in.
 
-> 🌍 **Live demo**: <https://fde.agent-plat.com> (demo account `admin / admin123`, demo data only — do not store sensitive information)
+> 🌍 **Live demo**: <https://fde.agent-plat.com> (demo account `admin / admin123`, demo data only — do not store sensitive information; demo data may be reset at any time)
 
 Other platforms make AI smarter; Blade makes AI *enter your company safely and stay accountable*. It does no reasoning orchestration and hosts no LLM — it occupies the layer that survives every hype cycle: the **tool-provisioning layer**.
 
 | | |
 |---|---|
-| 🚀 **Fast to install** | One-command deployment; Docker + MariaDB is the whole stack; database auto-initialized on first start; runs on 1 core / 1 GB / 16 GB (verified on a Raspberry Pi 2) |
+| 🚀 **Fast to install** | One-command deployment; Docker + MariaDB is the whole stack; database auto-initialized on first start; runs on 1 core / 1 GB / 16 GB (verified on low-spec x86 hardware; linux/amd64 images today, arm64 in testing) |
 | 🔒 **Tightly governed** | Five-layer security (authn · authz · expiry · bypass-proof · rate-limit) + 4-level risk grading + human approval for high-risk actions; credentials stay vaulted, never handed to the agent |
 | 📋 **Fully auditable** | Operation / grant / token / sign-in audit trails end to end — replayable, exportable; even the export action itself is logged |
 | 🧩 **Broadly connectable** | Standard MCP — Claude / Cursor / Coze / Dify / TRAE / WorkBuddy / ERNIE / your own agent all work; install a plugin = connect a system; OpenAPI-to-MCP conversion built in |
-| 🏠 **Zero lock-in** | Purely local: zero SaaS dependency, zero data egress, zero subscription tiers; cloud is optional |
+| 🏠 **Zero lock-in** | Purely local: zero SaaS dependency, zero data egress, zero subscription tiers; cloud access is optional and requires **explicit admin authorization** — authorized accounts are flagged as "cloud accounts" in the system, and the data-egress risk is acknowledged and owned by the admin |
 | 🖥️ **Visible value** | Chinese-first admin console, 5 domains / 49 pages, bilingual UI, dark mode, Ctrl+K palette, value & cost dashboards |
 
 ## Screenshots
@@ -96,6 +96,7 @@ docker compose up -d
 curl http://localhost:8018/health        # returns OK
 # Open http://<device-ip>:8018 in a browser
 # Default account: admin / admin123 (change it immediately after first sign-in)
+# ⚠️ NEVER go to production with the default password — reset it right after first sign-in
 ```
 
 **Requirements**: Docker 20.10+ / Compose v2; minimum 1 core / 1 GB / 16 GB, recommended 2 cores / 4 GB / 32 GB; linux/amd64 images today (arm64 in testing).
@@ -131,6 +132,8 @@ Don't let the 5-domain / 49-page console scare you — each step takes under 30 
   }
 }
 ```
+
+> Note: **Apex** in the `X-Apex-Local-Token` header is an internal codename (the project was formerly named Apex MCP Bridge) — use it as-is, it just works.
 
 - Endpoint `http://<device-ip>:8018/mcp`, Streamable HTTP (stdio is not supported);
 - Supports both MCP `2025-11-25` (legacy) and the current official `2026-07-28`; the server detects the version automatically;
