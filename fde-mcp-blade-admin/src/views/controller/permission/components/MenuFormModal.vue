@@ -142,6 +142,15 @@
             />
           </a-form-item>
         </a-col>
+        <a-col :span="12">
+          <a-form-item field="i18nKey" label="多语言 Key">
+            <a-input
+              v-model="formData.i18nKey"
+              placeholder="如 menu.auditOperationLog，留空则标题仅中文"
+              allow-clear
+            />
+          </a-form-item>
+        </a-col>
       </a-row>
 
       <!-- 关联权限点：目录不挂权限点，置空并禁用 -->
@@ -202,6 +211,10 @@ const currentUserName = computed(() => {
 // ==================== 表单 ====================
 const formRef = ref(null)
 
+// 与后端写入校验同源（09-24 回执）：menu. + 小写字母开头的大驼峰，整体 ≤128 字符。
+// 点分多层（menu.audit.operationLog）后端会直接 400，必须在这里拦在提交前。
+const I18N_KEY_RE = /^menu\.[a-z][a-zA-Z0-9]*$/
+
 const getDefaultFormData = () => ({
   menuId: undefined,
   parentId: 0,
@@ -219,6 +232,7 @@ const getDefaultFormData = () => ({
   redirect: '',
   alwaysShow: 0,
   sortOrder: 0,
+  i18nKey: '',
   permissionId: undefined
 })
 
@@ -229,7 +243,20 @@ const formRules = computed(() => ({
   menuName: [{ required: true, message: '请输入菜单名称' }],
   menuType: [{ required: true, message: '请选择菜单类型' }],
   component:
-    formData.menuType === 'C' ? [{ required: true, message: '请输入组件路径' }] : []
+    formData.menuType === 'C' ? [{ required: true, message: '请输入组件路径' }] : [],
+  i18nKey: [
+    {
+      validator: (value, cb) => {
+        const v = String(value || '').trim()
+        if (!v) return cb()
+        if (v.length > 128) return cb('长度不能超过 128 字符')
+        if (!I18N_KEY_RE.test(v)) {
+          return cb('格式须为 menu. + 小写字母开头的大驼峰，如 menu.auditOperationLog')
+        }
+        cb()
+      }
+    }
+  ]
 }))
 
 // 目录类型不挂权限点，切换为目录时清空已选项
@@ -319,6 +346,7 @@ const initForm = () => {
       redirect: props.record.redirect || '',
       alwaysShow: Number(props.record.alwaysShow ?? 0),
       sortOrder: props.record.sortOrder ?? 0,
+      i18nKey: props.record.i18nKey ?? props.record.i18n_key ?? '',
       permissionId: props.record.permissionId ?? undefined
     })
   } else {
@@ -374,6 +402,9 @@ const handleSubmit = async () => {
       redirect: formData.redirect || undefined,
       alwaysShow: toInt(formData.alwaysShow, 0),
       sortOrder: toInt(formData.sortOrder, 0),
+      // 多语言 key：JSON 字段名按后端契约为 snake_case 的 i18n_key；
+      // 空串也照传，后端会归一为 NULL 落库（编辑时清空才能生效）
+      i18n_key: formData.i18nKey.trim(),
       // 目录不挂权限点，传 null
       permissionId: formData.menuType === 'C' ? formData.permissionId ?? null : null
     }

@@ -72,6 +72,10 @@ export default {
     workspaceProfile: '个人中心',
     workspaceBizList: '我的单据',
     workspaceBizDetail: '单据时间线',
+    mineCall: '我的调用',
+    mineGrant: '我的授权',
+    mineToken: '我的令牌',
+    mineMessage: '我的消息',
 
     controller: '管理中心',
     controllerOrg: '组织与权限',

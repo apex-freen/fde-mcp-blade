@@ -1,5 +1,6 @@
 import { useUserStore } from '@/stores/user'
 import { useCapabilitiesStore } from '@/stores/capabilities'
+import { applyPageTitle } from '@/utils/page-title'
 
 const whiteList = ['/login', '/sso', '/404', '/403']
 
@@ -40,7 +41,8 @@ export function setupRouterGuards(router) {
     const userStore = useUserStore()
 
     if (to.meta?.title) {
-      document.title = `${to.meta.title} - FDE MCP Blade`
+      // 标题跟随语言：i18nKey 命中词典用译文，否则回退后端中文 title（utils/page-title.js）
+      applyPageTitle(to.meta)
     }
 
     // 登录态失效：回收动态路由（覆盖登出、token 过期两种场景）

@@ -200,6 +200,7 @@ import { api } from '@/api'
 import logoMark from '@/assets/brand/logo-mark.svg'
 import NavIcon from '@/components/common/NavIcon.vue'
 import CommandPalette from '@/components/global/CommandPalette.vue'
+import { resolveMenuTitle } from '@/utils/menu-i18n'
 
 const paletteRef = ref(null)
 
@@ -228,10 +229,8 @@ const userInitial = computed(() => (userStore.userName || '?').charAt(0).toUpper
 const userSubtitle = computed(() => userStore.roles?.[0] || t('common.user'))
 
 function getMenuTitle(item) {
-  if (item.i18nKey && te(item.i18nKey)) {
-    return t(item.i18nKey)
-  }
-  return item.title || ''
+  // 唯一出口：i18nKey 命中词典 → 译文；未命中 → 后端 meta.title（中文兜底）
+  return resolveMenuTitle(item, t, te)
 }
 
 const hasChildren = (item) => Array.isArray(item?.children) && item.children.length > 0
@@ -315,11 +314,16 @@ function findMenuItemByPath(menuList, path) {
 const breadcrumbList = computed(() => {
   const matched = route.matched.filter(item => item.meta?.title)
   return matched.map(item => {
+    // ① 路由 meta 自带 i18nKey（buildMeta 已收口）优先
+    const fromMeta = resolveMenuTitle(
+      { i18nKey: item.meta?.i18nKey, title: item.meta.title },
+      t,
+      te
+    )
+    if (fromMeta && fromMeta !== item.meta.title) return fromMeta
+    // ② 回退：从菜单树按 path 匹配节点（数据源同侧边栏，保证两处一致）
     const menuItem = findMenuItemByPath(userStore.menuList, item.path)
-    if (menuItem?.i18nKey && te(menuItem.i18nKey)) {
-      return t(menuItem.i18nKey)
-    }
-    return item.meta.title
+    return resolveMenuTitle(menuItem, t, te) || fromMeta || item.meta.title
   })
 })
 
@@ -637,16 +641,16 @@ function handleLogout() {
   align-items: center;
   gap: 7px;
   padding: 0 8px 7px;
-  font-size: 10.5px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-3);
-  letter-spacing: 1.1px;
+  color: var(--text);
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
 .grp-bar {
   width: 3px;
-  height: 11px;
+  height: 14px;
   border-radius: 2px;
   flex: none;
 }

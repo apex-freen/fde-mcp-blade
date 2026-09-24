@@ -72,6 +72,10 @@ export default {
     workspaceProfile: 'Profile',
     workspaceBizList: 'My Tickets',
     workspaceBizDetail: 'Ticket Timeline',
+    mineCall: 'My Calls',
+    mineGrant: 'My Grants',
+    mineToken: 'My Tokens',
+    mineMessage: 'My Messages',
 
     controller: 'Management Center',
     controllerOrg: 'Organization & Permissions',

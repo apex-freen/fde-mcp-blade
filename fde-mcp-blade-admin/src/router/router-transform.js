@@ -59,6 +59,9 @@ function buildMeta(node, path) {
   const meta = { ...(node.meta || {}) }
   meta.hidden = !!node.hidden
   if (meta.title === undefined) meta.title = ''
+  // 菜单国际化：后端约定放在 meta.i18nKey（1017 §3.1）。
+  // 兼容节点级 i18nKey 写法，统一收口到 meta，供面包屑与页面标题使用。
+  if (!meta.i18nKey && node.i18nKey) meta.i18nKey = node.i18nKey
 
   const desc = pageDescMap[path]
   if (desc?.descriptionKey) meta.descriptionKey = desc.descriptionKey
@@ -150,6 +153,9 @@ export function toMenuTree(routers = [], parentPath = '') {
     result.push({
       key: path || node.name,
       title: node.meta?.title || '',
+      // 🔴 必须透传 i18nKey：侧边栏/面包屑/命令面板靠它取译文（utils/menu-i18n.js）。
+      //    漏掉这一行 → getMenuTitle() 永远拿不到 key → 切英文时菜单恒为后端中文标题。
+      i18nKey: node.meta?.i18nKey || node.i18nKey || '',
       icon: node.meta?.icon || '',
       path,
       external_url: node.meta?.link || '',

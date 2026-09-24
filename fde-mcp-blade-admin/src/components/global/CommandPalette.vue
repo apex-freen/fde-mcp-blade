@@ -74,8 +74,9 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
+import { resolveMenuTitle } from '@/utils/menu-i18n'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 
@@ -93,17 +94,19 @@ const actions = [
 ]
 
 // ==================== 菜单扁平化（叶子 + 面包屑） ====================
+// 标题走 resolveMenuTitle：跟随语言切换；rawTitle 保留后端中文，供中英双语检索命中
 const menuLeaves = computed(() => {
   const out = []
   const walk = (items, parents) => {
     for (const it of items || []) {
       if (it.external_url) continue
-      const title = it.title || ''
+      const title = resolveMenuTitle(it, t, te)
+      const rawTitle = it.title || ''
       const crumbs = [...parents, title].join(' › ')
       if (it.children?.length) {
         walk(it.children, [...parents, title])
       } else if (it.path) {
-        out.push({ path: it.path, title, crumbs })
+        out.push({ path: it.path, title, rawTitle, crumbs })
       }
     }
   }
@@ -115,7 +118,7 @@ const filteredMenus = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return []
   return menuLeaves.value
-    .filter((m) => (m.title + ' ' + m.crumbs + ' ' + m.path).toLowerCase().includes(q))
+    .filter((m) => `${m.title} ${m.rawTitle} ${m.crumbs} ${m.path}`.toLowerCase().includes(q))
     .slice(0, 20)
 })
 
