@@ -244,6 +244,9 @@
               :auto-size="{ minRows: 8, maxRows: 8 }"
               style="font-family: monospace; font-size: 12px"
             />
+            <a-alert v-if="mcpUrlAdapted" type="success" style="margin-top: 8px">
+              {{ $t('token.mcpUrlAdapted') }}
+            </a-alert>
             <div class="token-modal-qr-box">
               <div class="token-modal-qr-label">{{ $t('token.qrCodeLocalTitle') }}</div>
               <div class="token-modal-qr-wrapper">
@@ -455,6 +458,10 @@ const handleCreateSubmit = async () => {
 
     createModalVisible.value = false
 
+    // MCP 地址归一化（见 normalizeMcpConfig 注释块）：按当前访问地址改写本地 MCP 的 host
+    mcpUrlAdapted.value = false
+    normalizeMcpConfig(payload)
+
     // 展示创建成功弹窗
     createdTokenInfo.value = {
       token: payload.token,
@@ -492,6 +499,52 @@ const createdTokenInfo = ref({
   mcpLocalQrCode: '',
   mcpCloudQrCode: ''
 })
+
+// ==================== MCP 地址归一化 ====================
+// 后端拿不到外部访问拓扑（HTTPS 卸载、端口转发、反向代理端口），生成的 mcpLocal.url
+// 可能与用户实际可达地址不一致。例：站点走 https://fde.agent-plat.com（443 反代 → 8018），
+// 后端却生成 http://fde.agent-plat.com:8018/mcp —— 协议错、端口多余，贴进智能体连不上。
+//
+// 归一化规则：控制台能从哪个地址打开，同源的 /mcp 就从哪个地址可达 ——
+// 直接以 window.location.origin 改写协议+域名+端口，保留路径与查询串。
+//   - 本地部署 http://192.168.x.x:8018 控制台与 MCP 同源，origin 不变 → 无副作用；
+//   - 反代/端口转发站点 https://fde.agent-plat.com → 自动变成 https://域名/mcp（无端口）；
+//   - 云端配置（mcpCloud）指向云端中转、域名不同，不做改写；
+//   - localhost / 127.0.0.1 访问（本地开发）跳过，避免覆盖后端下发的正确内网地址。
+const mcpUrlAdapted = ref(false)
+
+const rewriteOrigin = (raw) => {
+  try {
+    const u = new URL(raw)
+    if (u.origin === window.location.origin) return raw
+    return window.location.origin + u.pathname + u.search + u.hash
+  } catch (e) {
+    return raw
+  }
+}
+
+const normalizeMcpConfig = (info) => {
+  const loc = window.location
+  // 本地开发（localhost 访问）不归一化
+  if (loc.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(loc.hostname)) return
+  const local = info.mcp_config?.mcpLocal
+  if (local && typeof local === 'object') {
+    for (const key of Object.keys(local)) {
+      const entry = local[key]
+      if (entry && typeof entry.url === 'string' && /^https?:\/\//i.test(entry.url)) {
+        const before = entry.url
+        entry.url = rewriteOrigin(entry.url)
+        if (entry.url !== before) mcpUrlAdapted.value = true
+      }
+    }
+  }
+  // 本地二维码内容若是 http(s) 链接，同样按当前访问地址改写
+  if (info.mcpLocalQrCode && /^https?:\/\//i.test(info.mcpLocalQrCode)) {
+    const before = info.mcpLocalQrCode
+    info.mcpLocalQrCode = rewriteOrigin(info.mcpLocalQrCode)
+    if (info.mcpLocalQrCode !== before) mcpUrlAdapted.value = true
+  }
+}
 
 // MCP 配置 JSON 文本（格式化后的完整结构，供展示/复制）
 const mcpConfigJsonText = computed(() => {

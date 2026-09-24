@@ -1736,6 +1736,7 @@ export default {
     qrCodeLocalTitle: 'Local QR Code',
     qrCodeCloudTitle: 'Cloud QR Code',
     qrCodeHint: 'Scan to get complete MCP config',
+    mcpUrlAdapted: 'HTTPS / port-forwarding detected: the local MCP URL has been auto-adapted to your current access address (scheme and port corrected, no manual edit needed)',
     copyToken: 'Copy Token',
     copyMcpConfigLocal: 'Copy Local MCP Config',
     copyMcpConfigCloud: 'Copy Cloud MCP Config',

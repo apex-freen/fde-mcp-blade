@@ -1733,6 +1733,7 @@ export default {
     qrCodeLocalTitle: '本地二维码',
     qrCodeCloudTitle: '云端二维码',
     qrCodeHint: '扫码即可获取完整 MCP 配置',
+    mcpUrlAdapted: '检测到 HTTPS / 端口转发环境，本地 MCP 地址已按当前访问地址自动适配（协议与端口已修正，无需手工改）',
     copyToken: '复制令牌',
     copyMcpConfigLocal: '复制本地 MCP 配置',
     copyMcpConfigCloud: '复制云端 MCP 配置',
