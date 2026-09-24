@@ -170,7 +170,7 @@ cmd_restore() {
     echo -e "${RED}════════════ 危险操作确认 ════════════${NC}"
     echo "  将用以下备份【覆盖】当前数据:"
     echo "    $file"
-    echo "  覆盖范围: 数据库 $DB_NAME + data/{config,uploads,service-plugins} + .env"
+    echo "  覆盖范围: 数据库 $DB_NAME + .env + data/{config,uploads,service-plugins,service-plugin-configs,skill-lib,knowledge-lib}"
     echo "  恢复前会自动创建一份预备份（pre-restore-*）。"
     echo -e "${RED}═══════════════════════════════════════${NC}"
     read -r -p "确认请输入 YES 后回车: " ans
@@ -188,7 +188,7 @@ cmd_restore() {
     step "解密并解包 ..."
     local tmp
     tmp="$(mktemp -d)"
-    openssl enc -d -aes-256-cbc -pbkdf2 -salt \
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -salt \
         -pass file:"$KEY_FILE" -in "$file" -out "$tmp/pkg.tar.gz"
     mkdir -p "$tmp/unpack"
     tar xzf "$tmp/pkg.tar.gz" -C "$tmp/unpack"
@@ -245,8 +245,9 @@ FDE MCP Blade - 备份 / 恢复工具（简单版 v1）
   - 排除:      data/logs、data/plugins-venv、data/mariadb（可重建/可另存）
 
 解密查看（需要时）:
-  openssl enc -d -aes-256-cbc -pbkdf2 -salt -pass file:./backups/.backup_key \
+  openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -salt -pass file:./backups/.backup_key \
     -in ./backups/apex-backup-xxx.tar.gz.enc -out x.tar.gz && tar tzf x.tar.gz
+  （-iter 100000 必须与加密时一致，否则会报 bad decrypt）
 
 安全提醒:
   .env 与 ./backups/.backup_key 必须与备份文件【分开保管】。

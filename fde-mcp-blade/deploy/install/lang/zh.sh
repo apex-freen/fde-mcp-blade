@@ -12,6 +12,20 @@ LANG_CHINESE="中文 (Chinese)"
 LANG_ENGLISH="英文 (English)"
 LANG_PROMPT_CHOICE="请输入选择 / Enter choice: "
 
+# 镜像来源选择（写入 .env 的 COMPOSE_FILE / PIP_INDEX_URL）
+LANG_SOURCE_TITLE="请选择镜像来源:"
+LANG_SOURCE_CN="国内（阿里云 ACR 镜像 + 阿里云 PyPI 源）"
+LANG_SOURCE_CN_DESC="- 适合国内网络；镜像来自阿里云容器镜像服务（ACR）"
+LANG_SOURCE_GLOBAL="国外（Docker Hub 镜像 + 官方 PyPI 源）"
+LANG_SOURCE_GLOBAL_DESC="- 镜像来自 Docker Hub；国内网络经常拉取不到"
+LANG_SOURCE_SELECTED="已选择镜像来源，后续 compose 命令将使用 %s（已写入 .env）"
+
+# 本机地址确认（写入 .env 的 HOST_HOSTNAME）
+LANG_HOST_TITLE="请确认本机地址:"
+LANG_HOST_DESC="令牌里的本地 MCP 地址会拼成 http://<本机地址>:<端口>/mcp，扫码的客户端必须能访问该地址"
+LANG_HOST_PROMPT="回车用 %s，或输入其它 IP / 主机名: "
+LANG_HOST_SELECTED="本机地址已设为 %s（已写入 .env 的 HOST_HOSTNAME）"
+
 # 部署模式选择
 LANG_MODE_TITLE="请选择部署模式:"
 LANG_MODE_AUTO="自动部署模式（推荐）"
@@ -158,6 +172,8 @@ LANG_HELP_D="  -d, --dir     部署目录（默认: 当前目录）"
 LANG_HELP_Y="  -y, --yes     自动确认所有提示（非交互模式）"
 LANG_HELP_U="  -u, --update  更新模式（跳过配置生成，拉取镜像并重启）"
 LANG_HELP_H="  -h, --help    显示此帮助信息"
+LANG_HELP_SOURCE="      （镜像来源：国内 ACR / 国外 Docker Hub，交互式安装时选择；-y 默认国内）"
+LANG_HELP_HOST="      （本机地址：写入 .env 的 HOST_HOSTNAME，用于令牌/二维码；安装时探测后确认）"
 LANG_HELP_DESIGN="设计原则:"
 LANG_HELP_DESIGN1="  - 最少环境变量，自动生成密码和密钥"
 LANG_HELP_DESIGN2="  - MCP 云配置存储在数据库中，可通过 Web UI 配置"

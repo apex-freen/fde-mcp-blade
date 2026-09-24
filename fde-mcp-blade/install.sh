@@ -36,6 +36,11 @@ AUTO_YES=false
 UPDATE_MODE=false
 LANG_DIR="$SCRIPT_DIR/deploy/install/lang"
 COMPOSE_CMD=""
+# 镜像来源（默认国内：阿里云 ACR 镜像 + 阿里云 PyPI 源；国外为 Docker Hub + 官方 PyPI）
+COMPOSE_FILE_NAME="docker-compose.yml"
+PIP_INDEX_URL_VALUE="https://mirrors.aliyun.com/pypi/simple/"
+# 本机地址（写入 .env 的 HOST_HOSTNAME；由 detect_host_addr 探测后确认）
+HOST_HOSTNAME_VALUE=""
 
 # ── 帮助信息 ──────────────────────────────────────────────
 show_help() {
@@ -48,6 +53,8 @@ show_help() {
     echo -e "${LANG_HELP_Y}"
     echo -e "${LANG_HELP_U}"
     echo -e "${LANG_HELP_H}"
+    echo -e "${LANG_HELP_SOURCE}"
+    echo -e "${LANG_HELP_HOST}"
     echo ""
     echo -e "${YELLOW}${LANG_HELP_DESIGN}${NC}"
     echo -e "${LANG_HELP_DESIGN1}"
@@ -90,6 +97,71 @@ load_language() {
     fi
 }
 
+# ── 镜像来源选择 ──────────────────────────────────────────
+# 选择结果写入 .env 的 COMPOSE_FILE / PIP_INDEX_URL：
+#   - compose 命令会自动读 .env 的 COMPOSE_FILE，故 install.sh -u / ops.sh /
+#     backup.sh / 手工 docker compose 全都跟随本次选择，无需另行指定 -f
+#   - 非交互（-y）不弹菜单，直接采用默认（国内）
+show_source_menu() {
+    if [ "$AUTO_YES" = true ]; then
+        print_info "$(printf "${LANG_SOURCE_SELECTED}" "$COMPOSE_FILE_NAME")"
+        return 0
+    fi
+
+    echo -e "\n${BLUE}${LANG_LINE}${NC}"
+    echo -e "${YELLOW}${LANG_SOURCE_TITLE}${NC}"
+    echo -e "${BLUE}${LANG_LINE}${NC}"
+    echo ""
+    echo "  [1] ${LANG_SOURCE_CN}"
+    echo "      ${LANG_SOURCE_CN_DESC}"
+    echo ""
+    echo "  [2] ${LANG_SOURCE_GLOBAL}"
+    echo "      ${LANG_SOURCE_GLOBAL_DESC}"
+    echo ""
+    read -p "${LANG_PROMPT_CHOICE}" SOURCE_CHOICE
+
+    case "$SOURCE_CHOICE" in
+        1)
+            COMPOSE_FILE_NAME="docker-compose.yml"
+            PIP_INDEX_URL_VALUE="https://mirrors.aliyun.com/pypi/simple/"
+            ;;
+        2)
+            COMPOSE_FILE_NAME="docker-compose_en.yml"
+            PIP_INDEX_URL_VALUE=""
+            ;;
+        *) ;;  # 默认国内（变量初始化处已设定）
+    esac
+    print_info "$(printf "${LANG_SOURCE_SELECTED}" "$COMPOSE_FILE_NAME")"
+}
+
+# ── 本机地址确认 ──────────────────────────────────────────
+# 结果写入 .env 的 HOST_HOSTNAME：令牌里的本地 MCP 地址为
+# http://<本机地址>:<端口>/mcp，客户端（手机/其它电脑）必须能访问到
+#   - 非交互（-y）不弹确认，直接采用探测值
+show_host_menu() {
+    if [ -z "$HOST_HOSTNAME_VALUE" ]; then
+        HOST_HOSTNAME_VALUE=$(detect_host_addr)
+    fi
+
+    if [ "$AUTO_YES" = true ]; then
+        print_info "$(printf "${LANG_HOST_SELECTED}" "$HOST_HOSTNAME_VALUE")"
+        return 0
+    fi
+
+    echo -e "\n${BLUE}${LANG_LINE}${NC}"
+    echo -e "${YELLOW}${LANG_HOST_TITLE}${NC}"
+    echo -e "${BLUE}${LANG_LINE}${NC}"
+    echo ""
+    echo "  ${LANG_HOST_DESC}"
+    echo ""
+    read -p "$(printf "${LANG_HOST_PROMPT}" "$HOST_HOSTNAME_VALUE")" INPUT_HOST
+
+    if [ -n "$INPUT_HOST" ]; then
+        HOST_HOSTNAME_VALUE=$(printf '%s' "$INPUT_HOST" | tr -d '[:space:]')
+    fi
+    print_info "$(printf "${LANG_HOST_SELECTED}" "$HOST_HOSTNAME_VALUE")"
+}
+
 # ── 打印函数 ──────────────────────────────────────────────
 print_info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -103,6 +175,44 @@ get_server_port() {
         port=$(grep -E '^SERVER_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"[:space:]')
     fi
     echo "${port:-8018}"
+}
+
+# ── 探测本机地址 ──────────────────────────────────────────
+# 用途：写入 .env 的 HOST_HOSTNAME —— 令牌里本地 MCP 地址（http://<本机地址>:<端口>/mcp）
+# 的主机部分。容器在 bridge 网络里看不到宿主机网卡，故只能在安装时于宿主机探测。
+# 顺序：默认路由出口网卡的 src 地址 → 全局 IPv4（跳过容器/虚拟网卡）→ hostname -I → 主机名
+detect_host_addr() {
+    local candidate
+
+    # 1) 默认路由出口网卡的 src 地址（只查路由表，不实际联网）
+    if command -v ip &> /dev/null; then
+        candidate=$(ip route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i <= NF; i++) if ($i == "src") {print $(i + 1); exit}}')
+        if [ -n "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    fi
+
+    # 2) 全局 IPv4 里取第一个，跳过 docker/网桥/虚拟网卡与回环
+    if command -v ip &> /dev/null; then
+        candidate=$(ip -4 -o addr show scope global 2>/dev/null | awk '$2 !~ /^(docker|br-|virbr|veth|tun|tap)/ {split($4, a, "/"); if (a[1] !~ /^127\./) {print a[1]; exit}}')
+        if [ -n "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    fi
+
+    # 3) 兜底：hostname -I 的第一个非回环地址
+    for candidate in $(hostname -I 2>/dev/null); do
+        case "$candidate" in
+            127.*) continue ;;
+        esac
+        echo "$candidate"
+        return 0
+    done
+
+    # 4) 最后兜底：主机名
+    hostname 2>/dev/null || echo "localhost"
 }
 
 # ── 端口检查（ss → netstat → lsof 三级降级）───────────────
@@ -300,6 +410,19 @@ pull_images() {
 }
 
 # ── 生成环境变量 ──────────────────────────────────────────
+# ── 安全写入/覆盖 .env 中的键值 ────────────────────────────
+# 值里可能含 / & \ |（如 base64 的 JWT 密钥、mysql:// 连接串），
+# 故用 | 作分隔符并对替换段特殊字符转义，避免 sed 报“s 的未知选项”
+set_env_value() {
+    local key="$1" val="$2" esc
+    esc=$(printf '%s' "$val" | sed -e 's/[\\&|]/\\&/g')
+    if grep -q "^${key}=" .env 2>/dev/null; then
+        sed -i "s|^${key}=.*|${key}=\"${esc}\"|" .env
+    else
+        printf '%s="%s"\n' "$key" "$val" >> .env
+    fi
+}
+
 generate_env() {
     echo -e "\n${YELLOW}${LANG_GEN_CONFIG}${NC}"
 
@@ -330,10 +453,16 @@ generate_env() {
 
     cat .env_ > .env
 
-    sed -i "s/MARIADB_ROOT_PASSWORD=\"your-root-password\"/MARIADB_ROOT_PASSWORD=\"$MARIADB_ROOT_PASSWORD\"/g" .env
-    sed -i "s/MARIADB_PASSWORD=\"your-gis-remote-password\"/MARIADB_PASSWORD=\"$MARIADB_PASSWORD\"/g" .env
-    sed -i "s/JWT_SECRET=\"your-super-secret-key-that-is-at-least-32-bytes-long\"/JWT_SECRET=\"$JWT_SECRET\"/g" .env
-    sed -i "s/WIRELESS_IFACE=\"\"/WIRELESS_IFACE=\"$WIRELESS_IFACE_DETECTED\"/g" .env
+    set_env_value MARIADB_ROOT_PASSWORD "$MARIADB_ROOT_PASSWORD"
+    set_env_value MARIADB_PASSWORD "$MARIADB_PASSWORD"
+    set_env_value JWT_SECRET "$JWT_SECRET"
+    set_env_value COMPOSE_FILE "$COMPOSE_FILE_NAME"
+    set_env_value PIP_INDEX_URL "$PIP_INDEX_URL_VALUE"
+    set_env_value HOST_HOSTNAME "$HOST_HOSTNAME_VALUE"
+    # 无线网卡检测已停用；仅当确有检测结果时才写入
+    if [ -n "${WIRELESS_IFACE_DETECTED:-}" ]; then
+        set_env_value WIRELESS_IFACE "$WIRELESS_IFACE_DETECTED"
+    fi
 
     export MARIADB_ROOT_PASSWORD MARIADB_PASSWORD JWT_SECRET WIRELESS_IFACE_DETECTED
 }
@@ -357,11 +486,16 @@ generate_env_manual() {
 
     cat .env_ > .env
 
-    sed -i "s/^# DATABASE_URL=/DATABASE_URL=\"$DATABASE_URL\"/g" .env
-    sed -i "s/MARIADB_ROOT_PASSWORD=\"your-root-password\"/MARIADB_ROOT_PASSWORD=\"$(generate_password)\"/g" .env
-    sed -i "s/MARIADB_PASSWORD=\"your-gis-remote-password\"/MARIADB_PASSWORD=\"$DB_PASS\"/g" .env
-    sed -i "s/JWT_SECRET=\"your-super-secret-key-that-is-at-least-32-bytes-long\"/JWT_SECRET=\"$JWT_SECRET\"/g" .env
-    sed -i "s/WIRELESS_IFACE=\"\"/WIRELESS_IFACE=\"$WIRELESS_IFACE_DETECTED\"/g" .env
+    set_env_value DATABASE_URL "$DATABASE_URL"
+    set_env_value MARIADB_ROOT_PASSWORD "$(generate_password)"
+    set_env_value MARIADB_PASSWORD "$DB_PASS"
+    set_env_value JWT_SECRET "$JWT_SECRET"
+    set_env_value COMPOSE_FILE "$COMPOSE_FILE_NAME"
+    set_env_value PIP_INDEX_URL "$PIP_INDEX_URL_VALUE"
+    set_env_value HOST_HOSTNAME "$HOST_HOSTNAME_VALUE"
+    if [ -n "${WIRELESS_IFACE_DETECTED:-}" ]; then
+        set_env_value WIRELESS_IFACE "$WIRELESS_IFACE_DETECTED"
+    fi
 
     export DB_HOST DB_PORT DB_NAME DB_USER DB_PASS JWT_SECRET WIRELESS_IFACE_DETECTED
 }
@@ -471,7 +605,8 @@ health_check() {
 # ── 部署结果展示 ──────────────────────────────────────────
 show_install_complete() {
     local MODE="$1"
-    local SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+    # 与 .env 的 HOST_HOSTNAME 保持同一口径（令牌/二维码里的地址也是它）
+    local SERVER_HOST="${HOST_HOSTNAME_VALUE:-$(detect_host_addr)}"
 
     echo -e "\n${GREEN}${LANG_LINE}${NC}"
     echo -e "${GREEN}  ${LANG_INSTALL_COMPLETE}${NC}"
@@ -503,7 +638,7 @@ show_install_complete() {
     echo -e "${LANG_CONFIG_SAVED}"
     echo -e "${LANG_CONFIG_MODIFY_TIP}"
     echo ""
-    echo -e "${LANG_ACCESS_URL}: ${GREEN}http://${SERVER_IP}:$(get_server_port)${NC}"
+    echo -e "${LANG_ACCESS_URL}: ${GREEN}http://${SERVER_HOST}:$(get_server_port)${NC}"
     echo ""
 
     echo -e "${CYAN}${LANG_NEXT_STEPS}${NC}"
@@ -516,7 +651,7 @@ show_install_complete() {
     echo -e "${CYAN}${LANG_COMMON_COMMANDS}${NC}"
     echo -e "  ${LANG_CMD_STATUS}:  ${BLUE}$COMPOSE_CMD ps${NC}"
     echo -e "  ${LANG_CMD_LOGS}:    ${BLUE}$COMPOSE_CMD logs -f${NC}"
-    echo -e "  ${LANG_CMD_STOP}:     ${BLUE}$COMPOSE_CMD down${NC}"
+    echo -e "  ${LANG_CMD_STOP}:     ${BLUE}$COMPOSE_CMD stop${NC}"
     echo -e "  ${LANG_CMD_RESTART}: ${BLUE}$COMPOSE_CMD restart${NC}"
     echo -e "  ${LANG_CMD_UPDATE}:   ${BLUE}$0 -u${NC}"
     echo ""
@@ -667,8 +802,10 @@ main() {
         exit 0
     fi
 
-    # 语言选择 → 部署模式选择
+    # 语言选择 → 镜像来源选择 → 本机地址确认 → 部署模式选择
     show_language_menu
+    show_source_menu
+    show_host_menu
     show_mode_menu
 }
 

@@ -8,9 +8,23 @@ LANG_LINE="=========================================="
 
 # Language selection
 LANG_SELECT_TITLE="Please select installation language:"
-LANG_CHINESE="\u4e2d\u6587 (Chinese)"
+LANG_CHINESE="中文 (Chinese)"
 LANG_ENGLISH="English"
 LANG_PROMPT_CHOICE="Enter choice: "
+
+# Image source selection (written to .env as COMPOSE_FILE / PIP_INDEX_URL)
+LANG_SOURCE_TITLE="Please select image source:"
+LANG_SOURCE_CN="China (Alibaba Cloud ACR image + Aliyun PyPI mirror)"
+LANG_SOURCE_CN_DESC="- For networks in mainland China; image served from Alibaba Cloud ACR"
+LANG_SOURCE_GLOBAL="Global (Docker Hub image + official PyPI)"
+LANG_SOURCE_GLOBAL_DESC="- Image served from Docker Hub; often unreachable from mainland China"
+LANG_SOURCE_SELECTED="Image source selected, compose commands will use %s (saved to .env)"
+
+# Host address confirmation (written to .env as HOST_HOSTNAME)
+LANG_HOST_TITLE="Confirm this host's address:"
+LANG_HOST_DESC="The token's local MCP URL is built as http://<host>:<port>/mcp — the scanning client must be able to reach this address"
+LANG_HOST_PROMPT="Press Enter to use %s, or type another IP / hostname: "
+LANG_HOST_SELECTED="Host address set to %s (saved to .env as HOST_HOSTNAME)"
 
 # Deployment mode selection
 LANG_MODE_TITLE="Please select deployment mode:"
@@ -35,8 +49,8 @@ LANG_CHECK_DOCKER="Checking Docker..."
 LANG_CHECK_DOCKER_RUNNING="Checking if Docker daemon is running..."
 LANG_CHECK_DOCKER_COMPOSE="Checking Docker Compose..."
 LANG_CHECK_PORT="Checking port {port}..."
-LANG_CHECK_PASS="\u2713 Passed"
-LANG_CHECK_FAIL="\u2717 Failed"
+LANG_CHECK_PASS="✓ Passed"
+LANG_CHECK_FAIL="✗ Failed"
 LANG_DOCKER_NOT_INSTALLED="Docker is not installed, please install Docker first"
 LANG_DOCKER_NOT_RUNNING="Docker daemon is not running"
 LANG_DOCKER_COMPOSE_NOT_INSTALLED="Docker Compose is not installed, please install first"
@@ -80,8 +94,8 @@ LANG_DB_PASSWORD="Enter password: "
 
 # Database validation
 LANG_DB_VALIDATE="Validating database connection..."
-LANG_DB_CONNECT_SUCCESS="\u2713 Database connection successful"
-LANG_DB_CONNECT_FAIL="\u2717 Database connection failed, please check configuration"
+LANG_DB_CONNECT_SUCCESS="✓ Database connection successful"
+LANG_DB_CONNECT_FAIL="✗ Database connection failed, please check configuration"
 
 # SQL import (manual mode)
 LANG_SQL_IMPORT_TITLE="Auto import SQL scripts?"
@@ -89,19 +103,19 @@ LANG_SQL_IMPORT_YES="Yes (Y)"
 LANG_SQL_IMPORT_NO="No (N)"
 LANG_SQL_IMPORT_PROMPT="Enter choice [Y/n]: "
 LANG_SQL_IMPORTING="Importing SQL scripts..."
-LANG_SQL_IMPORT_SUCCESS="\u2713 SQL scripts imported successfully"
+LANG_SQL_IMPORT_SUCCESS="✓ SQL scripts imported successfully"
 LANG_SQL_IMPORT_MANUAL="Please import SQL scripts manually:"
 
 # Service start
 LANG_START_SERVICE="Starting services..."
 LANG_START_WAIT="Waiting for services to start..."
-LANG_START_SUCCESS="\u2713 Services started successfully"
-LANG_START_FAIL="\u2717 Failed to start services"
+LANG_START_SUCCESS="✓ Services started successfully"
+LANG_START_FAIL="✗ Failed to start services"
 
 # Health check
 LANG_HEALTH_CHECK="Performing health check..."
-LANG_HEALTH_SUCCESS="\u2713 Health check passed"
-LANG_HEALTH_FAIL="\u2717 Health check failed"
+LANG_HEALTH_SUCCESS="✓ Health check passed"
+LANG_HEALTH_FAIL="✗ Health check failed"
 LANG_HEALTH_TIMEOUT="Health check timed out, please check logs"
 
 # Installation complete
@@ -158,6 +172,8 @@ LANG_HELP_D="  -d, --dir     Deployment directory (default: current directory)"
 LANG_HELP_Y="  -y, --yes     Auto-confirm all prompts (non-interactive mode)"
 LANG_HELP_U="  -u, --update  Update mode (skip config generation, pull images and restart)"
 LANG_HELP_H="  -h, --help    Show this help message"
+LANG_HELP_SOURCE="      Image source (China ACR / Global Docker Hub) is chosen interactively; -y defaults to China"
+LANG_HELP_HOST="      Host address (HOST_HOSTNAME in .env) is detected and confirmed interactively; used in tokens / QR codes"
 LANG_HELP_DESIGN="Design principles:"
 LANG_HELP_DESIGN1="  - Minimal environment variables, auto-generate passwords and keys"
 LANG_HELP_DESIGN2="  - MCP cloud configuration is stored in database, configurable via Web UI"

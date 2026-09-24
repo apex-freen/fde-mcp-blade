@@ -1,14 +1,15 @@
 # ============================================================
-# FDE MCP Blade —— Docker Compose 部署（对外发布版）
+# FDE MCP Blade —— Docker Compose 部署（国内编排）
 #
-# 镜像：Docker Hub（公开）  apexf/fde-mcp-blade
+# 镜像：阿里云 ACR（公开）  crpi-...cn-shanghai.personal.cr.aliyuncs.com/fde-mcp-blade/fde-mcp-blade
 # 依赖：仅 MariaDB（已内置在本文件中，无需另外准备 Redis / 消息队列等）
 # 启动：docker compose up -d
 # 说明：JWT_SECRET 必须设置，否则容器启动即退出（安全设计）
+# 说明：海外网络请改用 docker-compose_en.yml（Docker Hub 镜像 + 官方 PyPI 源）
 # ============================================================
 services:
   fde-mcp-blade:
-    image: apexf/fde-mcp-blade:latest
+    image: crpi-qlruqqugcjs2bo3w.cn-shanghai.personal.cr.aliyuncs.com/fde-mcp-blade/fde-mcp-blade:latest
     container_name: fde-mcp-blade
     hostname: fde-mcp-blade
     restart: unless-stopped
@@ -39,8 +40,10 @@ services:
 
       # 容器模式
       - RUNNING_IN_DOCKER=true
-      # 宿主机信息（hostname 或 IP，用于令牌签发/二维码地址）
-      - HOST_HOSTNAME=${HOSTNAME:-}
+      # 宿主机地址（IP 或主机名）：令牌里本地 MCP 地址的主机部分，会写进二维码
+      # 优先取 .env 的 HOST_HOSTNAME（install.sh 会探测并确认后写入），
+      # 留空则退回运行 compose 时的环境变量 HOSTNAME
+      - HOST_HOSTNAME=${HOST_HOSTNAME:-${HOSTNAME:-}}
 
     volumes:
       # 配置（JWT_SECRET 等持久化）

@@ -5,8 +5,8 @@ LANG_TITLE="FDE MCP Blade - Ops Tool"
 LANG_LINE="=========================================="
 
 # Language selection
-LANG_SELECT_TITLE="Select language / \u8bf7\u9009\u62e9\u8bed\u8a00:"
-LANG_CHINESE="\u4e2d\u6587 (Chinese)"
+LANG_SELECT_TITLE="Select language / 请选择语言:"
+LANG_CHINESE="中文 (Chinese)"
 LANG_ENGLISH="English"
 LANG_PROMPT_CHOICE="Enter choice: "
 

@@ -1,10 +1,12 @@
 # ============================================================
-# FDE MCP Blade — Docker Compose deployment (public release)
+# FDE MCP Blade — Docker Compose deployment (global)
 #
 # Image: Docker Hub (public)  apexf/fde-mcp-blade
 # Dependencies: MariaDB only (bundled in this file; no Redis / message queue needed)
 # Start: docker compose up -d
 # Note: JWT_SECRET is required — the container exits immediately without it (by design)
+# Note: on networks in mainland China use docker-compose.yml instead (Alibaba Cloud ACR image) —
+#       Docker Hub is often unreachable there.
 # ============================================================
 services:
   fde-mcp-blade:
@@ -34,10 +36,15 @@ services:
       # Generate with: openssl rand -base64 32
       - JWT_SECRET=${JWT_SECRET:-}
 
+      # PyPI index for plugin dependencies (empty = official PyPI; set a mirror if needed)
+      - PIP_INDEX_URL=${PIP_INDEX_URL:-}
+
       # Container mode
       - RUNNING_IN_DOCKER=true
-      # Host info (hostname or IP, used for token issuing / QR code address)
-      - HOST_HOSTNAME=${HOSTNAME:-}
+      # Host address (IP or hostname): host part of the token's local MCP URL / QR code
+      # Prefers HOST_HOSTNAME in .env (detected and confirmed by install.sh);
+      # falls back to this shell's HOSTNAME when empty
+      - HOST_HOSTNAME=${HOST_HOSTNAME:-${HOSTNAME:-}}
 
     volumes:
       # Runtime config (JWT etc.)
