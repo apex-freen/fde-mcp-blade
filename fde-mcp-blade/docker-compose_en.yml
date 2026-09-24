@@ -1,0 +1,87 @@
+# ============================================================
+# FDE MCP Blade — Docker Compose deployment (public release)
+#
+# Image: Docker Hub (public)  apexf/fde-mcp-blade
+# Dependencies: MariaDB only (bundled in this file; no Redis / message queue needed)
+# Start: docker compose up -d
+# Note: JWT_SECRET is required — the container exits immediately without it (by design)
+# ============================================================
+services:
+  fde-mcp-blade:
+    image: apexf/fde-mcp-blade:latest
+    container_name: fde-mcp-blade
+    hostname: fde-mcp-blade
+    restart: unless-stopped
+
+    # Port mapping
+    ports:
+      # Web console + business APIs + MCP endpoint + health check all share this port
+      - "${SERVER_PORT:-8018}:${SERVER_PORT:-8018}"
+      # Embedded MQTT broker (only needed when MQTT hardware devices are present)
+      - "${MQTT_PORT:-1883}:1883"
+
+    # Startup dependency: wait for MariaDB health check
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    environment:
+      # Server port (default 8018, avoids clashing with host port 80)
+      - SERVER_PORT=${SERVER_PORT:-8018}
+
+      # Database (bridge network, access via service name "mariadb")
+      - DATABASE_URL=mysql://${MARIADB_USER:-apex_remote}:${MARIADB_PASSWORD:-Apex1234}@mariadb:3306/apex_db
+
+      # JWT signing secret (REQUIRED — the container exits immediately if empty)
+      # Generate with: openssl rand -base64 32
+      - JWT_SECRET=${JWT_SECRET:-}
+
+      # Container mode
+      - RUNNING_IN_DOCKER=true
+      # Host info (hostname or IP, used for token issuing / QR code address)
+      - HOST_HOSTNAME=${HOSTNAME:-}
+
+    volumes:
+      # Runtime config (JWT etc.)
+      - ./data/config:/app/config
+      # Logs
+      - ./data/logs:/app/logs
+      # Uploaded files
+      - ./data/uploads:/app/uploads
+      # Frontend pages (seeded from the image template on first start; replaced files take effect on reload)
+      - ./data/web:/app/web
+      # Plugins
+      - ./data/service-plugins:/app/service_plugins
+      # Plugin instance configs (per-deployment data, kept out of the plugin package)
+      - ./data/service-plugin-configs:/app/service_plugins_configs
+      # Plugin Python dependencies
+      - ./data/plugins-venv:/app/.plugins-venv
+      # Skill library (users may add/remove skills: skill_lib/user_<uid>/<skill-name>/SKILL.md, scanned live)
+      - ./data/skill-lib:/app/skill_lib
+      # Built-in knowledge documents (drop *.md into knowledge_lib/system/, then POST /biz/gis_vector/sync_system)
+      - ./data/knowledge-lib:/app/knowledge_lib
+      # Local vector-search models (optional: large, not shipped in the image; uncomment and place files yourself)
+      # - ./data/models:/app/models
+
+  # ============== Built-in MariaDB ==============
+  mariadb:
+    image: mariadb:11
+    container_name: fde-mcp-blade-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-Apex1234}
+      MARIADB_DATABASE: apex_db
+      MARIADB_USER: ${MARIADB_USER:-apex_remote}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-Apex1234}
+      MARIADB_ROOT_HOST: '%'
+      MARIADB_CHARACTER_SET: utf8mb4
+      MARIADB_COLLATE: utf8mb4_unicode_ci
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+    # No host port needed: the app container reaches it via the service name "mariadb:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

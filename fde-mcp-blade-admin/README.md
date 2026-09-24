@@ -94,4 +94,4 @@ npm run preview      # 预览构建产物
 
 ## 许可
 
-见 [LICENSE](./LICENSE)（如有）。
+见仓库根目录 [LICENSE](../LICENSE)（Apache 2.0）。

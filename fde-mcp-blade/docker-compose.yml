@@ -1,0 +1,90 @@
+# ============================================================
+# FDE MCP Blade —— Docker Compose 部署（对外发布版）
+#
+# 镜像：Docker Hub（公开）  apexf/fde-mcp-blade
+# 依赖：仅 MariaDB（已内置在本文件中，无需另外准备 Redis / 消息队列等）
+# 启动：docker compose up -d
+# 说明：JWT_SECRET 必须设置，否则容器启动即退出（安全设计）
+# ============================================================
+services:
+  fde-mcp-blade:
+    image: apexf/fde-mcp-blade:latest
+    container_name: fde-mcp-blade
+    hostname: fde-mcp-blade
+    restart: unless-stopped
+
+    # 端口映射
+    ports:
+      # Web 管理台 + 业务接口 + MCP 端点 + 健康检查，全都在这个端口
+      - "${SERVER_PORT:-8018}:${SERVER_PORT:-8018}"
+      # 内嵌 MQTT Broker（现场有 MQTT 硬件设备时才需要）
+      - "${MQTT_PORT:-1883}:1883"
+
+    # 启动依赖：等待 MariaDB 健康检查通过
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    environment:
+      # 服务器端口（默认 8018，避免与宿主机 80 冲突）
+      - SERVER_PORT=${SERVER_PORT:-8018}
+
+      # 数据库（bridge 网络下通过服务名 mariadb 访问）
+      - DATABASE_URL=mysql://${MARIADB_USER:-apex_remote}:${MARIADB_PASSWORD:-Apex1234}@mariadb:3306/apex_db
+
+      # JWT 签名密钥（必填！留空容器会直接退出）
+      # 生成：openssl rand -base64 32
+      - JWT_SECRET=${JWT_SECRET:-}
+
+      # PyPI 镜像源（国内使用阿里云加速；海外可删除本行）
+      - PIP_INDEX_URL=${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+
+      # 容器模式
+      - RUNNING_IN_DOCKER=true
+      # 宿主机信息（hostname 或 IP，用于令牌签发/二维码地址）
+      - HOST_HOSTNAME=${HOSTNAME:-}
+
+    volumes:
+      # 配置（JWT_SECRET 等持久化）
+      - ./data/config:/app/config
+      # 日志
+      - ./data/logs:/app/logs
+      # 上传文件
+      - ./data/uploads:/app/uploads
+      # 前端页面（首次启动自动从镜像模板 seed；替换文件后刷新即生效，无需重启）
+      - ./data/web:/app/web
+      # 插件
+      - ./data/service-plugins:/app/service_plugins
+      # 插件实例配置（每个部署/客户自己的配置，与插件包分离；不入库）
+      - ./data/service-plugin-configs:/app/service_plugins_configs
+      # 插件依赖
+      - ./data/plugins-venv:/app/.plugins-venv
+      # 系统技能库（用户可自助增删技能：skill_lib/user_<uid>/<技能名>/SKILL.md，目录实时扫描）
+      - ./data/skill-lib:/app/skill_lib
+      # 内置知识库文档（放入 knowledge_lib/system/*.md 后调 POST /biz/gis_vector/sync_system 生效）
+      - ./data/knowledge-lib:/app/knowledge_lib
+      # 本地向量检索模型（可选：体积大且不打进镜像，需要时取消注释并自行放置模型文件）
+      # - ./data/models:/app/models
+
+  # ============== 内置 MariaDB ==============
+  mariadb:
+    image: mariadb:11
+    container_name: fde-mcp-blade-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-Apex1234}
+      MARIADB_DATABASE: apex_db
+      MARIADB_USER: ${MARIADB_USER:-apex_remote}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-Apex1234}
+      MARIADB_ROOT_HOST: '%'
+      MARIADB_CHARACTER_SET: utf8mb4
+      MARIADB_COLLATE: utf8mb4_unicode_ci
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+    # 数据库不需要对外暴露端口：应用容器通过服务名 mariadb:3306 访问
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

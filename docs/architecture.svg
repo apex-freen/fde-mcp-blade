@@ -1,0 +1,46 @@
+<svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, Segoe UI, sans-serif">
+  <!-- Layer 1: Agents -->
+  <text x="20" y="28" font-size="13" font-weight="800" fill="#7B61FF">Layer 1</text>
+  <text x="96" y="28" font-size="12.5" fill="#4E5969">Agent 层 —— “AI 怎么想”归智能体平台，Blade 不做推理编排</text>
+  <rect x="20" y="40" width="920" height="60" rx="10" fill="#F1EDFF" stroke="#7B61FF" stroke-width="1.2"/>
+  <g font-size="12.5" font-weight="700" fill="#4B3BC9" text-anchor="middle">
+    <rect x="48"  y="56" width="96" height="28" rx="6" fill="#fff"/><text x="96"  y="75">Claude</text>
+    <rect x="160" y="56" width="96" height="28" rx="6" fill="#fff"/><text x="208" y="75">Cursor</text>
+    <rect x="272" y="56" width="96" height="28" rx="6" fill="#fff"/><text x="320" y="75">Coze 扣子</text>
+    <rect x="384" y="56" width="96" height="28" rx="6" fill="#fff"/><text x="432" y="75">Dify</text>
+    <rect x="496" y="56" width="96" height="28" rx="6" fill="#fff"/><text x="544" y="75">TRAE</text>
+    <rect x="608" y="56" width="106" height="28" rx="6" fill="#fff"/><text x="661" y="75">WorkBuddy</text>
+    <rect x="730" y="56" width="96" height="28" rx="6" fill="#fff"/><text x="778" y="75">文心</text>
+    <rect x="842" y="56" width="96" height="28" rx="6" fill="#fff"/><text x="890" y="75">自研 Agent</text>
+  </g>
+
+  <line x1="480" y1="100" x2="480" y2="122" stroke="#86909C" stroke-width="2"/>
+  <polygon points="480,130 474,118 486,118" fill="#86909C"/>
+  <text x="498" y="120" font-size="12" font-weight="700" fill="#4D7CFE">MCP 标准协议 · Streamable HTTP · 平台无关（2025-11-25 / 2026-07-28 双版本）</text>
+
+  <!-- Layer 2: Blade -->
+  <text x="20" y="158" font-size="13" font-weight="800" fill="#2B4FBD">Layer 2</text>
+  <text x="96" y="158" font-size="12.5" fill="#4E5969">桥接引擎 = <tspan font-weight="800">FDE MCP Blade</tspan>（本产品 · Rust 单二进制 · 同进程托管管理台）</text>
+  <rect x="20" y="170" width="920" height="112" rx="10" fill="#EBF1FF" stroke="#4D7CFE" stroke-width="1.6"/>
+  <rect x="40" y="186" width="880" height="32" rx="7" fill="#4D7CFE"/>
+  <text x="480" y="207" text-anchor="middle" font-size="13.5" font-weight="800" fill="#fff">MCP 统一工具入口 ·  :8018/mcp ·  令牌鉴权（签发一次展示 / 可撤销 / 按令牌收敛可见性）</text>
+  <g font-size="12" font-weight="700" fill="#2B4FBD" text-anchor="middle">
+    <rect x="40" y="230" width="167" height="40" rx="7" fill="#fff"/><text x="123" y="247">五重安全</text><text x="123" y="263" font-size="10.5" font-weight="400" fill="#86909C">鉴权·权限·时效·防绕过·频控</text>
+    <rect x="219" y="230" width="167" height="40" rx="7" fill="#fff"/><text x="302" y="247">凭证分离</text><text x="302" y="263" font-size="10.5" font-weight="400" fill="#86909C">密钥托管，不下发 Agent</text>
+    <rect x="398" y="230" width="167" height="40" rx="7" fill="#fff"/><text x="481" y="247">全链路审计</text><text x="481" y="263" font-size="10.5" font-weight="400" fill="#86909C">4 类留痕·重放·告警·导出</text>
+    <rect x="577" y="230" width="167" height="40" rx="7" fill="#fff"/><text x="660" y="247">RBAC + PII 脱敏</text><text x="660" y="263" font-size="10.5" font-weight="400" fill="#86909C">部门隔离·敏感字段脱敏</text>
+    <rect x="756" y="230" width="164" height="40" rx="7" fill="#fff"/><text x="838" y="247">知识 + 技能 + 影子演练</text><text x="838" y="263" font-size="10.5" font-weight="400" fill="#86909C">SKILL·向量库·预演</text>
+  </g>
+
+  <line x1="480" y1="282" x2="480" y2="304" stroke="#86909C" stroke-width="2"/>
+  <polygon points="480,312 474,300 486,300" fill="#86909C"/>
+  <text x="498" y="302" font-size="12" font-weight="700" fill="#00B8A9">插件引擎 · 装插件 = 接系统 · OpenAPI 转 MCP Server</text>
+
+  <!-- Layer 3: Plugins -->
+  <text x="20" y="336" font-size="13" font-weight="800" fill="#00B8A9">Layer 3</text>
+  <text x="96" y="336" font-size="12.5" fill="#4E5969">插件层 —— 不改客户存量系统</text>
+  <rect x="20" y="346" width="920" height="42" rx="10" fill="#E4F7F5" stroke="#00B8A9" stroke-width="1.2"/>
+  <g font-size="12" font-weight="700" fill="#00796F" text-anchor="middle">
+    <text x="76"  y="372">飞书</text><text x="156" y="372">钉钉</text><text x="236" y="372">企微</text><text x="316" y="372">MES</text><text x="396" y="372">ERP</text><text x="476" y="372">CRM</text><text x="556" y="372">数据库</text><text x="644" y="372">RPA</text><text x="732" y="372">MQTT 设备</text><text x="836" y="372">自研系统</text>
+  </g>
+</svg>
