@@ -17,8 +17,6 @@ services:
     ports:
       # Web console + business APIs + MCP endpoint + health check all share this port
       - "${SERVER_PORT:-8018}:${SERVER_PORT:-8018}"
-      # Embedded MQTT broker (only needed when MQTT hardware devices are present)
-      - "${MQTT_PORT:-1883}:1883"
 
     # Startup dependency: wait for MariaDB health check
     depends_on:
@@ -60,8 +58,6 @@ services:
       - ./data/skill-lib:/app/skill_lib
       # Built-in knowledge documents (drop *.md into knowledge_lib/system/, then POST /biz/gis_vector/sync_system)
       - ./data/knowledge-lib:/app/knowledge_lib
-      # Local vector-search models (optional: large, not shipped in the image; uncomment and place files yourself)
-      # - ./data/models:/app/models
 
   # ============== Built-in MariaDB ==============
   mariadb:

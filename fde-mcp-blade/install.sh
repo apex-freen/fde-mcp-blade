@@ -90,18 +90,20 @@ load_language() {
     fi
 }
 
-# ── 读取 .env 中的 SERVER_PORT（默认 8018）─────────────────
-server_port() {
-    local p
-    p=$(grep -E '^SERVER_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"[:space:]')
-    echo "${p:-8018}"
-}
-
 # ── 打印函数 ──────────────────────────────────────────────
 print_info()  { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[OK]${NC} $1"; }
 print_warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# ── 读取应用端口（优先 .env 的 SERVER_PORT，缺省 8018，与 docker-compose.yml 默认一致）──
+get_server_port() {
+    local port=""
+    if [ -f .env ]; then
+        port=$(grep -E '^SERVER_PORT=' .env 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '"[:space:]')
+    fi
+    echo "${port:-8018}"
+}
 
 # ── 端口检查（ss → netstat → lsof 三级降级）───────────────
 check_port() {
@@ -126,11 +128,11 @@ check_port() {
     fi
 
     if [ "$in_use" = true ]; then
-        print_error "${LANG_PORT_OCCUPIED}"
+        print_error "${LANG_PORT_OCCUPIED//\{port\}/$port}"
         echo -e "${YELLOW}  解决方式：停止占用端口的服务，或修改 .env 中的 SERVER_PORT${NC}"
         return 1
     fi
-    print_success "${LANG_CHECK_PORT}"
+    print_success "${LANG_CHECK_PORT//\{port\}/$port}"
     return 0
 }
 
@@ -167,8 +169,8 @@ check_environment() {
         exit 1
     fi
 
-    # 检查端口（默认 8018，可在 .env 中改 SERVER_PORT）
-    check_port 8018 || exit 1
+    # 检查应用端口（.env 的 SERVER_PORT，缺省 8018）
+    check_port "$(get_server_port)" || exit 1
 }
 
 # ── 安装 iw 工具 ──────────────────────────────────────────
@@ -450,10 +452,10 @@ health_check() {
 
     local MAX_WAIT=60
     local WAIT_COUNT=0
-    local PORT=$(server_port)
+    local port=$(get_server_port)
 
     while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-        if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/health" | grep -q "200"; then
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:${port}/health | grep -q "200"; then
             print_success "${LANG_HEALTH_SUCCESS}"
             return 0
         fi
@@ -501,7 +503,7 @@ show_install_complete() {
     echo -e "${LANG_CONFIG_SAVED}"
     echo -e "${LANG_CONFIG_MODIFY_TIP}"
     echo ""
-    echo -e "${LANG_ACCESS_URL}: ${GREEN}http://${SERVER_IP}:$(server_port)${NC}"
+    echo -e "${LANG_ACCESS_URL}: ${GREEN}http://${SERVER_IP}:$(get_server_port)${NC}"
     echo ""
 
     echo -e "${CYAN}${LANG_NEXT_STEPS}${NC}"
@@ -555,7 +557,7 @@ deploy_auto() {
     print_info "${LANG_TIP_AUTO_MODE}"
 
     check_environment
-    # 【对外发布版】无线网卡(AP 模式)检测已去掉：容器镜像内 host-management 功能已禁用，此处不再调用
+    # 无线网卡(AP 模式)检测已停用：镜像内 host-management 功能已禁用，此处不再调用
     # detect_wireless_iface
     generate_env
     pull_images
@@ -574,7 +576,8 @@ deploy_manual() {
     print_info "${LANG_TIP_MANUAL_MODE}"
 
     check_environment
-    # 【对外发布版】同上：不再调用 detect_wireless_iface
+    # 同上：不再调用 detect_wireless_iface
+    # detect_wireless_iface
     generate_env_manual
 
     if ! validate_database; then

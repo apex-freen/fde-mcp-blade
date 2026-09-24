@@ -17,8 +17,6 @@ services:
     ports:
       # Web 管理台 + 业务接口 + MCP 端点 + 健康检查，全都在这个端口
       - "${SERVER_PORT:-8018}:${SERVER_PORT:-8018}"
-      # 内嵌 MQTT Broker（现场有 MQTT 硬件设备时才需要）
-      - "${MQTT_PORT:-1883}:1883"
 
     # 启动依赖：等待 MariaDB 健康检查通过
     depends_on:
@@ -63,8 +61,6 @@ services:
       - ./data/skill-lib:/app/skill_lib
       # 内置知识库文档（放入 knowledge_lib/system/*.md 后调 POST /biz/gis_vector/sync_system 生效）
       - ./data/knowledge-lib:/app/knowledge_lib
-      # 本地向量检索模型（可选：体积大且不打进镜像，需要时取消注释并自行放置模型文件）
-      # - ./data/models:/app/models
 
   # ============== 内置 MariaDB ==============
   mariadb:
