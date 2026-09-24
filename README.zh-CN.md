@@ -8,6 +8,7 @@
 [![Docker](https://img.shields.io/badge/Docker-amd64-2496ED?logo=docker&logoColor=white)](./fde-mcp-blade)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25_·_2026--07--28-7B61FF)](https://modelcontextprotocol.io)
 [![Vue](https://img.shields.io/badge/Vue-3.4-42B883?logo=vuedotjs&logoColor=white)](./fde-mcp-blade-admin)
+[![在线体验](https://img.shields.io/badge/在线体验-fde.agent--plat.com-00B8A9?logo=googlechrome&logoColor=white)](https://fde.agent-plat.com)
 [![QQ 群](https://img.shields.io/badge/QQ群-882419824-EB1923?logo=tencentqq&logoColor=white)](#反馈与内测邀请)
 
 [English](./README.md) | **中文**
@@ -17,6 +18,8 @@
 ---
 
 > **一句话定位**：把企业内系统收敛为**统一的 MCP 工具入口**，让任何平台的 AI Agent 在既定权限与审计约束下调用企业能力——数据不出内网，操作全留痕，不锁定任何智能体平台。
+
+> 🌍 **在线体验**：<https://fde.agent-plat.com>（演示账号 `admin / admin123`，数据为演示数据，请勿存敏感信息）
 
 市面上的平台负责"让 AI 聪明"，Blade 负责"让 AI 能进企业、进得安全、用得放心"。它不做推理编排、不托管大模型，卡位在技术爆炸之下最可沉淀的那一层：**工具提供层**。
 
@@ -38,6 +41,16 @@
 | 技能库 | 向量知识库 |
 |---|---|
 | ![技能库](docs/screenshots/page-skill.png) | ![向量知识库](docs/screenshots/page-vector.png) |
+
+### 数据大屏（真实调用数据驱动）
+
+| 价值报告 | 成本面板 |
+|---|---|
+| ![价值报告](docs/screenshots/screen-report.jpg) | ![成本面板](docs/screenshots/screen-cost.jpg) |
+
+| FDE 落地价值 |
+|---|
+| ![FDE 落地价值](docs/screenshots/screen-fde.jpg) |
 
 ## 架构
 
@@ -157,6 +170,7 @@ fde-mcp-blade/
 
 | 渠道 | |
 |---|---|
+| 在线体验 | <https://fde.agent-plat.com>（演示账号 `admin / admin123`） |
 | QQ 群 | `882419824`（开发者交流群，响应及时，无 SLA 承诺） |
 | 邮箱 | `448004147@qq.com` |
 | Gitee | <https://gitee.com/freen/fde-mcp-blade> |

@@ -8,6 +8,7 @@
 [![Docker](https://img.shields.io/badge/Docker-amd64-2496ED?logo=docker&logoColor=white)](./fde-mcp-blade)
 [![MCP](https://img.shields.io/badge/MCP-2025--11--25_·_2026--07--28-7B61FF)](https://modelcontextprotocol.io)
 [![Vue](https://img.shields.io/badge/Vue-3.4-42B883?logo=vuedotjs&logoColor=white)](./fde-mcp-blade-admin)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-fde.agent--plat.com-00B8A9?logo=googlechrome&logoColor=white)](https://fde.agent-plat.com)
 [![QQ Group](https://img.shields.io/badge/QQ_Group-882419824-EB1923?logo=tencentqq&logoColor=white)](#feedback--beta-invite)
 
 **English** | [中文](./README.zh-CN.md)
@@ -17,6 +18,8 @@
 ---
 
 > **One-line pitch**: consolidate your enterprise systems into **one unified MCP tool entry point**, so AI agents from any platform can call enterprise capabilities under explicit permissions and full auditing — data never leaves your network, every action is logged, no agent-platform lock-in.
+
+> 🌍 **Live demo**: <https://fde.agent-plat.com> (demo account `admin / admin123`, demo data only — do not store sensitive information)
 
 Other platforms make AI smarter; Blade makes AI *enter your company safely and stay accountable*. It does no reasoning orchestration and hosts no LLM — it occupies the layer that survives every hype cycle: the **tool-provisioning layer**.
 
@@ -38,6 +41,16 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 | Skill library | Vector knowledge base |
 |---|---|
 | ![Skills](docs/screenshots/page-skill.png) | ![Knowledge base](docs/screenshots/page-vector.png) |
+
+### Dashboards (driven by real call data)
+
+| Value report | Cost panel |
+|---|---|
+| ![Value report](docs/screenshots/screen-report.jpg) | ![Cost panel](docs/screenshots/screen-cost.jpg) |
+
+| FDE delivered value |
+|---|
+| ![FDE value](docs/screenshots/screen-fde.jpg) |
 
 ## Architecture
 
@@ -157,6 +170,7 @@ The project is in **beta** — join us:
 
 | Channel | |
 |---|---|
+| Live demo | <https://fde.agent-plat.com> (demo account `admin / admin123`) |
 | QQ Group | `882419824` (developer community, responsive, no SLA) |
 | Email | `448004147@qq.com` |
 | Gitee | <https://gitee.com/freen/fde-mcp-blade> |
