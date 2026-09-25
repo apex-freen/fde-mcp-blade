@@ -25,7 +25,7 @@
 
 | | |
 |---|---|
-| 🚀 **装得快** | 一条命令部署，Docker + MariaDB 双服务即完整；首次启动自动建库建表；最低 1 核 / 1GB / 16GB（x86 低配设备实测可跑；当前发布 linux/amd64，arm64 镜像测试中） |
+| 🚀 **装得快** | 一条命令部署，Docker + MariaDB 双服务即完整；首次启动自动建库建表；最低 2 核 / 2GB / 16GB（2 核 2G 云主机实测流畅；当前发布 linux/amd64，arm64 镜像测试中） |
 | 🔒 **管得住** | 五重安全（鉴权·权限·时效·防绕过·频控）+ 风险四级 + 高危人工审批；凭证分离，密钥永不下发 Agent |
 | 📋 **查得清** | 操作 / 授权 / 令牌 / 登录 4 类审计全链路留痕，可回放、可导出；导出动作自身也留痕 |
 | 🧩 **接得广** | MCP 标准协议，Claude / Cursor / Coze / Dify / TRAE / WorkBuddy / 文心 / 自研皆可接；装插件 = 接系统，OpenAPI 转 MCP |
@@ -99,7 +99,7 @@ curl http://localhost:8018/health        # 返回 OK
 # ⚠️ 生产环境禁止使用默认密码上线——首次登录后必须立即重置
 ```
 
-**环境要求**：Docker 20.10+ / Compose v2；最低 1 核 / 1GB / 16GB，推荐 2 核 / 4GB / 32GB；当前发布 linux/amd64（arm64 测试中）。
+**环境要求**：Docker 20.10+ / Compose v2；最低 2 核 / 2GB / 16GB，推荐 2 核 / 4GB / 32GB；当前发布 linux/amd64（arm64 测试中）。
 
 > 📖 **完整部署文档**（两种安装方式、端口、备份恢复、升级回滚、运维命令、常见问题）见 [`fde-mcp-blade/README.zh-CN.md`](./fde-mcp-blade/README.zh-CN.md)。
 

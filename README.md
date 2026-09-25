@@ -25,7 +25,7 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 
 | | |
 |---|---|
-| 🚀 **Fast to install** | One-command deployment; Docker + MariaDB is the whole stack; database auto-initialized on first start; runs on 1 core / 1 GB / 16 GB (verified on low-spec x86 hardware; linux/amd64 images today, arm64 in testing) |
+| 🚀 **Fast to install** | One-command deployment; Docker + MariaDB is the whole stack; database auto-initialized on first start; runs on 2 cores / 2 GB / 16 GB (verified on a 2-core / 2 GB cloud VM; linux/amd64 images today, arm64 in testing) |
 | 🔒 **Tightly governed** | Five-layer security (authn · authz · expiry · bypass-proof · rate-limit) + 4-level risk grading + human approval for high-risk actions; credentials stay vaulted, never handed to the agent |
 | 📋 **Fully auditable** | Operation / grant / token / sign-in audit trails end to end — replayable, exportable; even the export action itself is logged |
 | 🧩 **Broadly connectable** | Standard MCP — Claude / Cursor / Coze / Dify / TRAE / WorkBuddy / ERNIE / your own agent all work; install a plugin = connect a system; OpenAPI-to-MCP conversion built in |
@@ -99,7 +99,7 @@ curl http://localhost:8018/health        # returns OK
 # ⚠️ NEVER go to production with the default password — reset it right after first sign-in
 ```
 
-**Requirements**: Docker 20.10+ / Compose v2; minimum 1 core / 1 GB / 16 GB, recommended 2 cores / 4 GB / 32 GB; linux/amd64 images today (arm64 in testing).
+**Requirements**: Docker 20.10+ / Compose v2; minimum 2 cores / 2 GB / 16 GB, recommended 2 cores / 4 GB / 32 GB; linux/amd64 images today (arm64 in testing).
 
 > 📖 **Full deployment guide** (both install methods, ports, backup & restore, upgrade & rollback, ops commands, troubleshooting): [`fde-mcp-blade/README.md`](./fde-mcp-blade/README.md).
 
