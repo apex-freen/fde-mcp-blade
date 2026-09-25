@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 权限矩阵 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html" class="active">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>03 权限矩阵</h1>
+  <p class="lead">谁能看什么、能做什么、怎么接 AD、离职怎么办。</p>
+
+  <h2>1. RBAC 权限矩阵</h2>
+  <p>三级模型：<b>用户 → 角色 → 权限</b>，支持设备级 / 功能级授权。</p>
+  <table>
+    <tr><th>角色</th><th>设备查看</th><th>设备控制</th><th>服务调用</th><th>高危操作</th><th>后台管理</th><th>审计查看</th></tr>
+    <tr><td>超级管理员</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>运维管理员</td><td>✅</td><td>✅</td><td>✅</td><td>需审批</td><td>部分</td><td>✅</td></tr>
+    <tr><td>业务用户</td><td>✅</td><td>按授权</td><td>按授权</td><td>❌</td><td>❌</td><td>❌</td></tr>
+    <tr><td>只读访客</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+  </table>
+  <p>上表为默认角色模板，实际以现场配置为准（对应表：<code>gis_role</code> / <code>gis_permission</code> / <code>gis_user_role</code> / <code>gis_role_permission</code>）。</p>
+
+  <h2>2. 风险分级（四级）</h2>
+  <table>
+    <tr><th>等级</th><th>含义</th><th>放行策略</th></tr>
+    <tr><td><code>normal</code></td><td>普通操作</td><td>权限校验通过即执行</td></tr>
+    <tr><td><code>risk</code></td><td>有风险</td><td>记录审计 + 可配置二次确认</td></tr>
+    <tr><td><code>auth</code></td><td>高危</td><td>走<b>审批工作流</b>，批准后执行</td></tr>
+    <tr><td><code>disable</code></td><td>禁用</td><td><b>前置拦截</b>，不执行并留痕</td></tr>
+  </table>
+
+  <h2>3. 令牌收敛与可见性</h2>
+  <ul>
+    <li><b>工具收敛单入口</b>：所有设备与服务汇聚为少量 MCP 工具入口，避免暴露面过大；</li>
+    <li><b>按令牌收敛</b>：令牌无权限的能力对 AI <b>不可见</b>（既调不到，也看不到）；</li>
+    <li><b>审批放行</b>：<code>auth</code> 级操作生成审批单，审批人确认后执行。</li>
+  </ul>
+
+  <h2>4. SSO / IAM 对接</h2>
+  <table>
+    <tr><th>方式</th><th>协议</th><th>说明</th></tr>
+    <tr><td>OIDC 联邦</td><td>OIDC Core 1.0（授权码 + PKCE）</td><td>对接 Entra ID / ADFS / Keycloak / Okta 等</td></tr>
+    <tr><td>LDAP / AD</td><td>RFC 4511（ldaps / StartTLS）</td><td>账号 bind 校验，不保存目录密码</td></tr>
+    <tr><td>本地密码</td><td>Argon2 哈希</td><td>可作降级选项，企业可禁用</td></tr>
+  </table>
+  <ul>
+    <li><b>授权归属</b>：SSO 只做认证；授权仍以本地 RBAC 为准，IdP 组仅作角色建议；</li>
+    <li><b>账号映射</b>：已绑定 → 同名自动关联 → JIT 建档（默认最小权限）。</li>
+  </ul>
+
+  <h2>5. 会话生命周期</h2>
+  <table>
+    <tr><th>动作</th><th>行为</th></tr>
+    <tr><td>登录</td><td>签发令牌并<b>写入会话表</b>（<code>gis_login_session</code>）</td></tr>
+    <tr><td>登出</td><td>按 jti 撤销会话 + 内存黑名单（立即失效）</td></tr>
+    <tr><td>停用 / 删除用户</td><td><b>联动吊销</b>该用户全部会话（立即生效）</td></tr>
+    <tr><td>服务重启</td><td>预热黑名单，<b>已撤销令牌不复活</b></td></tr>
+    <tr><td>续期（可选）</td><td>refresh 单次轮换 + 重放检测（默认关闭）</td></tr>
+  </table>
+
+  <h2>6. 账号安全</h2>
+  <ul>
+    <li>安装期 <code>ops.sh init</code> <b>强制初始化随机密码</b>（数据库/JWT），避免默认弱口令；</li>
+    <li>默认管理员建议首次登录后立即改密；</li>
+    <li>密码使用 Argon2 哈希存储，不可逆。</li>
+  </ul>
+
+  <div class="pager"><a href="02-data-flow.html">← 02 数据流图</a><a href="04-audit.html">04 审计样例 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

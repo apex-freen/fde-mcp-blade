@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>过评审包 · 文档目录</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html" class="active">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>过评审包 · 文档目录</h1>
+  <p class="lead">面向客户 IT / 法务评审。内容取自系统<b>当前实际具备</b>的能力，逐页可核对。</p>
+
+  <div class="grid">
+    <a class="tile" href="01-architecture.html"><div class="no">01</div><div class="t">架构说明</div><div class="d">四层架构、五重安全、零云依赖</div></a>
+    <a class="tile" href="02-data-flow.html"><div class="no">02</div><div class="t">数据流图</div><div class="d">数据从哪进、存哪、是否出境</div></a>
+    <a class="tile" href="03-permission.html"><div class="no">03</div><div class="t">权限矩阵</div><div class="d">谁能看什么、怎么接 AD</div></a>
+    <a class="tile" href="04-audit.html"><div class="no">04</div><div class="t">审计样例</div><div class="d">留什么痕、怎么导出（脱敏）</div></a>
+    <a class="tile" href="05-compliance.html"><div class="no">05</div><div class="t">合规映射表</div><div class="d">评审问题 → 能力 → 证据</div></a>
+    <a class="tile" href="06-risk.html"><div class="no">06</div><div class="t">风险评估</div><div class="d">已知风险与缓解措施</div></a>
+    <a class="tile" href="07-test.html"><div class="no">07</div><div class="t">测试报告</div><div class="d">测了什么、结果如何</div></a>
+    <a class="tile" href="08-degradation.html"><div class="no">08</div><div class="t">降级预案</div><div class="d">出事怎么办、备份恢复</div></a>
+  </div>
+
+  <h2>建议阅读顺序</h2>
+  <div class="card">
+    <ol>
+      <li>先看 <a href="05-compliance.html">05 合规映射表</a> —— 对着贵方 checklist 逐条核对，定位到具体页；</li>
+      <li>再看 <a href="02-data-flow.html">02 数据流图</a> 与 <a href="03-permission.html">03 权限矩阵</a> —— 评审最关心的两块；</li>
+      <li>需要证据时看 <a href="04-audit.html">04 审计样例</a>；</li>
+      <li>最后看 <a href="06-risk.html">06</a> / <a href="07-test.html">07</a> / <a href="08-degradation.html">08</a> —— 风险、测试与应急。</li>
+    </ol>
+  </div>
+
+  <div class="note">
+    本目录由插件 <code>service_plugins/gen-review-docs/web_ui/</code> 提供，访问地址 <code>/plugin-web/gen-review-docs/</code>；
+    纯静态页面，随包交付，可按客户增删页面内容。
+  </div>
+
+  <div class="footer">Apex MCP Bridge · 过评审包（文档目录）</div>
+</main>
+</div>
+</body>
+</html>

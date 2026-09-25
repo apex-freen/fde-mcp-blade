@@ -1,0 +1,6 @@
+# gen-intranet-fetcher 运行依赖
+# 宿主启动时会扫描本文件并自动安装（见 service_plugins/README.md）
+# 说明：requests 由核心 HTTP/SOAP 方法使用；paho-mqtt 仅供 intra.mqtt.request 使用，
+# 未安装时该方法的调用会返回明确的「依赖缺失」提示，不影响其他方法。
+requests>=2.31.0
+paho-mqtt>=1.6.1

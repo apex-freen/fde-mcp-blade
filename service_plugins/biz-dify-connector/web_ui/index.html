@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dify 知识库连接服务 · 调试面板</title>
+<style>
+  :root { --line:#e5e7eb; --brand:#3370ff; --ok:#16a34a; --warn:#d97706; --err:#dc2626; --bg:#f6f8fb; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color:#1f2937; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:17px; } header .sub { color:#6b7280; font-size:12px; }
+  #authBanner { display:none; background:#fef2f2; color:var(--err); border-bottom:1px solid #fecaca; padding:8px 20px; font-size:13px; }
+  #authBanner a { color:var(--err); font-weight:600; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 20px 60px; }
+  #statusBar { padding:10px 14px; border-radius:8px; margin-bottom:14px; background:#eff6ff; color:#1e40af; font-size:13px; min-height:18px; }
+  #statusBar.error { background:#fef2f2; color:var(--err); }
+  #statusBar.ok { background:#f0fdf4; color:var(--ok); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .card h2 .dot { width:8px; height:8px; border-radius:50%; background:var(--brand); display:inline-block; }
+  .row { display:flex; flex-wrap:wrap; gap:8px 10px; align-items:flex-end; margin-bottom:10px; }
+  .field { display:flex; flex-direction:column; gap:3px; min-width:150px; flex:1; }
+  .field label { font-size:12px; color:#6b7280; }
+  input, select, textarea { border:1px solid #d1d5db; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; background:#fff; width:100%; }
+  textarea { resize: vertical; min-height:64px; }
+  input:focus, select:focus, textarea:focus { outline:2px solid #c7d7ff; border-color:var(--brand); }
+  button { border:1px solid var(--brand); background:var(--brand); color:#fff; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; white-space:nowrap; }
+  button:hover { filter: brightness(1.08); }
+  button.ghost { background:#fff; color:var(--brand); }
+  button.amber { background:var(--warn); border-color:var(--warn); }
+  button.ghost-amber { background:#fff; color:var(--warn); border-color:var(--warn); }
+  .hint { font-size:12px; color:#6b7280; margin-top:6px; }
+  .checklist { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; font-size:13px; margin-bottom:16px; }
+  .checklist h3 { font-size:13px; color:#92400e; margin-bottom:6px; }
+  .checklist li { margin-left:18px; color:#78350f; }
+  pre { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:12px; font-size:12px; overflow:auto; max-height:360px; margin-top:8px; }
+  .log-item { border-top:1px dashed #d1d5db; padding:6px 0; font-size:12px; color:#374151; }
+  .log-item b { color:var(--brand); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Dify 知识库连接服务（RAG）· 调试面板</h1>
+    <div class="sub" id="pagePath">通过插件管理入口访问（/plugin-web/biz-dify-connector/）</div>
+  </div>
+  <button class="ghost" onclick="location.reload()">刷新</button>
+</header>
+<div id="authBanner">登录已过期，请返回主程序重新登录后再试。</div>
+<main>
+  <div id="statusBar">就绪。建议先「① 列出数据集」拿到 dataset_id，再做加文档 / 检索 / 问答。</div>
+
+  <div class="checklist">
+    <h3>⚠️ 前提条件核对（任一未满足时方法会返回 code -1 并给出原因）</h3>
+    <ul>
+      <li><b>Dify 后台（管理员）</b>：已配置好模型与 embedding 向量模型；知识库 / 应用需已<b>发布生效</b>（发布后才开放 API）</li>
+      <li><b>plugin.json 配置</b>：config.base_url = <code>http://&lt;host&gt;:&lt;port&gt;/v1</code>（由管理员填入；面板本身不带配置）</li>
+      <li><b>dataset_api_key</b>：从 Dify「知识库 → API 访问」生成，用于列数据集 / 建数据集 / 加文档 / 检索</li>
+      <li><b>app_api_key</b>：从 Dify「应用 → API 访问」生成，用于 dify.chat.ask（可选，缺省取 config.app_api_key，也可在面板里用 api_key 临时覆盖）</li>
+      <li><b>文档索引是异步的</b>：刚 add_text / upload 完的文档状态为 <code>pending</code>，需稍候自动转为 completed / available 后再 retrieve（embedding 未配置时永远无法完成）</li>
+      <li><b>上传文件（dify.doc.upload）</b>：仅限管理员授权使用，且文件必须已存在于 Dify 宿主机本地（file_path 为宿主机绝对路径）</li>
+    </ul>
+  </div>
+
+  <div class="grid">
+    <!-- ============ ① 知识库列表 / 创建 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>① 知识库：列表 / 创建（dify.dataset.*）</h2>
+      <div class="row">
+        <div class="field" style="min-width:150px">
+          <label>页码 page（可选）</label>
+          <input type="number" id="listPage" placeholder="默认 1">
+        </div>
+        <div class="field" style="min-width:150px">
+          <label>每页条数 limit（可选）</label>
+          <input type="number" id="listLimit" placeholder="默认 20">
+        </div>
+        <button onclick="listDatasets()">📚 列出数据集</button>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>新建知识库 · 名称 name</label>
+          <input id="createName" placeholder="如：公司制度知识库">
+        </div>
+        <button class="amber" onclick="createDataset()">➕ 创建知识库</button>
+      </div>
+      <div class="hint">「列出」返回每个数据集的 dataset_id / 名称 / 文档数，把 dataset_id 复制到下方②③去使用；新建的知识库本身不含数据，需再 add_text / upload 加文档，且依赖后台已配 embedding。</div>
+    </section>
+
+    <!-- ============ ④ 应用问答 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>④ 应用问答（dify.chat.ask）</h2>
+      <div class="row">
+        <div class="field">
+          <label>api_key（可选，缺省取 config.app_api_key）</label>
+          <input id="askKey" type="password" placeholder="app-xxxx 来自「应用→API 访问」">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>conversation_id（可选，空 = 新会话；多轮传上次返回的值）</label>
+          <input id="convId" placeholder="留空即新会话">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>query · 用户问题</label>
+          <textarea id="qAsk" placeholder="如：公司报销流程是什么？"></textarea>
+        </div>
+      </div>
+      <button onclick="ask()">💬 提问（response_mode=blocking）</button>
+      <div class="hint">返回 data 含 <b>answer</b>（回答文本）与 <b>conversation_id</b>（会话 ID）。多轮对话：把上次的 conversation_id 粘回输入框再提问即可延续上下文。调用的应用须已发布、已配好模型且（若是知识库问答应用）已关联目标知识库。</div>
+    </section>
+  </div>
+
+  <!-- ============ ② 文档写入 ============ -->
+  <section class="card">
+    <h2><span class="dot"></span>② 文档写入：按文本 / 按文件（dify.doc.*）</h2>
+    <div class="row">
+      <div class="field" style="min-width:320px">
+        <label>dataset_id · 目标知识库（从 ① 列表结果复制）</label>
+        <input id="dsIdDoc" placeholder="如：b8d6xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="min-width:200px">
+        <label>文档名 name（add_text）</label>
+        <input id="docName" placeholder="如：报销制度说明.txt">
+      </div>
+      <div class="field">
+        <label>正文 text · 纯文本（add_text）</label>
+        <textarea id="docText" placeholder="把要沉淀的说明 / 规范 / FAQ / 纪要等纯文本粘贴在这里……"></textarea>
+      </div>
+    </div>
+    <div class="row">
+      <button onclick="addText()">📝 按文本加文档</button>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>宿主本地文件绝对路径 file_path（upload，仅管理员授权）</label>
+        <input id="upFile" placeholder="如：/data/dify/files/员工手册.pdf（须已在 Dify 主机本地）">
+      </div>
+      <button class="amber" onclick="uploadFile()">📎 上传文件建文档</button>
+    </div>
+    <div class="hint">
+      文本类内容（说明、规范、FAQ、纪要）推荐 <b>add_text</b>；需保留原始格式（pdf/docx/md 等）时用 <b>upload</b>。
+      upload 读取的是 <b>宿主机本地路径</b>（不是本浏览器所在机器），仅管理员授权使用；文件不存在 / 不可读会明确报错。
+      两者都由 Dify 异步切块 + embedding 索引：刚提交完文档状态为 pending，稍候转 available 后才可被 ③ 检索到。
+    </div>
+  </section>
+
+  <!-- ============ ③ 语义检索 ============ -->
+  <section class="card">
+    <h2><span class="dot"></span>③ 知识库检索（dify.dataset.retrieve）</h2>
+    <div class="row">
+      <div class="field" style="min-width:320px">
+        <label>dataset_id · 目标知识库（从 ① 列表结果复制，与 ② 可用同一个）</label>
+        <input id="dsIdRet" placeholder="如：b8d6xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+      </div>
+      <div class="field">
+        <label>query · 检索问题 / 关键词</label>
+        <input id="qText" placeholder="如：报销需要什么材料？">
+      </div>
+      <div class="field" style="min-width:110px">
+        <label>top_k · 返回片段条数</label>
+        <input type="number" id="topK" value="5" min="1" max="20">
+      </div>
+      <button onclick="retrieve()">🔍 检索</button>
+    </div>
+    <div class="hint">
+      返回 data.records[]，每条含 <b>content</b>（片段文本）/ <b>score</b>（相关度）/ <b>document_name</b>（来源文档名）/ metadata，详见下方结果区 JSON。
+      检索前请确认该知识库文档已完成索引（状态非 pending）；score 为 0~1，越接近 1 相关度越高。
+    </div>
+  </section>
+
+  <!-- ============ 返回结果 ============ -->
+  <section class="card">
+    <h2><span class="dot"></span>返回结果</h2>
+    <button class="ghost" onclick="$('resultBox').textContent='';$('logList').innerHTML='';">清空</button>
+    <div id="logList"></div>
+    <pre id="resultBox">{}</pre>
+    <div class="hint">结果区为统一报文 JSON：<code>{"method": "dify.xxx.yyy", "params": {...}, "data": ...}</code>；data 来自后端 handler 的 stdout（code:0 为成功，-1 为失败并带 msg）。</div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const PLUGIN_NAME = (location.pathname.split('/')[2]) || '';
+const API_BASE = '/prod-api/biz/plugin_web/' + PLUGIN_NAME + '/api/';
+if (!PLUGIN_NAME) {
+  $('pagePath').textContent = '未识别插件名：请通过 /plugin-web/biz-dify-connector/ 访问';
+} else {
+  $('pagePath').textContent = '插件：' + PLUGIN_NAME + ' · 操作不消耗 Token';
+}
+
+const METHODS = {
+  listDatasets: 'dify.dataset.list',
+  createDataset: 'dify.dataset.create',
+  addText: 'dify.doc.add_text',
+  uploadFile: 'dify.doc.upload',
+  retrieve: 'dify.dataset.retrieve',
+  ask: 'dify.chat.ask',
+};
+
+/* ---- 与主程序 /plugin-web 的桥接（复用登录态 app_token） ---- */
+async function api(name, params = {}) {
+  const method = METHODS[name] || name;
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('app_token');
+  if (token) headers.Authorization = 'Bearer ' + token;
+  let resp;
+  try {
+    resp = await fetch(API_BASE + method, { method: 'POST', headers, body: JSON.stringify(params) });
+  } catch (e) {
+    setStatus('请求失败: ' + e.message + '（请确认已通过主程序 /plugin-web/ 路由访问）', 'error');
+    return null;
+  }
+  let body;
+  try { body = await resp.json(); } catch { body = { code: -1, msg: '响应非 JSON' }; }
+  if (resp.status === 401) {
+    $('authBanner').style.display = 'block';
+    setStatus('登录已过期，请重新登录', 'error');
+    return null;
+  }
+  if (body && body.code === 200) {
+    addLog(method, params, body.data);
+    return body.data;
+  }
+  setStatus((body && body.msg) || '操作失败', 'error');
+  addLog(method, params, body);
+  return null;
+}
+
+function setStatus(text, cls) { const el = $('statusBar'); el.textContent = text || ''; el.className = cls || ''; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addLog(method, params, data) {
+  const time = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'log-item';
+  div.innerHTML = `<b>${esc(time)}</b> ${esc(method)}`;
+  $('logList').prepend(div);
+  $('resultBox').textContent = JSON.stringify({ method, params, data }, null, 2);
+  setStatus('完成：' + method, data && data.code !== 0 ? 'error' : 'ok');
+}
+
+/* ---- ① 知识库列表 / 创建 ---- */
+async function listDatasets() {
+  const p = {};
+  const page = $('listPage').value.trim(), limit = $('listLimit').value.trim();
+  if (page) p.page = Number(page);
+  if (limit) p.limit = Number(limit);
+  await api('listDatasets', p);
+}
+async function createDataset() {
+  const name = $('createName').value.trim();
+  if (!name) { setStatus('请填写知识库名称 name', 'error'); return; }
+  await api('createDataset', { name });
+}
+
+/* ---- ② 文档写入 ---- */
+function docParams(needName) {
+  const dataset_id = $('dsIdDoc').value.trim();
+  if (!dataset_id) { setStatus('请填写 dataset_id（先用 ① 列出数据集）', 'error'); return null; }
+  const name = $('docName').value.trim();
+  if (needName && !name) { setStatus('请填写文档名 name', 'error'); return null; }
+  return { dataset_id, name };
+}
+async function addText() {
+  const p = docParams(true);
+  if (!p) return;
+  const text = $('docText').value;
+  if (!text.trim()) { setStatus('请填写文档正文 text', 'error'); return; }
+  p.text = text;
+  await api('addText', p);
+}
+async function uploadFile() {
+  const p = docParams(false);
+  if (!p) return;
+  delete p.name;
+  const file_path = $('upFile').value.trim();
+  if (!file_path) { setStatus('请填写宿主本地绝对路径 file_path', 'error'); return; }
+  p.file_path = file_path;
+  await api('uploadFile', p);
+}
+
+/* ---- ③ 知识库检索 ---- */
+async function retrieve() {
+  const dataset_id = $('dsIdRet').value.trim();
+  if (!dataset_id) { setStatus('请填写 dataset_id（先用 ① 列出数据集）', 'error'); return; }
+  const query = $('qText').value.trim();
+  if (!query) { setStatus('请填写检索问题 query', 'error'); return; }
+  const p = { dataset_id, query };
+  const topK = $('topK').value.trim();
+  if (topK) {
+    const n = Number(topK);
+    if (!Number.isInteger(n) || n < 1 || n > 20) { setStatus('top_k 须为 1~20 的整数', 'error'); return; }
+    p.top_k = n;
+  }
+  await api('retrieve', p);
+}
+
+/* ---- ④ 应用问答 ---- */
+async function ask() {
+  const query = $('qAsk').value.trim();
+  if (!query) { setStatus('请填写用户问题 query', 'error'); return; }
+  const p = {};
+  const apiKey = $('askKey').value.trim(), convId = $('convId').value.trim();
+  if (apiKey) p.api_key = apiKey;
+  if (convId) p.conversation_id = convId;
+  p.query = query;
+  await api('ask', p);
+}
+</script>
+</body>
+</html>

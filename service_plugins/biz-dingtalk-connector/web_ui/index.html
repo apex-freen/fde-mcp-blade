@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业钉钉连接 · 调试面板</title>
+<style>
+  :root { --line:#e5e7eb; --brand:#3370ff; --ok:#16a34a; --warn:#d97706; --err:#dc2626; --bg:#f6f8fb; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color:#1f2937; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:17px; } header .sub { color:#6b7280; font-size:12px; }
+  #authBanner { display:none; background:#fef2f2; color:var(--err); border-bottom:1px solid #fecaca; padding:8px 20px; font-size:13px; }
+  #authBanner a { color:var(--err); font-weight:600; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 20px 60px; }
+  #statusBar { padding:10px 14px; border-radius:8px; margin-bottom:14px; background:#eff6ff; color:#1e40af; font-size:13px; min-height:18px; }
+  #statusBar.error { background:#fef2f2; color:var(--err); }
+  #statusBar.ok { background:#f0fdf4; color:var(--ok); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .card h2 .dot { width:8px; height:8px; border-radius:50%; background:var(--brand); display:inline-block; }
+  .row { display:flex; flex-wrap:wrap; gap:8px 10px; align-items:flex-end; margin-bottom:10px; }
+  .field { display:flex; flex-direction:column; gap:3px; min-width:150px; flex:1; }
+  .field label { font-size:12px; color:#6b7280; }
+  input, select, textarea { border:1px solid #d1d5db; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; background:#fff; width:100%; }
+  textarea { resize: vertical; min-height:64px; }
+  input:focus, select:focus, textarea:focus { outline:2px solid #c7d7ff; border-color:var(--brand); }
+  button { border:1px solid var(--brand); background:var(--brand); color:#fff; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; white-space:nowrap; }
+  button:hover { filter: brightness(1.08); }
+  button.ghost { background:#fff; color:var(--brand); }
+  button.amber { background:var(--warn); border-color:var(--warn); }
+  button.ghost-amber { background:#fff; color:var(--warn); border-color:var(--warn); }
+  .hint { font-size:12px; color:#6b7280; margin-top:6px; }
+  .checklist { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; font-size:13px; margin-bottom:16px; }
+  .checklist h3 { font-size:13px; color:#92400e; margin-bottom:6px; }
+  .checklist li { margin-left:18px; color:#78350f; }
+  pre { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:12px; font-size:12px; overflow:auto; max-height:360px; margin-top:8px; }
+  .log-item { border-top:1px dashed #d1d5db; padding:6px 0; font-size:12px; color:#374151; }
+  .log-item b { color:var(--brand); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>企业钉钉连接 · 调试面板</h1>
+    <div class="sub" id="pagePath">通过插件管理入口访问（/plugin-web/biz-dingtalk-connector/）</div>
+  </div>
+  <button class="ghost" onclick="location.reload()">刷新</button>
+</header>
+<div id="authBanner">登录已过期，请返回主程序重新登录后再试。</div>
+<main>
+  <div id="statusBar">就绪。操作前请先核对下方前提条件。</div>
+
+  <div class="checklist">
+    <h3>⚠️ 前提条件（任一未满足时方法会返回 code -1 并给出原因）</h3>
+    <ul>
+      <li><b>发个人（工作通知）</b>：plugin.json 的 config.app_key / config.app_secret / config.agent_id 已由管理员填入；发送需 config.default_sender 或传 sender（有 allowed_senders 白名单时须命中）</li>
+      <li><b>发群（群机器人）</b>：config.robot_webhook（+加签时 config.robot_sign）已填，或 config.recipients 中预配了 type=robot 的机器人；不需要 app_key/app_secret</li>
+      <li><b>钉钉开放平台（企业管理员）</b>：自建应用已开通消息/通讯录权限并<b>发布生效</b>；目标成员在应用可见范围内；群自定义机器人已在群中添加</li>
+      <li>钉钉个人收件人标识是 <b>userId</b>（不是 open_id），可用下方"通讯录"按手机号反查；webhook URL 含 access_token，属敏感凭证，面板不会回显</li>
+    </ul>
+  </div>
+
+  <div class="grid">
+    <!-- ============ 工作通知（个人） ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>工作通知（dingtalk.app.send_*，发个人）</h2>
+      <div class="row">
+        <div class="field">
+          <label>target（钉钉 userId / recipients 里成员名字）</label>
+          <input id="target" placeholder="zhangsan 或 config.recipients 中的名字">
+        </div>
+        <div class="field" style="min-width:130px">
+          <label>sender（发起人署名，可空）</label>
+          <input id="sender" placeholder="可读署名，留空=default_sender">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>正文（text；发 Markdown 时按 Markdown 写）</label>
+          <textarea id="text" placeholder="要发送的内容……"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button onclick="sendText()">📨 发文本</button>
+        <button class="amber" onclick="sendMarkdown()">📇 发 Markdown</button>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>标题 title（发 Markdown 时用，可空=企业通知）</label>
+          <input id="markdownTitle" placeholder="如：存储告警">
+        </div>
+      </div>
+      <div class="hint">工作通知只能发给个人 userId；发群请用右侧"群机器人"。</div>
+    </section>
+
+    <!-- ============ 群机器人 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>群机器人（dingtalk.robot.send，发群）</h2>
+      <div class="row">
+        <div class="field" style="min-width:220px">
+          <label>target（空=config.robot_webhook）</label>
+          <input id="robotTarget" placeholder="留空用默认；或机器人名 / 完整 webhook URL">
+        </div>
+        <div class="field" style="min-width:110px">
+          <label>msgtype</label>
+          <select id="robotMsgtype"><option value="text">text（文本）</option><option value="markdown">markdown</option></select>
+        </div>
+        <div class="field" style="min-width:130px">
+          <label>sender（署名，可空）</label>
+          <input id="robotSender" placeholder="可读署名，留空=default_sender">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>content（消息内容；markdown 时标题另填 title）</label>
+          <textarea id="robotContent" placeholder="要推送到群的内容……"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>title（msgtype=markdown 时用，可空=企业通知）</label>
+          <input id="robotTitle" placeholder="如：存储告警">
+        </div>
+        <button class="amber" onclick="robotSend()">🤖 推送到群</button>
+      </div>
+      <div class="hint">群消息唯一通道。加签 secret 由 config.robot_sign 或 recipients 该机器人的 robot_sign 提供；webhook（含 token）不会回显。</div>
+    </section>
+  </div>
+
+  <!-- ============ 通讯录 ============ -->
+  <section class="card">
+    <h2><span class="dot"></span>通讯录（dingtalk.contact.*）</h2>
+    <div class="row">
+      <div class="field">
+        <label>手机号（逗号分隔，反查 userId）</label>
+        <input id="mobiles" placeholder="13800000000,13900000000">
+      </div>
+      <button onclick="searchUser()">🔍 手机号→userId</button>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>userId（查单个成员详情：姓名/手机号/部门等）</label>
+        <input id="userid" placeholder="zhangsan">
+      </div>
+      <button onclick="userInfo()">👤 查详情</button>
+    </div>
+    <div class="hint">钉钉不支持按姓名/邮箱检索；个人收件人请先用"手机号→userId"拿到 userId 再回"工作通知"发消息。</div>
+  </section>
+
+  <!-- ============ 返回结果 ============ -->
+  <section class="card">
+    <h2><span class="dot"></span>返回结果</h2>
+    <button class="ghost" onclick="$('resultBox').textContent='';$('logList').innerHTML='';">清空</button>
+    <div id="logList"></div>
+    <pre id="resultBox">{}</pre>
+  </section>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const PLUGIN_NAME = (location.pathname.split('/')[2]) || '';
+const API_BASE = '/prod-api/biz/plugin_web/' + PLUGIN_NAME + '/api/';
+if (!PLUGIN_NAME) {
+  $('pagePath').textContent = '未识别插件名：请通过 /plugin-web/biz-dingtalk-connector/ 访问';
+} else {
+  $('pagePath').textContent = '插件：' + PLUGIN_NAME + ' · 操作不消耗 Token';
+}
+
+const METHODS = {
+  sendText: 'dingtalk.app.send_text',
+  sendMarkdown: 'dingtalk.app.send_markdown',
+  robotSend: 'dingtalk.robot.send',
+  searchUser: 'dingtalk.contact.search_user',
+  userInfo: 'dingtalk.contact.user_info',
+};
+
+/* ---- 与主程序 /plugin-web 的桥接（复用登录态 app_token） ---- */
+async function api(name, params = {}) {
+  const method = METHODS[name] || name;
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('app_token');
+  if (token) headers.Authorization = 'Bearer ' + token;
+  let resp;
+  try {
+    resp = await fetch(API_BASE + method, { method: 'POST', headers, body: JSON.stringify(params) });
+  } catch (e) {
+    setStatus('请求失败: ' + e.message + '（请确认已通过主程序 /plugin-web/ 路由访问）', 'error');
+    return null;
+  }
+  let body;
+  try { body = await resp.json(); } catch { body = { code: -1, msg: '响应非 JSON' }; }
+  if (resp.status === 401) {
+    $('authBanner').style.display = 'block';
+    setStatus('登录已过期，请重新登录', 'error');
+    return null;
+  }
+  if (body && body.code === 200) {
+    addLog(method, params, body.data);
+    return body.data;
+  }
+  setStatus((body && body.msg) || '操作失败', 'error');
+  addLog(method, params, body);
+  return null;
+}
+
+function setStatus(text, cls) { const el = $('statusBar'); el.textContent = text || ''; el.className = cls || ''; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addLog(method, params, data) {
+  const time = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'log-item';
+  div.innerHTML = `<b>${esc(time)}</b> ${esc(method)}`;
+  $('logList').prepend(div);
+  $('resultBox').textContent = JSON.stringify({ method, params, data }, null, 2);
+  setStatus('完成：' + method, data && data.code !== 0 ? 'error' : 'ok');
+}
+
+/* ---- 工作通知（个人） ---- */
+function appSender() { return $('sender').value.trim() || undefined; }
+async function sendText() {
+  const target = $('target').value.trim();
+  const text = $('text').value.trim();
+  if (!target) { setStatus('请填写 target（userId 或 recipients 名字）', 'error'); return; }
+  if (!text) { setStatus('请填写正文', 'error'); return; }
+  await api('sendText', { target, text, sender: appSender() });
+}
+async function sendMarkdown() {
+  const target = $('target').value.trim();
+  const text = $('text').value.trim();
+  if (!target) { setStatus('请填写 target（userId 或 recipients 名字）', 'error'); return; }
+  if (!text) { setStatus('请填写 Markdown 正文', 'error'); return; }
+  const p = { target, text, sender: appSender() };
+  const title = $('markdownTitle').value.trim(); if (title) p.title = title;
+  await api('sendMarkdown', p);
+}
+
+/* ---- 群机器人 ---- */
+async function robotSend() {
+  const p = { msgtype: $('robotMsgtype').value };
+  const target = $('robotTarget').value.trim(); if (target) p.target = target;
+  const sender = $('robotSender').value.trim(); if (sender) p.sender = sender;
+  const content = $('robotContent').value.trim();
+  if (!content) { setStatus('请填写 content（消息内容）', 'error'); return; }
+  p.content = content;
+  const title = $('robotTitle').value.trim(); if (title) p.title = title;
+  await api('robotSend', p);
+}
+
+/* ---- 通讯录 ---- */
+async function searchUser() {
+  const mobiles = $('mobiles').value.trim();
+  if (!mobiles) { setStatus('请填写手机号', 'error'); return; }
+  await api('searchUser', { mobiles });
+}
+async function userInfo() {
+  const userid = $('userid').value.trim();
+  if (!userid) { setStatus('请填写 userId', 'error'); return; }
+  await api('userInfo', { userid });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+{
+  "manifest": {
+    "name": "biz-feishu-connector",
+    "apiVersion": "plugin.gis/v1",
+    "kind": "Plugin",
+    "version": "0.1.0",
+    "serviceType": "feishu-connector",
+    "disabled": false,
+    "serverUrl": "open.feishu.cn",
+    "scenario": "business"
+  },
+  "info": {
+    "title": "企业飞书连接服务",
+    "description": "对接飞书开放平台（自建应用）的连接插件：消息通知推送（文本/卡片）、通讯录查询（按手机号/邮箱查人、查用户信息、部门列表）、日历日程（建日程/查日程）。以机器人身份发送，sender 署名 + allowed_senders 白名单防冒用。需在飞书开放平台创建企业自建应用并开通机器人/相应权限。",
+    "tags": [
+      "feishu",
+      "lark",
+      "notification",
+      "im",
+      "contact",
+      "calendar",
+      "enterprise",
+      "business"
+    ],
+    "manual_avg_minutes": 30
+  },
+  "runtime": {
+    "interpreter": "python3",
+    "workDir": "./service_plugins/biz-feishu-connector",
+    "defaultTimeout": 30
+  },
+  "methods": [
+    {
+      "name": "notify.by_phone",
+      "description": "【消息中心约定方法】按手机号给指定用户发送通知：插件内部自动完成「手机号 → open_id → 发卡片」全过程。任何实现了本方法的插件都会被「消息中心」自动探测为「通知插件」，无需改宿主代码。",
+      "inputSchema": {
+        "properties": {
+          "phone": {
+            "description": "收件人手机号",
+            "type": "string"
+          },
+          "title": {
+            "description": "消息标题",
+            "type": "string"
+          },
+          "content": {
+            "description": "消息正文（Markdown）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "title",
+          "content"
+        ],
+        "type": "object"
+      },
+      "handler": "notify_by_phone.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "auth",
+      "manual_avg_minutes": 1,
+      "side_effect": true
+    },
+    {
+      "name": "feishu.im.send_text",
+      "description": "以机器人身份给指定用户/群发纯文本消息。receive_type=user 时 target 填 open_id（或以 config.recipients 中配置的收件人名字），receive_type=chat 时 target 填 chat_id（群 ID）或配置的群名。sender 为发起人署名（默认 config.default_sender，命中 allowed_senders 白名单才放行）。",
+      "inputSchema": {
+        "properties": {
+          "receive_type": {
+            "description": "收件人类别：user=个人 / chat=群",
+            "type": "string"
+          },
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender）",
+            "type": "string"
+          },
+          "target": {
+            "description": "收件人：user 填 open_id（ou_ 开头）或 config.recipients 中的名字；chat 填 chat_id（oc_ 开头）或配置的群名",
+            "type": "string"
+          },
+          "text": {
+            "description": "文本内容",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receive_type",
+          "target",
+          "text"
+        ],
+        "type": "object"
+      },
+      "handler": "send_text.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "auth",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "feishu.im.send_card",
+      "description": "以机器人身份给指定用户/群发富文本卡片消息（标题 + Markdown 正文，正文自动带发起人署名）。卡片消息更醒目，适合告警/通知。",
+      "inputSchema": {
+        "properties": {
+          "md": {
+            "description": "卡片正文（Markdown 语法）",
+            "type": "string"
+          },
+          "receive_type": {
+            "description": "收件人类别：user=个人 / chat=群",
+            "type": "string"
+          },
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender）",
+            "type": "string"
+          },
+          "target": {
+            "description": "收件人：open_id / chat_id / config.recipients 中的名字",
+            "type": "string"
+          },
+          "title": {
+            "description": "卡片标题（可选，默认『企业通知』）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receive_type",
+          "target",
+          "md"
+        ],
+        "type": "object"
+      },
+      "handler": "send_card.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "auth",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "feishu.contact.search_user",
+      "description": "按手机号或邮箱反查用户，得到 user_id/open_id/姓名（批量，一次最多 50 个，多个用英文逗号分隔）。飞书不支持按姓名检索，请用手机号/邮箱，或先用 feishu.contact.departments 浏览组织后再取用户。",
+      "inputSchema": {
+        "properties": {
+          "emails": {
+            "description": "邮箱，多个用英文逗号分隔（与 mobiles 二选一）",
+            "type": "string"
+          },
+          "mobiles": {
+            "description": "手机号，多个用英文逗号分隔（与 emails 二选一）",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "handler": "search_user.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    },
+    {
+      "name": "feishu.contact.user_info",
+      "description": "按 open_id 查单个用户详情（姓名、邮箱、手机号（脱敏）、部门、职位等），用于发消息前确认收件人。",
+      "inputSchema": {
+        "properties": {
+          "open_id": {
+            "description": "用户 open_id（ou_ 开头），可从 feishu.contact.search_user 获取",
+            "type": "string"
+          }
+        },
+        "required": [
+          "open_id"
+        ],
+        "type": "object"
+      },
+      "handler": "user_info.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    },
+    {
+      "name": "feishu.contact.departments",
+      "description": "列出指定部门（含根部门）的直接子部门。department_id 缺省为根部门 0，department_id_type 缺省 open_department_id。返回每个子部门的 id/名称/父部门/成员数。",
+      "inputSchema": {
+        "properties": {
+          "department_id": {
+            "description": "部门 id，缺省 0（根部门）",
+            "type": "string"
+          },
+          "department_id_type": {
+            "description": "department_id 的取值类型：open_department_id（默认）/ department_id",
+            "type": "string"
+          },
+          "page_size": {
+            "description": "每页条数，默认 50，最大 100",
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "handler": "departments.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    },
+    {
+      "name": "feishu.calendar.create_event",
+      "description": "在指定日历上创建日程（事件）。calendar_id 可填 config.calendar_id 预配值。start_ms/end_ms 为毫秒时间戳。注意：以租户身份（tenant_access_token）建日程通常只对应用可写/订阅的日历生效，实际生产中可能需要该用户的 OAuth 授权，若返回权限类错误请据此处理。",
+      "inputSchema": {
+        "properties": {
+          "calendar_id": {
+            "description": "日历 id（feishu_ 开头），缺省取 config.calendar_id",
+            "type": "string"
+          },
+          "description": {
+            "description": "日程描述（可选）",
+            "type": "string"
+          },
+          "end_ms": {
+            "description": "结束时间（毫秒时间戳）",
+            "type": "integer"
+          },
+          "start_ms": {
+            "description": "开始时间（毫秒时间戳）",
+            "type": "integer"
+          },
+          "summary": {
+            "description": "日程标题",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "start_ms",
+          "end_ms"
+        ],
+        "type": "object"
+      },
+      "handler": "create_event.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 3,
+      "side_effect": true
+    },
+    {
+      "name": "feishu.calendar.list_events",
+      "description": "查询指定日历的日程列表。calendar_id 缺省取 config.calendar_id；可用 start_ms/end_ms（毫秒时间戳）限定时间段，缺省返回最近一周。返回每个日程的 event_id/标题/描述/起止时间/跳转链接。",
+      "inputSchema": {
+        "properties": {
+          "calendar_id": {
+            "description": "日历 id，缺省取 config.calendar_id",
+            "type": "string"
+          },
+          "end_ms": {
+            "description": "查询结束时间（毫秒时间戳，可选）",
+            "type": "integer"
+          },
+          "page_size": {
+            "description": "每页条数，默认 50，最大 100",
+            "type": "integer"
+          },
+          "start_ms": {
+            "description": "查询起始时间（毫秒时间戳，可选）",
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "handler": "list_events.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 1
+    }
+  ],
+  "prompts": [],
+  "config": {
+    "allowed_senders": [],
+    "app_id": "",
+    "app_secret": "${app_secret}",
+    "calendar_id": "",
+    "default_sender": "企业助手",
+    "domain": "feishu",
+    "recipients": [],
+    "shadow_mode": false
+  },
+  "config_help": {
+    "allowed_senders": {
+      "label": "署名白名单",
+      "type": "array",
+      "desc": "允许的发起人署名；非空时消息署名必须命中，否则拒绝（防冒用）"
+    },
+    "app_id": {
+      "label": "App ID",
+      "type": "string",
+      "required": true,
+      "desc": "飞书开放平台应用 App ID（凭证与基础信息）"
+    },
+    "app_secret": {
+      "label": "应用密钥",
+      "type": "string",
+      "secret": true,
+      "required": true,
+      "desc": "飞书开放平台 App Secret；值存密钥箱，本键保持 ${app_secret} 占位符"
+    },
+    "calendar_id": {
+      "label": "默认日历 ID",
+      "type": "string",
+      "desc": "日历日程类方法未传 calendar_id 时使用的默认日历"
+    },
+    "default_sender": {
+      "label": "缺省署名",
+      "type": "string",
+      "desc": "调用未传 sender 时使用的消息署名"
+    },
+    "domain": {
+      "label": "域名类型",
+      "type": "string",
+      "desc": "feishu（飞书）/ lark（国际版）"
+    },
+    "recipients": {
+      "label": "预配收件人",
+      "type": "array",
+      "desc": "[{name,type,target}]；type=user（个人 open_id）/ chat（群 chat_id），调用时用 name 引用"
+    },
+    "shadow_mode": {
+      "label": "影子演练",
+      "type": "boolean",
+      "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）"
+    }
+  }
+}

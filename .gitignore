@@ -37,3 +37,7 @@ fde-mcp-blade/.env
 fde-mcp-blade/.env.*
 fde-mcp-blade/backups/
 fde-mcp-blade/data/
+
+# Python 插件缓存
+__pycache__/
+*.pyc

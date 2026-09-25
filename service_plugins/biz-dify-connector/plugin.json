@@ -1,0 +1,210 @@
+{
+  "manifest": {
+    "name": "biz-dify-connector",
+    "apiVersion": "plugin.gis/v1",
+    "kind": "Plugin",
+    "version": "0.1.0",
+    "serviceType": "dify-rag",
+    "disabled": true,
+    "serverUrl": "",
+    "scenario": "business"
+  },
+  "info": {
+    "title": "Dify 知识库连接服务（RAG）",
+    "description": "对接自托管 Dify（社区版/企业版）知识库与应用的连接插件：知识库检索（RAG 召回）、按文本建文档、按本机文件上传建文档、创建/列出数据集、应用对话问答。面向已自托管 Dify 的团队，把公司内部文档/知识沉淀为可检索的知识库并赋能 AI 智能体问答。需在 Dify 后台完成模型与 embedding 配置，且分别从「知识库→API 访问」与「应用→API 访问」生成 API Key。无 sender/署名概念。",
+    "tags": [
+      "dify",
+      "rag",
+      "knowledge-base",
+      "retrieval",
+      "llm",
+      "self-hosted",
+      "business"
+    ],
+    "manual_avg_minutes": 30
+  },
+  "runtime": {
+    "interpreter": "python3",
+    "workDir": "./service_plugins/biz-dify-connector",
+    "defaultTimeout": 60
+  },
+  "methods": [
+    {
+      "name": "dify.dataset.create",
+      "description": "在 Dify 中创建新的知识库（数据集）。建完会得到 dataset_id，可随后用 dify.doc.add_text / dify.doc.upload 往里面加文档。注意：新知识库本身不包含任何数据，且只有 Dify 后台配置好 embedding 模型后，后续文档索引与检索才可用。",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "description": "知识库（数据集）名称",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "handler": "create_dataset.py",
+      "mode": "sync",
+      "timeout": 60,
+      "risk_level": "risk",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "dify.dataset.list",
+      "description": "列出 Dify 中当前数据集 API Key 可见的全部知识库（数据集），返回每个的 dataset_id/名称/文档数。用于拿到 dataset_id 以执行加文档/检索等后续操作。",
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "description": "每页条数，默认 20",
+            "type": "integer"
+          },
+          "page": {
+            "description": "页码，默认 1",
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "handler": "list_datasets.py",
+      "mode": "sync",
+      "timeout": 60,
+      "risk_level": "risk",
+      "manual_avg_minutes": 0
+    },
+    {
+      "name": "dify.doc.add_text",
+      "description": "把一段纯文本作为新文档写入指定知识库（dataset_id），由 Dify 后台切块并做 embedding 索引（异步，创建后文档状态常为 pending，稍后自动变 completed/available）。文本类内容（说明、规范、FAQ、纪要等）推荐用它；需要保留原始文件格式时才用 dify.doc.upload。",
+      "inputSchema": {
+        "properties": {
+          "dataset_id": {
+            "description": "知识库 ID（数据集 ID），可从 dify.dataset.list 获取",
+            "type": "string"
+          },
+          "name": {
+            "description": "文档名称",
+            "type": "string"
+          },
+          "text": {
+            "description": "文档正文（纯文本）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "name",
+          "text"
+        ],
+        "type": "object"
+      },
+      "handler": "add_doc_text.py",
+      "mode": "sync",
+      "timeout": 60,
+      "risk_level": "risk",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "dify.doc.upload",
+      "description": "把本机上的一个文件（file_path 绝对路径）上传到指定知识库（dataset_id）建文档，由 Dify 解析切块并做 embedding 索引（异步，完成后状态变 available 才可被检索到）。支持 txt/md/pdf/docx 等 Dify 可解析格式。file_path 为宿主机本地路径，仅限管理员授权使用；文件不存在/不可读会明确报错。",
+      "inputSchema": {
+        "properties": {
+          "dataset_id": {
+            "description": "知识库 ID（数据集 ID），可从 dify.dataset.list 获取",
+            "type": "string"
+          },
+          "file_path": {
+            "description": "宿主机本地文件的绝对路径（管理员授权使用）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "file_path"
+        ],
+        "type": "object"
+      },
+      "handler": "upload_doc_file.py",
+      "mode": "sync",
+      "timeout": 60,
+      "risk_level": "auth",
+      "manual_avg_minutes": 3,
+      "side_effect": true
+    },
+    {
+      "name": "dify.dataset.retrieve",
+      "description": "对指定知识库（dataset_id）做语义检索（RAG 召回）：返回与 query 最相关的文档片段（含文本内容/相关度 score/来源文档名/metadata）。适合先召回资料再交给大模型组织回答。前提：该知识库的文档已完成索引（embedding 已配置且文档状态非 pending）。",
+      "inputSchema": {
+        "properties": {
+          "dataset_id": {
+            "description": "知识库 ID（数据集 ID），可从 dify.dataset.list 获取",
+            "type": "string"
+          },
+          "query": {
+            "description": "检索问题/关键词",
+            "type": "string"
+          },
+          "top_k": {
+            "description": "返回片段条数，默认 5，最大 20",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dataset_id",
+          "query"
+        ],
+        "type": "object"
+      },
+      "handler": "retrieve.py",
+      "mode": "sync",
+      "timeout": 60,
+      "risk_level": "normal",
+      "manual_avg_minutes": 2
+    },
+    {
+      "name": "dify.chat.ask",
+      "description": "调用 Dify 已发布应用的对话消息 API 完成一次问答（response_mode=blocking），返回应用生成的 answer 与 conversation_id（后续可带回 conversation_id 延续多轮会话）。需要 config.app_api_key（来自「应用→API 访问」）；应用必须是已发布且配好模型/知识库的应用（知识库问答应用需先在应用内关联知识库）。",
+      "inputSchema": {
+        "properties": {
+          "api_key": {
+            "description": "应用 API Key（可选，缺省取 config.app_api_key）",
+            "type": "string"
+          },
+          "conversation_id": {
+            "description": "会话 ID（可选，空=新会话；多轮对话传上次返回的 conversation_id）",
+            "type": "string"
+          },
+          "query": {
+            "description": "用户问题",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "handler": "chat_ask.py",
+      "mode": "sync",
+      "timeout": 60,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    }
+  ],
+  "prompts": [],
+  "config": {
+    "app_api_key": "",
+    "base_url": "",
+    "dataset_api_key": "",
+    "shadow_mode": false
+  },
+  "config_help": {
+    "app_api_key": { "label": "应用 API Key", "type": "string", "desc": "Dify 应用 API Key，供 dify.chat.ask 使用；可改由密钥箱管理，此处留 ${app_api_key} 占位符" },
+    "base_url": { "label": "Dify 服务地址", "type": "string", "desc": "Dify 服务根地址，如 https://dify.example.com（不含 /v1）" },
+    "dataset_api_key": { "label": "知识库 API Key", "type": "string", "desc": "Dify 数据集（知识库）API Key；可改由密钥箱管理，此处留 ${dataset_api_key} 占位符" },
+    "shadow_mode": { "label": "影子演练", "type": "boolean", "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）" }
+  }
+}

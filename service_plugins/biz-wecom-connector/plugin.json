@@ -1,0 +1,260 @@
+{
+  "manifest": {
+    "name": "biz-wecom-connector",
+    "apiVersion": "plugin.gis/v1",
+    "kind": "Plugin",
+    "version": "0.1.0",
+    "serviceType": "wecom-connector",
+    "disabled": true,
+    "serverUrl": "qyapi.weixin.qq.com",
+    "scenario": "business"
+  },
+  "info": {
+    "title": "企业微信连接服务",
+    "description": "对接企业微信（WeCom）的连接插件：自建应用消息推送（给成员发文本 / Markdown）、群自定义机器人 webhook 推送（支持多群）、通讯录查询（按手机号反查 userid、按 userid 查成员详情）。成员标识一律使用 userid（非 openid），发送目标支持直接填 userid 或引用 config.recipients 预配名。sender 可读名署名 + allowed_senders 白名单防冒用。需在企业微信管理后台创建自建应用（获取 CorpID/Secret/AgentId）并配置群机器人 webhook。",
+    "tags": [
+      "wecom",
+      "wechat-work",
+      "enterprise-wechat",
+      "notification",
+      "im",
+      "robot",
+      "webhook",
+      "contact",
+      "enterprise",
+      "business"
+    ],
+    "manual_avg_minutes": 30
+  },
+  "runtime": {
+    "interpreter": "python3",
+    "workDir": "./service_plugins/biz-wecom-connector",
+    "defaultTimeout": 30
+  },
+  "methods": [
+    {
+      "name": "notify.by_phone",
+      "description": "【消息中心约定方法】按手机号给指定成员发送通知：插件内部自动完成「手机号 → userid → 发应用消息」全过程。任何实现了本方法的插件都会被「消息中心」自动探测为「通知插件」，无需改宿主代码。",
+      "inputSchema": {
+        "properties": {
+          "phone": {
+            "description": "收件人手机号",
+            "type": "string"
+          },
+          "title": {
+            "description": "消息标题",
+            "type": "string"
+          },
+          "content": {
+            "description": "消息正文（Markdown）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "title",
+          "content"
+        ],
+        "type": "object"
+      },
+      "handler": "notify_by_phone.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "auth",
+      "manual_avg_minutes": 1,
+      "side_effect": true
+    },
+    {
+      "name": "wecom.app.send_text",
+      "description": "以自建应用身份给企业微信『成员』发纯文本应用消息。target 填成员 userid（企业微信的成员标识，不是 openid）或 config.recipients 中预配的收件人名字（type=user）；sender 为发起人可读署名（默认 config.default_sender，命中 allowed_senders 白名单才放行），会自动追加到消息末尾。",
+      "inputSchema": {
+        "properties": {
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender，须可读名）",
+            "type": "string"
+          },
+          "target": {
+            "description": "收件成员：userid 或 config.recipients 中的名字（type=user，target 为 userid）",
+            "type": "string"
+          },
+          "text": {
+            "description": "文本内容",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "text"
+        ],
+        "type": "object"
+      },
+      "handler": "send_text.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "wecom.app.send_markdown",
+      "description": "以自建应用身份给企业微信『成员』发应用 Markdown 消息（msgtype=markdown）。target 填成员 userid 或 config.recipients 中预配的收件人名字；sender 署名规则同 send_text。注意企业微信 markdown 只支持部分语法（标题/加粗/引用/链接/字体颜色），不支持表格/图片。",
+      "inputSchema": {
+        "properties": {
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender）",
+            "type": "string"
+          },
+          "target": {
+            "description": "收件成员：userid 或 config.recipients 中的名字（type=user）",
+            "type": "string"
+          },
+          "text": {
+            "description": "消息内容（支持企业微信 Markdown 子集语法）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "text"
+        ],
+        "type": "object"
+      },
+      "handler": "send_markdown.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "wecom.robot.send",
+      "description": "通过群『自定义机器人』webhook 向企业微信群推送消息（text / markdown 两种，msgtype 指定）。target 留空用 config.robot_webhook（默认群），或填 config.recipients 中 type=robot 的预配机器人名（支持多群）；webhook 地址一律取自配置，不接受直传 URL。sender 为发起人可读署名，会自动追加到消息末尾。",
+      "inputSchema": {
+        "properties": {
+          "content": {
+            "description": "推送内容（msgtype=markdown 时支持企业微信 Markdown 子集语法）",
+            "type": "string"
+          },
+          "msgtype": {
+            "description": "消息类型：text / markdown",
+            "type": "string"
+          },
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender）",
+            "type": "string"
+          },
+          "target": {
+            "description": "群机器人名（可选，空=config.robot_webhook；或 config.recipients 中 type=robot 的预配名）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "msgtype",
+          "content"
+        ],
+        "type": "object"
+      },
+      "handler": "robot_send.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "wecom.contact.search_user",
+      "description": "按手机号反查成员 userid（多个用英文逗号分隔，最多 50 个）。企业微信 user/getuserid 单次只查一个号，故逐号查询并汇总：查到的进 user_list（mobile→userid），查不到的进 not_found（含 errcode/errmsg）。得到的 userid 可直接用于 wecom.app.send_text / send_markdown 的 target。",
+      "inputSchema": {
+        "properties": {
+          "mobiles": {
+            "description": "手机号，多个用英文逗号分隔",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mobiles"
+        ],
+        "type": "object"
+      },
+      "handler": "search_user.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    },
+    {
+      "name": "wecom.contact.user_info",
+      "description": "按 userid 查单个成员详情（姓名 name、部门 department（id 数组）、手机号 mobile（无通讯录授权时可能脱敏）、邮箱 email、职位 position 等），用于发消息前确认收件人。",
+      "inputSchema": {
+        "properties": {
+          "userid": {
+            "description": "企业微信成员 userid，可从 wecom.contact.search_user 反查获取",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userid"
+        ],
+        "type": "object"
+      },
+      "handler": "user_info.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    }
+  ],
+  "prompts": [],
+  "config": {
+    "agent_id": 0,
+    "allowed_senders": [],
+    "app_secret": "",
+    "corp_id": "",
+    "default_sender": "企业助手",
+    "recipients": [],
+    "robot_webhook": "",
+    "shadow_mode": false
+  },
+  "config_help": {
+    "agent_id": {
+      "label": "应用 AgentId",
+      "type": "number",
+      "desc": "企业微信自建应用 AgentId（应用详情页）"
+    },
+    "allowed_senders": {
+      "label": "署名白名单",
+      "type": "array",
+      "desc": "允许的发起人署名；非空时消息署名必须命中，否则拒绝（防冒用）"
+    },
+    "app_secret": {
+      "label": "应用 Secret",
+      "type": "string",
+      "desc": "自建应用 Secret；可改由密钥箱管理，此处留 ${app_secret} 占位符"
+    },
+    "corp_id": {
+      "label": "企业 CorpID",
+      "type": "string",
+      "desc": "企业微信企业 ID（我的企业 → 企业信息）"
+    },
+    "default_sender": {
+      "label": "缺省署名",
+      "type": "string",
+      "desc": "调用未传 sender 时使用的消息署名"
+    },
+    "recipients": {
+      "label": "预配收件人",
+      "type": "array",
+      "desc": "[{name,type,target}]；type=user（成员 userid）/ robot（群机器人），调用时用 name 引用"
+    },
+    "robot_webhook": {
+      "label": "群机器人 Webhook",
+      "type": "string",
+      "desc": "群机器人 Webhook 地址（群设置 → 群机器人）"
+    },
+    "shadow_mode": {
+      "label": "影子演练",
+      "type": "boolean",
+      "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）"
+    }
+  }
+}

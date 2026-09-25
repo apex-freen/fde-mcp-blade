@@ -1,0 +1,270 @@
+{
+  "manifest": {
+    "name": "biz-dingtalk-connector",
+    "apiVersion": "plugin.gis/v1",
+    "kind": "Plugin",
+    "version": "0.1.0",
+    "serviceType": "dingtalk-connector",
+    "disabled": true,
+    "serverUrl": "oapi.dingtalk.com",
+    "scenario": "business"
+  },
+  "info": {
+    "title": "企业钉钉连接服务",
+    "description": "对接钉钉开放平台（oapi.dingtalk.com）的连接插件：工作通知推送（文本/Markdown，dingtalk.app.*，按 userId 发给成员）、群自定义机器人 webhook 推送（dingtalk.robot.*，支持 HMAC-SHA256 加签）、通讯录查询（手机号查 userId、按 userId 查用户详情）。sender 署名 + allowed_senders 白名单防冒用。需在钉钉开放平台创建企业自建应用并开通相应权限、发布版本，群机器人需配置加签 secret。",
+    "tags": [
+      "dingtalk",
+      "notification",
+      "im",
+      "contact",
+      "enterprise",
+      "business",
+      "robot"
+    ],
+    "manual_avg_minutes": 30
+  },
+  "runtime": {
+    "interpreter": "python3",
+    "workDir": "./service_plugins/biz-dingtalk-connector",
+    "defaultTimeout": 30
+  },
+  "methods": [
+    {
+      "name": "notify.by_phone",
+      "description": "【消息中心约定方法】按手机号给指定成员发送通知：插件内部自动完成「手机号 → userId → 发工作通知」全过程。任何实现了本方法的插件都会被「消息中心」自动探测为「通知插件」，无需改宿主代码。",
+      "inputSchema": {
+        "properties": {
+          "phone": {
+            "description": "收件人手机号",
+            "type": "string"
+          },
+          "title": {
+            "description": "消息标题",
+            "type": "string"
+          },
+          "content": {
+            "description": "消息正文（Markdown）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "title",
+          "content"
+        ],
+        "type": "object"
+      },
+      "handler": "notify_by_phone.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "auth",
+      "manual_avg_minutes": 1,
+      "side_effect": true
+    },
+    {
+      "name": "dingtalk.app.send_text",
+      "description": "以自建应用（工作通知）身份给指定成员发纯文本消息。target 填钉钉 userId（个人标识，不是 open_id），或以 config.recipients 中预配的收件人名字引用；发群消息请用 dingtalk.robot.send。sender 为发起人署名（默认 config.default_sender，命中 allowed_senders 白名单才放行）。需要 config.app_key/app_secret/agent_id 且应用已发布。",
+      "inputSchema": {
+        "properties": {
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender，须命中 config.allowed_senders）",
+            "type": "string"
+          },
+          "target": {
+            "description": "收件人：钉钉 userId 或 config.recipients 中预配的成员名字（type=user）",
+            "type": "string"
+          },
+          "text": {
+            "description": "文本内容",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "text"
+        ],
+        "type": "object"
+      },
+      "handler": "send_text.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "dingtalk.app.send_markdown",
+      "description": "以自建应用（工作通知）身份给指定成员发 Markdown 富文本消息。target 填钉钉 userId 或 config.recipients 中预配的成员名字；title 为消息标题（默认『企业通知』）。发群消息请用 dingtalk.robot.send。需要 config.app_key/app_secret/agent_id 且应用已发布。",
+      "inputSchema": {
+        "properties": {
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender，须命中 config.allowed_senders）",
+            "type": "string"
+          },
+          "target": {
+            "description": "收件人：钉钉 userId 或 config.recipients 中预配的成员名字（type=user）",
+            "type": "string"
+          },
+          "text": {
+            "description": "消息正文（Markdown 语法）",
+            "type": "string"
+          },
+          "title": {
+            "description": "消息标题（可选，默认『企业通知』）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "text"
+        ],
+        "type": "object"
+      },
+      "handler": "send_markdown.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "dingtalk.robot.send",
+      "description": "通过『群自定义机器人』webhook 向群推送消息（发群消息的唯一通道；工作通知只能发给个人）。target 留空使用 config.robot_webhook（配合 config.robot_sign 加签）；也可填 config.recipients 中预配的机器人名字（type=robot，可带各自 robot_sign），或直接填完整 webhook URL（加签 secret 取 config.robot_sign）。msgtype 支持 text/markdown（markdown 需 title）。不需要 app_key/app_secret。",
+      "inputSchema": {
+        "properties": {
+          "content": {
+            "description": "消息内容（msgtype=text 为纯文本；markdown 为 Markdown 正文）",
+            "type": "string"
+          },
+          "msgtype": {
+            "description": "消息类型：text / markdown，默认 text",
+            "type": "string"
+          },
+          "sender": {
+            "description": "发起人署名（可选，默认 config.default_sender，须命中 config.allowed_senders）",
+            "type": "string"
+          },
+          "target": {
+            "description": "留空=config.robot_webhook；或 config.recipients 中预配的机器人名字（type=robot）；或完整 webhook URL",
+            "type": "string"
+          },
+          "title": {
+            "description": "msgtype=markdown 时的消息标题（可选，默认『企业通知』）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "handler": "robot_send.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "dingtalk.contact.search_user",
+      "description": "按手机号反查用户得到 userId（一次可传多个，逗号分隔，逐个调用 topapi/v2/user/getbymobile）。钉钉不支持按姓名/邮箱反查；未匹配到的手机号记入 not_found，单号失败记入 errors。返回应用可见范围内用户的 userId。",
+      "inputSchema": {
+        "properties": {
+          "mobiles": {
+            "description": "手机号，多个用英文逗号分隔",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mobiles"
+        ],
+        "type": "object"
+      },
+      "handler": "search_user.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    },
+    {
+      "name": "dingtalk.contact.user_info",
+      "description": "按 userId 查单个成员详情（姓名、手机号、邮箱、部门、职位等），用于发工作通知前确认收件人。需要 config.app_key/app_secret，且该成员在应用可见范围内。",
+      "inputSchema": {
+        "properties": {
+          "userid": {
+            "description": "钉钉 userId，可从 dingtalk.contact.search_user 获取",
+            "type": "string"
+          }
+        },
+        "required": [
+          "userid"
+        ],
+        "type": "object"
+      },
+      "handler": "user_info.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 2
+    }
+  ],
+  "prompts": [],
+  "config": {
+    "agent_id": 0,
+    "allowed_senders": [],
+    "app_key": "",
+    "app_secret": "",
+    "default_sender": "企业助手",
+    "recipients": [],
+    "robot_sign": "",
+    "robot_webhook": "",
+    "shadow_mode": false
+  },
+  "config_help": {
+    "agent_id": {
+      "label": "应用 AgentId",
+      "type": "number",
+      "desc": "钉钉企业内部应用 AgentId（应用信息页）"
+    },
+    "allowed_senders": {
+      "label": "署名白名单",
+      "type": "array",
+      "desc": "允许的发起人署名；非空时消息署名必须命中，否则拒绝（防冒用）"
+    },
+    "app_key": {
+      "label": "应用 AppKey",
+      "type": "string",
+      "desc": "企业内部应用 AppKey（凭证与基础信息）"
+    },
+    "app_secret": {
+      "label": "应用 AppSecret",
+      "type": "string",
+      "desc": "企业内部应用 AppSecret；可改由密钥箱管理，此处留 ${app_secret} 占位符"
+    },
+    "default_sender": {
+      "label": "缺省署名",
+      "type": "string",
+      "desc": "调用未传 sender 时使用的消息署名"
+    },
+    "recipients": {
+      "label": "预配收件人",
+      "type": "array",
+      "desc": "[{name,type,target}]；type=user（个人 userId）/ robot（群机器人），robot 可带各自 robot_sign"
+    },
+    "robot_sign": {
+      "label": "机器人加签密钥",
+      "type": "string",
+      "desc": "群机器人「加签」安全设置的密钥，留空表示机器人未开启加签"
+    },
+    "robot_webhook": {
+      "label": "群机器人 Webhook",
+      "type": "string",
+      "desc": "群机器人 Webhook 地址（群设置 → 智能群助手）"
+    },
+    "shadow_mode": {
+      "label": "影子演练",
+      "type": "boolean",
+      "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）"
+    }
+  }
+}

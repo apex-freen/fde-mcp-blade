@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 合规映射表 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html" class="active">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>05 合规映射表</h1>
+  <p class="lead">对着贵方 checklist 逐条核对，右列指向本目录内的证据页。</p>
+
+  <table>
+    <tr><th>#</th><th>评审人常问</th><th>平台能力</th><th>证据</th><th>对应标准</th><th>状态</th></tr>
+    <tr><td>Q01</td><td>数据存在哪里？会不会上传云端？</td><td>纯本地优先：数据存本地 MariaDB 与本地日志目录，默认不出内网</td><td><a href="02-data-flow.html">02</a> / <a href="01-architecture.html">01</a></td><td>等保2.0-8.1.4.1, GDPR-Art.32</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q02</td><td>数据出境吗？</td><td>无默认出境通道；云端桥接默认关闭，开启需人工配置并留痕</td><td><a href="01-architecture.html">01</a> / <a href="02-data-flow.html">02</a></td><td>个保法-§38, GDPR-Art.44</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q03</td><td>谁能看数据？权限怎么分？</td><td>RBAC 三级，支持设备级/功能级授权；admin 跳过校验</td><td><a href="03-permission.html">03</a></td><td>ISO27001-A.9</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q04</td><td>有没有最小权限原则？</td><td>令牌按权限收敛，无授权能力对 AI 不可见</td><td><a href="03-permission.html">03</a></td><td>ISO27001-A.9.2, 个保法-§6</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q05</td><td>AI 会不会越权操作设备/服务？</td><td>五重安全校验 + 四级风险分级</td><td><a href="03-permission.html">03</a> / <a href="06-risk.html">06</a></td><td>等保2.0-8.1.4.2</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q06</td><td>高危操作怎么拦截？谁审批？</td><td>auth 级走审批；disable 级前置拦截并留痕</td><td><a href="04-audit.html">04</a> / <a href="03-permission.html">03</a></td><td>ISO27001-A.9</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q07</td><td>操作有没有留痕？能追溯吗？</td><td>4 类结构化日志（命令/授权/令牌/技能）</td><td><a href="04-audit.html">04</a></td><td>等保2.0-8.1.4.3, GDPR-Art.30</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q08</td><td>日志能保留多久？能导出吗？</td><td>按项目约定保留；支持 Excel/CSV/JSON 导出</td><td><a href="04-audit.html">04</a></td><td>等保2.0</td><td><span class="badge mid">部分</span></td></tr>
+    <tr><td>Q09</td><td>日志里会不会有个人信息明文？</td><td>审计与日志边界强制单向打码，永不落原文</td><td><a href="02-data-flow.html">02</a> / <a href="04-audit.html">04</a></td><td>个保法-§51</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q10</td><td>个人信息怎么脱敏/加密？</td><td>分层：离站打码 / 落库可逆加密 / 审计强制打码</td><td><a href="02-data-flow.html">02</a></td><td>个保法-§51, GDPR-Art.32</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q11</td><td>用户同意怎么记录？怎么撤回？</td><td>用户级单独同意开关；同意/撤回均写审计</td><td><a href="02-data-flow.html">02</a> / <a href="04-audit.html">04</a></td><td>个保法-§29, GDPR-Art.7</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q12</td><td>账号能对接我们的 AD/域吗？</td><td>支持 OIDC（授权码+PKCE）与 LDAP/AD bind</td><td><a href="03-permission.html">03</a></td><td>ISO27001-A.9.2</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q13</td><td>会话怎么失效？离职/停用能立即断吗？</td><td>会话入库可撤销；停用/删除联动吊销；重启防复活</td><td><a href="03-permission.html">03</a></td><td>ISO27001-A.9.4</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q14</td><td>有没有默认账号/弱口令风险？</td><td>安装期强制初始化随机密码；建议首登改密</td><td><a href="03-permission.html">03</a> / <a href="06-risk.html">06</a></td><td>等保2.0-8.1.4.1</td><td><span class="badge mid">部分</span></td></tr>
+    <tr><td>Q15</td><td>出安全漏洞怎么响应？多久修？</td><td>分级响应 SLA（待按合同填写）</td><td><a href="06-risk.html">06</a></td><td>ISO27001-A.12.6</td><td><span class="badge todo">待补</span></td></tr>
+    <tr><td>Q16</td><td>版本怎么升级？会不会影响业务？</td><td>镜像升级 + 幂等 DDL；插件热更无需重启</td><td><a href="08-degradation.html">08</a> / <a href="01-architecture.html">01</a></td><td>ISO27001-A.12.6</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q17</td><td>备份怎么做？坏了多久能恢复？</td><td><code>backup.sh</code> 一键加密备份 + restore</td><td><a href="08-degradation.html">08</a></td><td>等保2.0-8.1.4.4</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q18</td><td>断网/云端不可用还能用吗？</td><td>纯本地优先：本地链路不依赖云端</td><td><a href="01-architecture.html">01</a> / <a href="08-degradation.html">08</a></td><td>等保2.0</td><td><span class="badge ok">已具备</span></td></tr>
+    <tr><td>Q19</td><td>有没有第三方依赖/供应链风险？</td><td>依赖锁定（Cargo.lock + vendor）；插件进程隔离</td><td><a href="06-risk.html">06</a></td><td>ISO27001-A.12.5</td><td><span class="badge mid">部分</span></td></tr>
+    <tr><td>Q20</td><td>做过什么测试？有报告吗？</td><td>功能/安全/合规测试报告</td><td><a href="07-test.html">07</a></td><td>ISO27001-A.14</td><td><span class="badge mid">部分</span></td></tr>
+  </table>
+
+  <h2>图例</h2>
+  <p>
+    <span class="badge ok">已具备</span> 可直接核查　
+    <span class="badge mid">部分</span> 部分具备 / 需按项目约定填写　
+    <span class="badge todo">待补</span> 待补充（多为商务/流程项）
+  </p>
+  <div class="note">本表覆盖客户常问 <b>Top20</b>；现场评审新增问题将回填并迭代。修改内容即改本页 HTML（纯静态，无需构建）。</div>
+
+  <div class="pager"><a href="04-audit.html">← 04 审计样例</a><a href="06-risk.html">06 风险评估 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

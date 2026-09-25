@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 测试报告 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html" class="active">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>07 测试报告</h1>
+  <p class="lead">测了什么、结果如何。现场按此表逐条执行并勾选。</p>
+
+  <h2>1. 测试范围</h2>
+  <table>
+    <tr><th>类别</th><th>覆盖内容</th></tr>
+    <tr><td>功能</td><td>设备控制（MQTT）、插件调用、智能体对话（文字/语音）、技能体系</td></tr>
+    <tr><td>权限</td><td>RBAC 授权/越权拒绝、令牌收敛、审批流、disable 拦截</td></tr>
+    <tr><td>安全</td><td>PII 打码/加密/同意、日志无原文、会话撤销、SSO/AD 登录</td></tr>
+    <tr><td>合规</td><td>审计留痕完整性、数据不出域、导出脱敏</td></tr>
+    <tr><td>稳定性</td><td>断网降级、备份恢复、升级迁移</td></tr>
+  </table>
+
+  <h2>2. 用例与结果</h2>
+  <table>
+    <tr><th>#</th><th>用例</th><th>预期</th><th>结果</th></tr>
+    <tr><td>T1</td><td>无权限令牌调用受限能力</td><td>拒绝且能力不可见</td><td>☐</td></tr>
+    <tr><td>T2</td><td>高危操作（auth）</td><td>生成审批单，批准后执行</td><td>☐</td></tr>
+    <tr><td>T3</td><td>disable 操作</td><td>前置拦截 + 写拦截审计</td><td>☐</td></tr>
+    <tr><td>T4</td><td>对话含手机号</td><td>落库密文 / 日志打码 / 本人回显原文</td><td>☐</td></tr>
+    <tr><td>T5</td><td>用户撤回同意</td><td>离站恢复打码，写审计</td><td>☐</td></tr>
+    <tr><td>T6</td><td>停用用户</td><td>存量会话立即失效</td><td>☐</td></tr>
+    <tr><td>T7</td><td>AD/OIDC 登录</td><td>成功登录且权限与本地一致</td><td>☐</td></tr>
+    <tr><td>T8</td><td>审计导出</td><td>Excel/CSV/JSON 可导出且无原文</td><td>☐</td></tr>
+    <tr><td>T9</td><td>断网</td><td>本地功能可用</td><td>☐</td></tr>
+    <tr><td>T10</td><td>备份恢复</td><td>按 08 流程恢复成功</td><td>☐</td></tr>
+  </table>
+
+  <h2>3. 结论</h2>
+  <p>本次测试范围与结果：<b>（现场填写）</b></p>
+  <p>遗留问题与改进计划：<b>（现场填写）</b></p>
+  <div class="note">可引用系统实测运行数据（调用量、成功率、部门/插件 Top 等）作为佐证，见价值报告导出。</div>
+
+  <div class="pager"><a href="06-risk.html">← 06 风险评估</a><a href="08-degradation.html">08 降级预案 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

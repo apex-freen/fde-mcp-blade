@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Virtual environment
+.plugins-venv/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SSDP relay 运行时文件
+ssdp_relay.log
+ssdp_relay.pid

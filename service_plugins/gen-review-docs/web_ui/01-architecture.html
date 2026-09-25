@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 架构说明 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html" class="active">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>01 架构说明</h1>
+  <p class="lead">系统是什么、部署在哪、数据是否出域。</p>
+
+  <h2>1. 产品定位</h2>
+  <p>Apex MCP Bridge 是部署在<b>本地边缘设备</b>上的 <b>AI 智能体中控平台</b>：以标准 MCP 协议对外暴露能力，对内收敛管理 MQTT 设备与本地插件服务，并叠加鉴权、授权、审批与审计治理层。</p>
+
+  <h2>2. 总体架构（四层）</h2>
+  <pre><code>┌─────────────────────────────────────────────────────────┐
+│ ① 接入层   MCP Server（/mcp）+ 内置智能体（文字/语音）    │
+├─────────────────────────────────────────────────────────┤
+│ ② 治理层   五重安全校验 + RBAC + 审批流 + 风险分级 + 审计 │
+├─────────────────────────────────────────────────────────┤
+│ ③ 执行层   MQTT 设备通道 + 插件引擎（进程隔离）           │
+├─────────────────────────────────────────────────────────┤
+│ ④ 数据层   本地 MariaDB + 本地日志目录（不依赖云）        │
+└─────────────────────────────────────────────────────────┘</code></pre>
+
+  <h2>3. 五重安全机制</h2>
+  <table>
+    <tr><th>层</th><th>机制</th><th>说明</th></tr>
+    <tr><td>1</td><td>令牌鉴权</td><td>MCP 接入需有效令牌，未授权请求拒绝</td></tr>
+    <tr><td>2</td><td>权限校验</td><td>按令牌/用户权限收敛，无授权能力对 AI 不可见</td></tr>
+    <tr><td>3</td><td>时效校验</td><td>令牌有效期与撤销（会话入库可撤销）</td></tr>
+    <tr><td>4</td><td>防绕过</td><td>工具收敛单入口，禁止绕过治理层直调</td></tr>
+    <tr><td>5</td><td>频率限制</td><td>限制调用频率，防滥用</td></tr>
+  </table>
+
+  <h2>4. 零云依赖（数据不出域）</h2>
+  <ul>
+    <li><b>默认纯本地</b>：设备（MQTT）、服务（插件）、数据库、日志、LLM/ASR/TTS 均可在本地或内网运行；</li>
+    <li><b>云端桥接为可选项</b>：远程控制需人工开启，默认关闭；</li>
+    <li>数据在本地采集、本地处理、本地存储，<b>默认不出内网</b>。</li>
+  </ul>
+
+  <h2>5. 部署形态</h2>
+  <table>
+    <tr><th>项</th><th>值</th></tr>
+    <tr><td>部署方式</td><td>Docker / Docker Compose（多架构：amd64 / arm64）</td></tr>
+    <tr><td>数据存储</td><td>本地 MariaDB（容器内 InnoDB）+ 本地日志目录</td></tr>
+    <tr><td>升级方式</td><td>镜像升级 + 幂等 DDL 迁移（重启自动补列/建表）</td></tr>
+    <tr><td>插件</td><td>支持热更新，无需重启主服务</td></tr>
+  </table>
+
+  <div class="pager"><a href="index.html">← 总览</a><a href="02-data-flow.html">02 数据流图 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

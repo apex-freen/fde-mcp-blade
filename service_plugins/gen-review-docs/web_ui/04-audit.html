@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 审计样例 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html" class="active">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>04 审计样例</h1>
+  <p class="lead">留什么痕、怎么查、怎么导出（脱敏）。</p>
+
+  <h2>1. 审计范围（4 类）</h2>
+  <table>
+    <tr><th>类别</th><th>日志表</th><th>记录内容</th></tr>
+    <tr><td>命令调用</td><td><code>gis_cmd_log</code></td><td>谁、何时、调用了什么、参数与结果（<b>打码后</b>）、成功/失败与失败分类</td></tr>
+    <tr><td>授权变更</td><td><code>gis_grant_log</code></td><td>设备/功能授权的授予、变更、回收</td></tr>
+    <tr><td>令牌操作</td><td><code>gis_token_log</code></td><td>令牌签发、使用、吊销</td></tr>
+    <tr><td>技能加载</td><td><code>gis_skill_log</code></td><td>技能被索引、命中的记录</td></tr>
+  </table>
+
+  <h3>扩展审计（安全增强）</h3>
+  <table>
+    <tr><th>类别</th><th>日志表</th><th>记录内容</th></tr>
+    <tr><td>PII 处理</td><td><code>gis_pii_audit</code></td><td>哪个边界、哪类 PII、执行了什么动作，<b>永不存原文</b></td></tr>
+    <tr><td>提示词注入</td><td><code>gis_injection_audit</code></td><td>检测到的注入尝试与处置</td></tr>
+    <tr><td>风险拦截</td><td><code>gis_risk_intercept_log</code></td><td><code>disable</code> 级与可见性拦截事件</td></tr>
+    <tr><td>操作与登录</td><td><code>sys_oper_log</code> / <code>sys_logininfor</code></td><td>后台操作与登录记录（请求/响应体已打码）</td></tr>
+  </table>
+
+  <h2>2. 日志保留与导出</h2>
+  <table>
+    <tr><th>项</th><th>说明</th></tr>
+    <tr><td>保留期限</td><td>审计日志按项目约定（建议 180 天）</td></tr>
+    <tr><td>导出格式</td><td><b>Excel / CSV / JSON</b>（接口 <code>/biz/gis_report/export</code>）</td></tr>
+    <tr><td>脱敏</td><td>导出内容为<b>打码后</b>数据，不含 PII 原文</td></tr>
+    <tr><td>可复算</td><td>导出附"口径说明"，客户可自行核对</td></tr>
+  </table>
+
+  <h2>3. 样例：命令调用审计（脱敏）</h2>
+  <table>
+    <tr><th>时间</th><th>操作人</th><th>目标</th><th>参数（脱敏）</th><th>状态</th></tr>
+    <tr><td>2026-09-10 10:12:03</td><td>admin</td><td>插件 intra.site.list</td><td><code>{"site":"内网A"}</code></td><td>✅ 成功</td></tr>
+    <tr><td>2026-09-10 10:13:41</td><td>ops01</td><td>设备 灯光 / 开灯</td><td><code>{}</code></td><td>✅ 成功</td></tr>
+    <tr><td>2026-09-10 10:15:07</td><td>ops01</td><td>插件 intra.http.request</td><td><code>{"phone":"138****8000"}</code></td><td>✅ 成功</td></tr>
+  </table>
+  <p>说明：参数中的手机号在落库前已被<b>单向打码</b>，不可逆。</p>
+
+  <h2>4. 拦截记录样例</h2>
+  <table>
+    <tr><th>时间</th><th>操作人</th><th>目标</th><th>风险等级</th><th>拦截类型</th><th>原因</th></tr>
+    <tr><td>2026-09-10 10:20:11</td><td>ops01</td><td>设备 门禁 / 开门</td><td><code>disable</code></td><td>disable</td><td>该能力已禁用</td></tr>
+    <tr><td>2026-09-10 10:22:35</td><td>user02</td><td>设备 空调 / 修改参数</td><td><code>auth</code></td><td>待审批</td><td>高危需审批</td></tr>
+  </table>
+  <div class="note">口径说明：<code>disable</code> 拦截<b>不写入</b>调用日志，避免污染"调用成功率"分母；独立记入 <code>gis_risk_intercept_log</code>。</div>
+
+  <h2>5. PII 审计样例</h2>
+  <table>
+    <tr><th>时间</th><th>操作人</th><th>边界</th><th>类型</th><th>动作</th></tr>
+    <tr><td>2026-09-10 10:15:07</td><td>ops01</td><td><code>store_message</code></td><td>手机号</td><td>encrypt</td></tr>
+    <tr><td>2026-09-10 10:15:07</td><td>ops01</td><td><code>outbound_cloud</code></td><td>手机号</td><td>mask</td></tr>
+    <tr><td>2026-09-10 10:16:20</td><td>admin</td><td><code>store_message</code></td><td>手机号</td><td>pass（获同意）</td></tr>
+  </table>
+  <div class="note"><b>审计红线</b>：<code>gis_pii_audit</code> 永不写入 PII 原文，仅记录动作与边界。</div>
+
+  <div class="pager"><a href="03-permission.html">← 03 权限矩阵</a><a href="05-compliance.html">05 合规映射表 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

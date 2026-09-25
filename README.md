@@ -111,8 +111,23 @@ Don't let the 5-domain / 49-page console scare you — each step takes under 30 
 |---|---|---|---|
 | **1** | *After delivery, every little question comes back to you — the engineer becomes a 24/7 human helpline* → **Let the agent answer for you** (live demo · 5 min · zero install) | Sign in at <https://fde.agent-plat.com> (`admin` / `admin123`) → **Admin Center › Access & Authorization › MCP Tokens** → create a token → paste the MCP config into Claude / Cursor / Coze etc. → ask **"What's in the knowledge base?"** → check the trail under **Audit Center › Operation Audit** | The agent lists the system's capabilities one by one. ✔ Your customers' simple questions get answered by the agent, not by you; ✔ this very Q&A is already audited — the value dashboard now has its first datapoint |
 | **2** | *Traditional platforms need environment reviews, approvals, a week of waiting; demos require hauling in your own server* → **Local deploy, local calls** (30 min) | Follow Quick start above — `install.ps1` on Windows, `install.sh` on Linux | The full system running on your own machine, data never leaves it. ✔ Fast install, zero SaaS dependency |
-| **3** | *Customers dare not hand permissions to AI: full access is scary, full lockdown is useless* → **Install your first plugin, touch the agent's boundary** (Feishu · 20 min) | **Admin Center › Plugin Management › Plugin Center**: offline-install notes → on **Plugin Config**, install the Feishu plugin, fill in your Feishu app credentials and enable it (credentials go into the **Plugin Vault**, the agent never sees them) → ask **"Zhang San's phone number"**: with PII masking on by default you get 138\*\*\*\*5678 → go to **Admin Center › Platform Capabilities › PII Masking**, disable the rule or whitelist it → ask again: full number → set up the Feishu bot and have the agent message you or a group | A message lands in your Feishu from "the agent". ✔ Install a plugin = connect a system; ✔ encryption & masking are on by default; ✔ you define the boundary |
-| **4** | *Every new system = vendor scheduling + tens of thousands in customization; delivery can't scale* → **Write your own plugin from the template** (~half a day) | Take the plugin template, fill in your intranet system's address / APIs / credentials (install it under **Admin Center › Plugin Management**); for well-documented systems, enable **OpenAPI-to-MCP** there too — paste the doc URL and get an MCP Server in 10 minutes, zero code | Your own system shows up in the agent's tool list. ✔ No need to modify Blade or wait for us (template & SDK ship with the beta) |
+| **3** | *Customers dare not hand permissions to AI: full access is scary, full lockdown is useless* → **Install your first plugin, touch the agent's boundary** (Feishu / WeCom / DingTalk / intranet · 20 min) | Copy a plugin folder from the repo's `service_plugins/` (Feishu, WeCom, DingTalk, intranet API, etc.) into the deployment directory `fde-mcp-blade/data/service-plugins/` — the host auto-discovers and loads it, no restart → ask the agent **"Which users are in the system?"**: with PII masking on by default, phone numbers come back as 138\*\*\*\*5678 — sensitive fields the agent can't see → go to **Admin Center › Platform Capabilities › PII Masking**, disable the rule or whitelist it → ask again: full details → fill in the Feishu app credentials under **Plugin Config** and enable it (credentials go into the **Plugin Vault**, the agent never sees them) → have the agent message a user or a group directly | A message lands in your Feishu from "the agent"; the phone number's journey from masked to unmasked is a boundary you operated by hand. ✔ Install a plugin = connect a system; ✔ encryption & masking are on by default; ✔ you define the boundary |
+| **4** | *Every new system = vendor scheduling + tens of thousands in customization; delivery can't scale* → **Write your own plugin from the template** (~half a day) | Model yours on the **plugin development standard** and existing plugins in the repo's `service_plugins/`, fill in your intranet system's address / APIs / credentials (install it under **Admin Center › Plugin Management**); for well-documented systems, enable **OpenAPI-to-MCP** there too — paste the doc URL and get an MCP Server in 10 minutes, zero code | Your own system shows up in the agent's tool list. ✔ No need to modify Blade or wait for us (the dev standard and official plugins live in the repo's service_plugins/ directory) |
+
+## Official plugin pack (service_plugins/)
+
+The repo ships a set of official plugins, **copy-to-install**: drop a plugin folder into the deployment directory `fde-mcp-blade/data/service-plugins/` and the host scans the directory in real time, auto-discovers and loads it — no restart. Credentials never live inside plugin files — put them in the console's **Plugin Vault** (`gis_secret`); the agent can never reach them.
+
+| Plugin | Connects to | What it does |
+|---|---|---|
+| `biz-feishu-connector` | Feishu | Work notifications (text / Markdown), group bot push, directory lookup |
+| `biz-wecom-connector` | WeCom | Same as above, plus the message-center convention method `notify.by_phone` (notify by phone number — auto-detected by the message center) |
+| `biz-dingtalk-connector` | DingTalk | Work notifications, signed group bots, phone-to-userId lookup / member details |
+| `gen-intranet-fetcher` | Intranet systems | HTTP / SOAP / MQTT data retrieval with built-in anti-injection sanitization and source labeling |
+| `biz-dify-connector` | Dify knowledge base | Create datasets, upload documents, retrieve, Q&A |
+| `gen-review-docs` | Delivery kit | Review-readiness pack: 8 static compliance documents |
+
+Naming prefixes: `gen-` general-purpose / `biz-` business & enterprise scenarios. To write your own plugin, model it on [`service_plugins/plugin_develop_standard.md`](./service_plugins/plugin_develop_standard.md) and the existing plugins — `plugin.json` declares methods, parameters and risk levels (`normal` / `risk` / `auth` = human approval for high-risk / `disable`); declare `manual_avg_minutes` on a method and the value dashboard's human-equivalent hours compute themselves.
 
 ## Connect your AI (MCP)
 
@@ -157,6 +172,7 @@ Don't let the 5-domain / 49-page console scare you — each step takes under 30 
 fde-mcp-blade/
 ├── fde-mcp-blade/          # Deployment package: compose + install/ops/backup scripts + guides (EN/CN)
 ├── fde-mcp-blade-admin/    # Web console source (Vue 3.4 + Vite 5 + Arco Design)
+├── service_plugins/        # Official plugin pack: Feishu / WeCom / DingTalk / intranet / Dify + plugin dev standard
 ├── docs/                   # Architecture diagram & screenshots
 ├── LICENSE                 # Apache 2.0
 └── README.md / README.zh-CN.md
@@ -169,10 +185,10 @@ fde-mcp-blade/
 - [x] Shadow rehearsal, PII masking engine, RBAC + department isolation
 - [x] Vector knowledge base + skill library + value / cost dashboards
 - [x] One-command deploy + encrypted backup + ops scripts
+- [x] Official plugin pack: Feishu / WeCom / DingTalk / intranet fetcher / Dify KB connectors + plugin dev standard
 - [ ] Tamper-evident audit logs (hash chain / append-only store) — in design
 - [ ] arm64 images — in testing
 - [ ] Industry template packs (tools + workflow + SKILL + audit config, 7-module bundle) — detailed design done
-- [ ] Backend source release — timing follows the beta
 
 ## Feedback & beta invite
 

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内网服务信息获取控制台</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #1a2233; --panel2: #212b41; --border: #2e3a52;
+    --text: #e6ebf5; --dim: #8b97ad; --accent: #4f8cff; --ok: #3ddc84; --warn: #ffb454; --err: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-size: 14px; }
+  #authBanner { display: none; background: #3a2600; color: var(--warn); text-align: center; padding: 8px 12px; font-size: 13px; }
+  #authBanner a { color: #ffd28a; margin-left: 8px; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  header h1 { font-size: 18px; }
+  header .sub { color: var(--dim); font-size: 12px; margin-top: 2px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .card h2 { font-size: 14px; color: var(--dim); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select, input[type=text], input[type=number], textarea {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 10px; font-size: 13px; outline: none; min-width: 0;
+  }
+  textarea { font-family: ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+  select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 14px;
+    font-size: 13px; cursor: pointer; transition: opacity .15s;
+  }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.green { background: var(--ok); color: #06291a; }
+  .grow { flex: 1 1 160px; }
+  label.t { display: block; font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+  #statusBar { color: var(--dim); font-size: 12px; }
+  #statusBar.loading { color: var(--warn); }
+  #statusBar.error { color: var(--err); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  th { color: var(--dim); font-weight: normal; }
+  tr.site { cursor: pointer; }
+  tr.site:hover { background: var(--panel2); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; background: var(--panel2); color: var(--dim); border: 1px solid var(--border); }
+  .tag.http { color: var(--ok); border-color: var(--ok); }
+  .tag.soap { color: var(--accent); border-color: var(--accent); }
+  .tag.mqtt { color: var(--warn); border-color: var(--warn); }
+  .dim { color: var(--dim); font-size: 12px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; }
+  .kv b { color: var(--dim); font-weight: normal; }
+  #logList { max-height: 260px; overflow: auto; }
+  #logList .empty, #emptyList { color: var(--dim); text-align: center; padding: 20px 0; font-size: 13px; }
+  details.log-item { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; background: var(--panel); }
+  details.log-item summary { cursor: pointer; padding: 6px 10px; font-size: 12px; display: flex; gap: 8px; align-items: center; }
+  details.log-item summary .code { font-weight: bold; }
+  details.log-item summary .code.ok { color: var(--ok); }
+  details.log-item summary .code.fail { color: var(--err); }
+  details.log-item pre { margin: 0; padding: 8px 10px; background: #0b0f18; overflow: auto; font-size: 12px; color: #a8d8ff; white-space: pre-wrap; word-break: break-all; max-height: 300px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 0; }
+  .tabs button { border-radius: 6px 6px 0 0; }
+  .tabs button.active { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-bottom: none; }
+  .tabpane { display: none; }
+  .tabpane.active { display: block; }
+  #resultBox { display: none; }
+  .note { color: var(--dim); font-size: 12px; line-height: 1.7; }
+  .note code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="authBanner">
+  未检测到有效登录态，操作可能失败。<a href="/login" target="_blank">前往登录</a>
+</div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>内网服务信息获取控制台</h1>
+      <div class="sub">gen-intranet-fetcher 插件 Web 界面 · HTTP(S) REST / SOAP / MQTT 站点请求 · 由主程序代理调用插件处理器</div>
+    </div>
+    <div class="row">
+      <button id="btnRefreshSites" class="ghost">刷新站点</button>
+      <span id="statusBar">未连接</span>
+    </div>
+  </header>
+
+  <!-- 站点列表 -->
+  <div class="card">
+    <h2>已配置内网站点（config.sites）<span class="dim">— 点击站点自动填入下方请求面板的 site 下拉框</span></h2>
+    <div id="siteTable"></div>
+  </div>
+
+  <!-- 协议切换 -->
+  <div class="card" style="padding-bottom:0">
+    <div class="tabs" id="tabs">
+      <button data-tab="http" class="ghost active">HTTP(S) 请求</button>
+      <button data-tab="soap" class="ghost">SOAP 调用</button>
+      <button data-tab="mqtt" class="ghost">MQTT 请求</button>
+      <button data-tab="shadow" class="ghost">影子演练</button>
+      <button data-tab="help" class="ghost">协议支持说明</button>
+    </div>
+
+    <!-- HTTP 面板 -->
+    <div class="tabpane active" id="pane-http">
+      <div class="row" style="margin:12px 0 0">
+        <div style="flex:1.2">
+          <label class="t">站点 site（或留空用 default_site）</label>
+          <select id="hSite" style="width:100%"><option value="">-- 站点 / 默认 --</option></select>
+        </div>
+        <div style="flex:2">
+          <label class="t">完整 URL（填了则忽略上面站点）</label>
+          <input type="text" id="hUrl" style="width:100%" placeholder="http://192.168.1.10:8080">
+        </div>
+        <div style="flex:1">
+          <label class="t">追加路径 path</label>
+          <input type="text" id="hPath" style="width:100%" placeholder="/api/v1/status">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:1">
+          <label class="t">方法</label>
+          <select id="hMethod" style="width:100%">
+            <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option>
+            <option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label class="t">Content-Type（body 为对象时默认 application/json）</label>
+          <input type="text" id="hCtype" style="width:100%" placeholder="application/json">
+        </div>
+        <div style="flex:1">
+          <label class="t">超时（秒）</label>
+          <input type="number" id="hTimeout" style="width:100%" value="" placeholder="默认">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;align-items:stretch">
+        <div style="flex:1;min-width:260px">
+          <label class="t">查询参数 params（JSON 对象，如 {"page":1}）</label>
+          <textarea id="hParams" rows="2" style="width:100%"></textarea>
+        </div>
+        <div style="flex:1;min-width:260px">
+          <label class="t">请求头 headers（JSON 对象）</label>
+          <textarea id="hHeaders" rows="2" style="width:100%"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label class="t">请求体 body（JSON 对象自动转 JSON；纯文本请用字符串并设置 Content-Type）</label>
+        <textarea id="hBody" rows="3" style="width:100%" placeholder='{"query":"..."}'></textarea>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnHttpSend" class="green">发送 HTTP 请求</button>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="hInsecure"> 跳过 HTTPS 证书校验
+        </label>
+      </div>
+    </div>
+
+    <!-- SOAP 面板 -->
+    <div class="tabpane" id="pane-soap">
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1.2">
+          <label class="t">站点 site（type=soap/http）</label>
+          <select id="sSite" style="width:100%"><option value="">-- 站点 / 默认 --</option></select>
+        </div>
+        <div style="flex:2">
+          <label class="t">端点完整 URL（填了则忽略上面站点）</label>
+          <input type="text" id="sUrl" style="width:100%" placeholder="http://192.168.1.50:5000/ws">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:1.5">
+          <label class="t">操作名 method（如 GetSystemTime）</label>
+          <input type="text" id="sMethod" style="width:100%" placeholder="GetSystemTime">
+        </div>
+        <div style="flex:2">
+          <label class="t">命名空间 namespace</label>
+          <input type="text" id="sNs" style="width:100%" placeholder="urn:example-com:service:status">
+        </div>
+        <div style="flex:1">
+          <label class="t">SOAP 版本</label>
+          <select id="sVer" style="width:100%"><option value="1">1.1</option><option value="2">1.2</option></select>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label class="t">入参 params（JSON 对象，标量/嵌套对象/数组均可）</label>
+        <textarea id="sParams" rows="4" style="width:100%" placeholder='{"InstanceID":0,"Filter":"*"}'></textarea>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnSoapSend" class="green">发送 SOAP 调用</button>
+      </div>
+    </div>
+
+    <!-- MQTT 面板 -->
+    <div class="tabpane" id="pane-mqtt">
+      <div class="row" style="margin-top:12px">
+        <div style="flex:1.2">
+          <label class="t">站点 site（type=mqtt）</label>
+          <select id="mSite" style="width:100%"><option value="">-- 站点 --</option></select>
+        </div>
+        <div style="flex:2">
+          <label class="t">Broker 完整地址（填了则忽略上面站点）</label>
+          <input type="text" id="mUrl" style="width:100%" placeholder="mqtt://192.168.1.10:1883">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:1.5">
+          <label class="t">请求主题 request_topic *</label>
+          <input type="text" id="mReqTopic" style="width:100%" placeholder="device/req">
+        </div>
+        <div style="flex:1.5">
+          <label class="t">应答主题 response_topic（留空 = 只发布不等回复）</label>
+          <input type="text" id="mRespTopic" style="width:100%" placeholder="device/resp">
+        </div>
+        <div style="flex:0.6">
+          <label class="t">等待（秒）</label>
+          <input type="number" id="mWait" style="width:100%" value="10">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label class="t">消息内容 payload（文本或 JSON）</label>
+        <textarea id="mPayload" rows="2" style="width:100%" placeholder='{"cmd":"status"}'></textarea>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btnMqttSend" class="green">发送 MQTT 请求</button>
+        <span class="dim">需已安装 paho-mqtt；对端需按「请求主题/应答主题」约定回复</span>
+      </div>
+    </div>
+
+    <!-- 影子演练 -->
+    <div class="tabpane" id="pane-shadow">
+      <div class="row" style="margin:12px 0 0">
+        <div style="flex:1">
+          <span id="shModeTag" class="tag">--</span>
+          <span id="shModeText" class="dim" style="margin-left:6px"></span>
+        </div>
+        <button id="btnShadowEnter" class="green" style="display:none">进入演练模式</button>
+        <button id="btnShadowExit" class="ghost" style="display:none">退出演练（转生产）</button>
+        <button id="btnShadowRefresh" class="ghost">刷新</button>
+        <button id="btnShadowArchive" class="ghost">归档已处理记录</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div style="flex:0.6">
+          <label class="t">记录状态过滤</label>
+          <select id="shFilter" style="width:100%">
+            <option value="pending">pending（待审批）</option>
+            <option value="approved">approved（已批准执行）</option>
+            <option value="rejected">rejected（已驳回）</option>
+            <option value="failed">failed（执行失败）</option>
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div style="flex:2">
+          <label class="t">说明</label>
+          <div class="note">影子演练 = HTTP/SOAP/MQTT 请求只记录、不真实执行（不发网络包）。对 pending 记录「批准执行」才真实发送一次；确认意图后「退出演练」转生产，后续调用立即真发。记录明细中 URL 凭证、headers/密钥键已脱敏。</div>
+        </div>
+        <div style="flex:1">
+          <label class="t">统计</label>
+          <div id="shCounts" class="dim" style="font-size:12px">--</div>
+        </div>
+      </div>
+      <div id="shadowList" style="margin-top:10px"></div>
+    </div>
+
+    <!-- 协议支持说明 -->
+    <div class="tabpane" id="pane-help">
+      <div style="margin:12px 0" class="note">
+        <p><b style="color:var(--text)">本插件基于宿主「一次调用 = 一个短生命周期进程 + 同步等待一次响应」的模型，仅适合请求-响应式的协议：</b></p>
+        <br>
+        <table>
+          <tr><th>协议</th><th>支持</th><th>说明</th></tr>
+          <tr><td>HTTP / HTTPS</td><td class="dim">✅ 已实现</td><td class="dim">REST 通用请求，最常用</td></tr>
+          <tr><td>SOAP 1.1/1.2</td><td class="dim">✅ 已实现</td><td class="dim">本质为 HTTP POST + XML，自动组包/解析</td></tr>
+          <tr><td>MQTT</td><td class="dim">✅ 受限实现</td><td class="dim">发布/订阅协议，仅支持「请求主题 → 应答主题」一次性短连接模式</td></tr>
+          <tr><td>CoAP</td><td style="color:var(--warn)">❌ 暂不支持</td><td class="dim">内网极少见、生态不普及，暂无实际场景，暂不实现</td></tr>
+          <tr><td>gRPC</td><td style="color:var(--warn)">❌ 暂不支持</td><td class="dim">内网应用相对少见，且通用调用需 proto 定义或服务端开启反射，暂不实现</td></tr>
+          <tr><td>WebSocket</td><td style="color:var(--warn)">❌ 暂不支持</td><td class="dim">双向长连接 + 服务端主动推送，与一次性进程模型冲突，不适合本插件</td></tr>
+        </table>
+        <br>
+        <p>详细说明见插件 README_ZH.md「协议支持矩阵」。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="split" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <!-- 结果 -->
+    <div class="card" id="resultCard">
+      <h2>返回结果</h2>
+      <div id="resultBox"><div id="resultSummary" class="kv"></div><pre id="resultBody" style="margin-top:10px;background:#0b0f18;overflow:auto;font-size:12px;color:#a8d8ff;padding:10px;white-space:pre-wrap;word-break:break-all;max-height:380px">--</pre></div>
+      <div id="emptyResult" class="dim" style="text-align:center;padding:24px 0;font-size:13px">暂无结果 — 选择协议标签页发起一次请求</div>
+    </div>
+    <!-- 调用日志 -->
+    <div class="card">
+      <h2>调用日志 <span class="dim">（每次请求 = 一次插件方法调用）</span></h2>
+      <div id="logList"><div class="empty">暂无调用记录</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const state = { sites: [], activeTab: 'http' };
+
+/* ============================================================
+ * 通用桥接层：与主程序 /plugin-web 机制解耦（同其他插件）
+ * ============================================================ */
+const PLUGIN_NAME = (location.pathname.split('/')[2]) || '';
+const API_BASE = '/prod-api/biz/plugin_web/' + PLUGIN_NAME + '/api/';
+const METHODS = {
+  'site.list': 'intra.site.list',
+  'http.request': 'intra.http.request',
+  'soap.call': 'intra.soap.call',
+  'mqtt.request': 'intra.mqtt.request',
+  'shadow.status': 'intra.shadow.status',
+  'shadow.list': 'intra.shadow.list',
+  'shadow.approve': 'intra.shadow.approve',
+  'shadow.reject': 'intra.shadow.reject',
+  'shadow.set_mode': 'intra.shadow.set_mode',
+  'shadow.archive': 'intra.shadow.archive',
+};
+
+async function api(name, params = {}) {
+  const method = METHODS[name] || name;
+  const url = API_BASE + method;
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('app_token');
+  if (token) headers.Authorization = 'Bearer ' + token;
+  const opts = { method: 'POST', headers, body: JSON.stringify(params) };
+  let resp;
+  try {
+    resp = await fetch(url, opts);
+  } catch (e) {
+    log(name + ' → ' + method, { code: -1, msg: '请求失败: ' + e.message });
+    return { ok: false, msg: e.message, data: null };
+  }
+  let body;
+  try { body = await resp.json(); } catch { body = { code: -1, msg: '响应非 JSON（HTTP ' + resp.status + '）' }; }
+  log(name + ' → ' + method, body);
+  if (resp.status === 401) {
+    showAuthBanner();
+    return { ok: false, msg: (body && body.msg) || '登录已过期，请重新登录', data: null };
+  }
+  if (body && body.code === 200) return { ok: true, msg: body.msg || 'ok', data: body.data ?? {} };
+  return { ok: false, msg: (body && body.msg) || '操作失败', data: null };
+}
+
+function showAuthBanner() {
+  const el = $('authBanner');
+  if (el) el.style.display = 'block';
+}
+
+function setStatus(text, cls) {
+  const el = $('statusBar');
+  el.textContent = text;
+  el.className = cls || '';
+}
+
+function log(method, data) {
+  const list = $('logList');
+  if (list.querySelector('.empty')) list.innerHTML = '';
+  const code = data && typeof data.code !== 'undefined' ? data.code : -1;
+  const ok = code === 0 || code === 200;
+  const msg = data ? (data.msg || '') : '无响应';
+  const detail = JSON.stringify(data, null, 2);
+  const det = document.createElement('details');
+  det.className = 'log-item';
+  det.innerHTML =
+    '<summary><span class="code ' + (ok ? 'ok' : 'fail') + '">' + (ok ? '成功' : '失败') + '</span>' +
+    '<b>' + method + '</b><span class="dim">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="dim" style="margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40%">' + esc(msg) + '</span></summary>' +
+    '<pre>' + esc(detail) + '</pre>';
+  list.prepend(det);
+  while (list.children.length > 30) list.lastChild.remove();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ---------- 结果展示 ---------- */
+function showResult(r, label) {
+  const box = $('resultBox'), empty = $('emptyResult');
+  empty.style.display = 'none';
+  box.style.display = 'block';
+  const d = r.data || {};
+  const summary = [];
+  const pick = (k) => { if (d[k] !== undefined && d[k] !== null && d[k] !== '') summary.push([k, String(d[k])]); };
+  pick('site'); pick('status'); pick('ok'); pick('message_count');
+  if (label === 'http.request') {
+    ['request_url','final_url','content_type','charset','size_bytes','elapsed_ms','truncated','binary'].forEach(pick);
+  } else if (label === 'soap.call') {
+    ['endpoint','content_type','status','ok','elapsed_ms'].forEach(pick);
+  } else if (label === 'mqtt.request') {
+    ['broker','request_topic','response_topic','publish_rc','timed_out'].forEach(pick);
+  }
+  if (!summary.length) summary.push(['状态', r.ok ? '成功' : '失败']);
+  $('resultSummary').innerHTML = summary.map(k => '<b>' + esc(k[0]) + '</b><span>' + esc(k[1]) + '</span>').join('');
+
+  const pre = $('resultBody');
+  if (label === 'http.request' && d.json !== null && d.json !== undefined && d.json_parsed) {
+    pre.textContent = JSON.stringify(d.json, null, 2);
+  } else if (label === 'soap.call') {
+    pre.textContent = JSON.stringify({ body_xml: d.body_xml, parsed: d.parsed }, null, 2);
+  } else {
+    pre.textContent = JSON.stringify(d, null, 2);
+  }
+}
+
+function showErr(msg) {
+  $('emptyResult').style.display = 'none';
+  $('resultBox').style.display = 'block';
+  $('resultSummary').innerHTML = '<b>失败</b><span></span>';
+  $('resultBody').textContent = String(msg || '未知错误');
+}
+
+/* ---------- 站点 ---------- */
+async function refreshSites() {
+  const r = await api('site.list');
+  if (!r.ok) { setStatus('站点读取失败: ' + r.msg, 'error'); return; }
+  state.sites = r.data.sites || [];
+  renderSiteTable();
+  fillSelects();
+  setStatus('已加载 ' + state.sites.length + ' 个站点');
+}
+
+function fillSelects() {
+  const http = state.sites.filter(s => s.type === 'http' || s.type === 'soap');
+  const soap = state.sites.filter(s => s.type === 'soap' || s.type === 'http');
+  const mqtt = state.sites.filter(s => s.type === 'mqtt');
+  fillSelect('hSite', http);
+  fillSelect('sSite', soap);
+  fillSelect('mSite', mqtt);
+}
+
+function fillSelect(id, list) {
+  const sel = $(id);
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- ' + (id === 'mSite' ? '未选择（需手动填 Broker 或站点 options 预设主题）' : '站点 / 默认 --') + '</option>' +
+    list.map(s => '<option value="' + esc(s.name) + '">' + esc(s.name) + '（' + esc(s.type) + '）' + '</option>').join('');
+  if (prev) sel.value = prev;
+}
+
+function renderSiteTable() {
+  const box = $('siteTable');
+  if (!state.sites.length) {
+    box.innerHTML = '<div class="dim" style="padding:16px 0">暂无站点 — 在 plugin.json 的 config.sites 中配置内网地址后点「刷新站点」。</div>';
+    return;
+  }
+  const table = document.createElement('table');
+  table.innerHTML = '<thead><tr><th>名称</th><th>协议</th><th>地址</th><th>说明</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  state.sites.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.className = 'site';
+    const tagCls = s.type === 'http' ? 'http' : s.type === 'soap' ? 'soap' : 'mqtt';
+    tr.innerHTML =
+      '<td><b>' + esc(s.name) + '</b></td>' +
+      '<td><span class="tag ' + tagCls + '">' + esc(s.protocol || s.type) + '</span></td>' +
+      '<td>' + esc(s.url) + '</td>' +
+      '<td class="dim">' + esc(s.desc || '') + '</td>';
+    tr.onclick = () => selectSite(s);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  box.innerHTML = '';
+  box.appendChild(table);
+}
+
+function selectSite(s) {
+  if (s.type === 'http' || s.type === 'soap') {
+    if (s.type === 'http') {
+      $('hSite').value = s.name; switchTab('http');
+    } else {
+      $('sSite').value = s.name; switchTab('soap');
+    }
+  } else if (s.type === 'mqtt') {
+    $('mSite').value = s.name; switchTab('mqtt');
+  }
+}
+
+/* ---------- 标签切换 ---------- */
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + tab));
+}
+
+/* ---------- HTTP ---------- */
+function readJsonTextarea(id) {
+  const raw = $(id).value.trim();
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { throw new Error('「' + id + '」不是合法 JSON: ' + e.message); }
+}
+
+async function httpSend() {
+  const params = {};
+  if ($('hSite').value) params.site = $('hSite').value;
+  if ($('hUrl').value.trim()) params.url = $('hUrl').value.trim();
+  if ($('hPath').value.trim()) params.path = $('hPath').value.trim();
+  if (!$('hSite').value && !$('hUrl').value.trim()) {
+    // 交给 config.default_site，若未配置由服务端返回清晰错误
+  }
+  params.method = $('hMethod').value;
+  if ($('hCtype').value.trim()) params.content_type = $('hCtype').value.trim();
+  if ($('hTimeout').value) params.timeout = parseInt($('hTimeout').value, 10);
+  if ($('hInsecure').checked) params.insecure_ssl = true;
+  try {
+    const q = readJsonTextarea('hParams'); if (q) params.params = q;
+    const h = readJsonTextarea('hHeaders'); if (h) params.headers = h;
+    const bodyRaw = $('hBody').value.trim();
+    if (bodyRaw) {
+      try { params.body = JSON.parse(bodyRaw); }
+      catch { params.body = bodyRaw; }
+    }
+  } catch (e) { showErr(e.message); return; }
+  setStatus('HTTP 请求发送中...', 'loading');
+  const r = await api('http.request', params);
+  if (r.ok) showResult(r, 'http.request'); else showErr(r.msg);
+  setStatus(r.ok ? 'HTTP 完成' : 'HTTP 失败', r.ok ? '' : 'error');
+}
+
+/* ---------- SOAP ---------- */
+async function soapSend() {
+  const params = {};
+  if ($('sSite').value) params.site = $('sSite').value;
+  if ($('sUrl').value.trim()) params.url = $('sUrl').value.trim();
+  if ($('sMethod').value.trim()) params.method = $('sMethod').value.trim();
+  if ($('sNs').value.trim()) params.namespace = $('sNs').value.trim();
+  params.soap_version = parseInt($('sVer').value, 10) || 1;
+  try {
+    const p = readJsonTextarea('sParams'); if (p) params.params = p;
+  } catch (e) { showErr(e.message); return; }
+  setStatus('SOAP 调用发送中...', 'loading');
+  const r = await api('soap.call', params);
+  if (r.ok) showResult(r, 'soap.call'); else showErr(r.msg);
+  setStatus(r.ok ? 'SOAP 完成' : 'SOAP 失败', r.ok ? '' : 'error');
+}
+
+/* ---------- MQTT ---------- */
+async function mqttSend() {
+  const params = {};
+  if ($('mSite').value) params.site = $('mSite').value;
+  if ($('mUrl').value.trim()) params.url = $('mUrl').value.trim();
+  if ($('mReqTopic').value.trim()) params.request_topic = $('mReqTopic').value.trim();
+  if ($('mRespTopic').value.trim()) params.response_topic = $('mRespTopic').value.trim();
+  if ($('mWait').value) params.wait_timeout = parseInt($('mWait').value, 10);
+  const pl = $('mPayload').value.trim();
+  if (pl) {
+    try { params.payload = JSON.parse(pl); }
+    catch { params.payload = pl; }
+  }
+  if (!params.request_topic) { showErr('缺少请求主题 request_topic'); return; }
+  setStatus('MQTT 请求发送中...', 'loading');
+  const r = await api('mqtt.request', params);
+  if (r.ok) showResult(r, 'mqtt.request'); else showErr(r.msg);
+  setStatus(r.ok ? 'MQTT 完成' : 'MQTT 失败', r.ok ? '' : 'error');
+}
+
+/* ---------- 影子演练 ---------- */
+function shadowStatusLabel(s) {
+  const m = { pending: ['待审批', 'warn'], approved: ['已批准执行', 'http'], rejected: ['已驳回', ''], failed: ['执行失败', ''] };
+  const hit = m[s] || [s, ''];
+  return '<span class="tag ' + hit[1] + '">' + esc(hit[0]) + '</span>';
+}
+
+async function shadowReload() {
+  const st = await api('shadow.status');
+  if (st.ok && st.data) {
+    const d = st.data;
+    const tag = $('shModeTag');
+    tag.textContent = d.shadow_mode ? '演练模式' : '生产模式';
+    tag.className = 'tag ' + (d.shadow_mode ? 'warn' : 'http');
+    $('shModeText').textContent = d.shadow_mode ? '拦截记录，不真实执行' : '调用将真实执行';
+    $('btnShadowEnter').style.display = d.shadow_mode ? 'none' : '';
+    $('btnShadowExit').style.display = d.shadow_mode ? '' : 'none';
+    const c = d.records || {};
+    $('shCounts').textContent = '待审 ' + (c.pending || 0) + ' · 已批准 ' + (c.approved || 0) + ' · 驳回 ' + (c.rejected || 0) + ' · 失败 ' + (c.failed || 0);
+  } else {
+    setStatus('影子状态读取失败: ' + st.msg, 'error');
+  }
+  const filter = $('shFilter').value;
+  const r = await api('shadow.list', { status: filter, limit: 200 });
+  renderShadowRecords(r);
+}
+
+function renderShadowRecords(r) {
+  const box = $('shadowList');
+  if (!r.ok) {
+    box.innerHTML = '<div class="dim" style="padding:14px 0">读取失败：' + esc(r.msg) + '（演练记录仅管理员可查看/操作）</div>';
+    return;
+  }
+  const list = (r.data && r.data.records) || [];
+  if (!list.length) {
+    box.innerHTML = '<div class="dim" style="text-align:center;padding:22px 0">没有该状态的影子记录</div>';
+    return;
+  }
+  const wrap = document.createElement('div');
+  list.forEach(rec => {
+    const det = document.createElement('details');
+    det.className = 'log-item';
+    const srcShort = (rec.source || '').replace('intra.', '');
+    const meta = '<span class="dim">' + esc(rec.ts || '') + '</span> ' + shadowStatusLabel(rec.status) +
+      ' <b>' + esc(rec.http_method || '-') + '</b> ' + esc(rec.target_url || '') +
+      ' <span class="dim">' + esc(srcShort) + '</span>';
+    let foot = '';
+    if (rec.status === 'pending') {
+      foot = '<div style="padding:8px 10px;border-top:1px solid var(--border)">' +
+        '<button data-rid="' + esc(rec.id) + '" class="act-approve green" style="margin-right:6px">批准执行</button>' +
+        '<button data-rid="' + esc(rec.id) + '" class="act-reject ghost">驳回</button></div>';
+    }
+    const detail = JSON.stringify({ params: rec.params, note: rec.note, approver: rec.approver, result: rec.result }, null, 2);
+    det.innerHTML = '<summary>' + meta + '</summary>' +
+      '<pre>' + esc(detail) + '</pre>' + foot;
+    wrap.appendChild(det);
+  });
+  box.innerHTML = '';
+  box.appendChild(wrap);
+  Array.prototype.forEach.call(box.querySelectorAll('.act-approve'), b => b.onclick = () => shadowApprove(b.dataset.rid));
+  Array.prototype.forEach.call(box.querySelectorAll('.act-reject'), b => b.onclick = () => shadowReject(b.dataset.rid));
+}
+
+async function shadowSetMode(enable) {
+  const ask = enable
+    ? '确认「进入演练模式」？此后 HTTP/SOAP/MQTT 调用将只记录、不真实执行（不发网络包）。'
+    : '确认「退出演练模式（转生产）」？此后调用将真实执行。建议先处理完 pending 记录再退出。';
+  if (!confirm(ask)) return;
+  const r = await api('shadow.set_mode', { shadow_mode: enable });
+  if (r.ok) shadowReload();
+  else alert('切换失败：' + r.msg);
+}
+
+async function shadowApprove(id) {
+  if (!confirm('批准后将立即【真实执行】这条请求（真实发往目标地址）。确认？')) return;
+  const r = await api('shadow.approve', { record_id: id });
+  if (r.ok && r.data && (r.data.status === 'approved' || r.data.code === 0)) {
+    alert('已批准并真实执行完成（record_id=' + r.data.record_id + '），结果已写入该记录 result。');
+  } else {
+    alert('执行失败：' + ((r.data && r.data.msg) || r.msg) + '\n该记录已标记 failed，不会自动重试。');
+  }
+  shadowReload();
+}
+
+async function shadowReject(id) {
+  const note = prompt('驳回原因（可选，直接确定则留空）') || '';
+  const r = await api('shadow.reject', { record_id: id, note });
+  if (!r.ok) alert('驳回失败：' + r.msg);
+  shadowReload();
+}
+
+async function shadowArchive() {
+  if (!confirm('归档全部已处理记录（approved/rejected/failed）到 records.archive.jsonl？主文件仅保留 pending。')) return;
+  const r = await api('shadow.archive');
+  if (r.ok) alert('归档完成：' + JSON.stringify(r.data));
+  else alert('归档失败：' + r.msg);
+  shadowReload();
+}
+
+/* ---------- 初始化 ---------- */
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$('btnHttpSend').onclick = httpSend;
+$('btnSoapSend').onclick = soapSend;
+$('btnMqttSend').onclick = mqttSend;
+$('btnRefreshSites').onclick = refreshSites;
+['hPath'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btnHttpSend').click(); }));
+['sUrl','sMethod'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btnSoapSend').click(); }));
+['mReqTopic','mRespTopic'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('btnMqttSend').click(); }));
+$('btnShadowEnter').onclick = () => shadowSetMode(true);
+$('btnShadowExit').onclick = () => shadowSetMode(false);
+$('btnShadowRefresh').onclick = shadowReload;
+$('btnShadowArchive').onclick = shadowArchive;
+$('shFilter').onchange = shadowReload;
+
+if (!PLUGIN_NAME) {
+  setStatus('页面需通过主程序地址 /plugin-web/<插件名>/ 访问', 'error');
+} else {
+  refreshSites();
+}
+</script>
+</body>
+</html>

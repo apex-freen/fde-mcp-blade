@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 降级预案 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html" class="active">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>08 降级预案</h1>
+  <p class="lead">出事怎么办、备份恢复怎么做、RTO/RPO 承诺。</p>
+
+  <h2>1. 故障场景与降级</h2>
+  <table>
+    <tr><th>故障</th><th>影响</th><th>降级策略</th><th>恢复动作</th></tr>
+    <tr><td>云端不可达 / 外网中断</td><td>远程控制不可用</td><td><b>本地功能不受影响</b>（纯本地优先）</td><td>网络恢复后自动重连</td></tr>
+    <tr><td>LLM 服务不可用</td><td>智能体对话不可用</td><td>设备/服务的<b>直接调用仍可用</b>；可切本地/备用 LLM</td><td>恢复后切回</td></tr>
+    <tr><td>单个插件异常</td><td>该插件能力不可用</td><td><b>进程隔离</b>，不影响主服务与其他插件</td><td>重启/重装该插件</td></tr>
+    <tr><td>数据库不可用</td><td>写入失败</td><td>只读降级/重试；不丢已落库数据</td><td>按 §2 恢复</td></tr>
+    <tr><td>磁盘写满</td><td>写入失败</td><td>清理 <code>logs/</code>、轮转备份、扩容</td><td>扩容后恢复</td></tr>
+    <tr><td>主服务崩溃</td><td>全部不可用</td><td>容器 <code>restart: unless-stopped</code> 自动拉起</td><td>查日志定位</td></tr>
+  </table>
+
+  <h2>2. 备份与恢复</h2>
+  <p>备份范围（最小集）：<code>apex_db</code> + <code>data/{config,uploads,service-plugins}</code> + <code>.env</code></p>
+  <table>
+    <tr><th>项</th><th>说明</th></tr>
+    <tr><td>方式</td><td><code>bash backup.sh backup</code>（热备，不停服）</td></tr>
+    <tr><td>加密</td><td><code>openssl aes-256-cbc -pbkdf2</code>，密钥 <code>./backups/.backup_key</code></td></tr>
+    <tr><td>轮转</td><td>保留最近 <b>7</b> 份</td></tr>
+    <tr><td>恢复</td><td><code>bash backup.sh restore &lt;备份文件&gt;</code>（二次确认 + 自动预备份）</td></tr>
+  </table>
+<pre><code># 备份
+bash backup.sh backup
+# 查看
+bash backup.sh list
+# 恢复
+bash backup.sh restore ./backups/apex-backup-YYYYmmdd-HHMMSS.tar.gz.enc</code></pre>
+  <div class="note"><b>安全提醒</b>：<code>.env</code> 与 <code>.backup_key</code> 必须与备份文件<b>分开保管</b>，否则加密形同虚设。</div>
+
+  <h2>3. 升级</h2>
+  <table>
+    <tr><th>项</th><th>说明</th></tr>
+    <tr><td>方式</td><td>Docker 镜像升级（<code>docker compose down &amp;&amp; docker compose up -d</code>）</td></tr>
+    <tr><td>数据库迁移</td><td><b>幂等 DDL</b>，重启自动补列/建表</td></tr>
+    <tr><td>插件</td><td>支持<b>热更新</b>，无需重启主服务</td></tr>
+    <tr><td>业务影响</td><td>升级窗口内短暂不可用；建议先备份</td></tr>
+  </table>
+
+  <h2>4. RTO / RPO 声明</h2>
+  <table>
+    <tr><th>指标</th><th>承诺值</th><th>说明</th></tr>
+    <tr><td>RPO（数据丢失容忍）</td><td>取决于备份频率（建议每日）</td><td>热备；上次备份点之后的数据可能丢失</td></tr>
+    <tr><td>RTO（恢复时间目标）</td><td><b>以现场实测为准</b></td><td>整机重装恢复流程见下</td></tr>
+  </table>
+  <h3>恢复流程（整机重装）</h3>
+<pre><code>1. 安装 Docker / Docker Compose
+2. 取回：docker-compose.yml、.env、backups/、.backup_key
+3. bash backup.sh restore &lt;最近备份&gt;
+4. docker compose up -d
+5. 校验：登录 + 插件列表 + 历史会话</code></pre>
+  <div class="note"><b>RTO 待实测</b>：按上述流程在真实环境演练一次并记录耗时，再回填本表（避免拍脑袋数字）。</div>
+
+  <div class="pager"><a href="07-test.html">← 07 测试报告</a><a href="index.html">总览 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

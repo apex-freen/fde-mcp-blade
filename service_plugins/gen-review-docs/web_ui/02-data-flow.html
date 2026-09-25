@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 数据流图 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html" class="active">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>02 数据流图</h1>
+  <p class="lead">数据从哪进、在哪处理、存哪、是否出境。</p>
+
+  <h2>1. 一页纸数据流图</h2>
+  <pre><code> 用户/终端              本地边缘设备（内网）                     外部（默认关闭）
+ ┌────────┐  输入   ┌──────────────────────────────────────┐
+ │ 语音/文字│ ─────▶ │ ① 接入层  MCP / 智能体                │
+ │ 业务系统 │        │ ② 治理层  鉴权→权限→时效→防绕过→限频  │
+ └────────┘         │ ③ 处理层  LLM(本地/内网) + 插件(隔离) │
+                    │ ④ 存储层  本地 MariaDB + 本地 logs/    │──▶ 云端桥接(可选，默认关)
+                    └──────────────────────────────────────┘
+                           数据不出内网（默认）</code></pre>
+  <ul>
+    <li><b>进</b>：用户指令 / 业务系统调用 / 设备上报（MQTT）；</li>
+    <li><b>处理</b>：权限校验后由插件或设备执行，敏感信息按分层策略打码/加密；</li>
+    <li><b>存</b>：本地 MariaDB + 本地日志目录；</li>
+    <li><b>出</b>：默认不出内网；云端桥接需人工开启（可选项）。</li>
+  </ul>
+
+  <h2>2. 存储位置</h2>
+  <table>
+    <tr><th>数据</th><th>存储位置</th><th>说明</th></tr>
+    <tr><td>业务与配置数据</td><td>本地 <b>MariaDB</b>（apex_db）</td><td>用户/角色/权限/设备/令牌/审批/审计等</td></tr>
+    <tr><td>消息正文</td><td>本地 MariaDB</td><td><b>整列可逆加密</b>（AES-256-GCM）</td></tr>
+    <tr><td>应用日志</td><td>本地 <code>logs/</code></td><td>已打码，无 PII 原文</td></tr>
+    <tr><td>上传文件</td><td>本地 <code>data/uploads/</code></td><td>按业务约定</td></tr>
+    <tr><td>插件与模板</td><td>本地 <code>data/service-plugins/</code></td><td>插件目录</td></tr>
+    <tr><td>备份</td><td>本地 <code>backups/</code>（加密）</td><td>见 08 降级预案</td></tr>
+  </table>
+  <p>说明：<b>不涉及公有云数据库</b>；数据库为本地自建 MariaDB。</p>
+
+  <h2>3. 涉及个人信息的字段</h2>
+  <table>
+    <tr><th>表</th><th>字段</th><th>数据类型</th><th>处理方式</th></tr>
+    <tr><td>gis_user</td><td>手机号 / 邮箱</td><td>个人信息</td><td>权限控制 + 展示打码</td></tr>
+    <tr><td>gis_user_message</td><td>message_content</td><td>含 PII 的正文</td><td><b>可逆加密</b>（本人/授权者解密回显）</td></tr>
+    <tr><td>gis_cmd_log</td><td>request_params / response_body</td><td>调用参数/结果</td><td><b>单向打码</b>（不可逆）</td></tr>
+    <tr><td>gis_approval_request</td><td>params</td><td>审批参数</td><td>原文加密 + 打码快照</td></tr>
+    <tr><td>gis_mqtt_message_log</td><td>payload_*</td><td>设备指令/响应</td><td><b>单向打码</b></td></tr>
+    <tr><td>sys_oper_log</td><td>oper_param / json_result</td><td>操作日志</td><td><b>单向打码</b></td></tr>
+    <tr><td>gis_pii_audit</td><td>masked_sample</td><td>PII 审计</td><td>仅存打码样例，<b>永不存原文</b></td></tr>
+  </table>
+
+  <h2>4. PII 分层策略</h2>
+  <p>同一份 PII 检测结果，按"数据流向"执行不同动作：</p>
+  <table>
+    <tr><th>边界</th><th>动作</th><th>说明</th></tr>
+    <tr><td>① 离站外发（云端 LLM/插件等）</td><td><b>打码</b></td><td>仅结构校验通过才处理；高危可配拦截</td></tr>
+    <tr><td>② 消息正文落库</td><td><b>可逆加密</b>（假名化）</td><td>AES-256-GCM，本人/授权者可回显</td></tr>
+    <tr><td>② 审计落库（cmd_log/审批/MQTT）</td><td><b>强制打码</b></td><td>单向不可逆，永久</td></tr>
+    <tr><td>③ 应用日志</td><td><b>强制打码</b></td><td>业务代码禁止打印原文</td></tr>
+  </table>
+  <ul>
+    <li><b>内置类型</b>：身份证、手机号、银行卡（支持扩展邮箱/姓名/车牌/自定义）；</li>
+    <li><b>结构校验</b>：身份证 GB11643 校验位、银行卡 Luhn、手机号号段，避免误伤订单号；</li>
+    <li><b>单独同意</b>：用户级开关（默认关闭），置位/清零均写审计。</li>
+  </ul>
+
+  <h2>5. 保留期限</h2>
+  <ul>
+    <li>审计日志（命令/授权/令牌/技能）：按项目约定（建议 180 天）；</li>
+    <li>操作日志 / 登录日志：按项目约定；</li>
+    <li>备份：保留最近 7 份（自动轮转）。</li>
+  </ul>
+
+  <h2>6. 零出境声明</h2>
+  <div class="note">本平台默认<b>不向境外传输个人信息</b>：无默认跨境通道，云端桥接默认关闭；如启用云端桥接，应另行完成跨境合规评估与单独同意。数据存储与处理均在客户内网内完成。</div>
+
+  <div class="pager"><a href="01-architecture.html">← 01 架构说明</a><a href="03-permission.html">03 权限矩阵 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>

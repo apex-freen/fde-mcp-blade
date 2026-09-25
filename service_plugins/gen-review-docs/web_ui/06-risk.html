@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 风险评估 · 过评审包</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="layout">
+<aside>
+  <div class="brand">过评审包</div>
+  <div class="sub">Apex MCP Bridge · 文档目录</div>
+  <a href="index.html">总览</a>
+  <a href="01-architecture.html">01 架构说明</a>
+  <a href="02-data-flow.html">02 数据流图</a>
+  <a href="03-permission.html">03 权限矩阵</a>
+  <a href="04-audit.html">04 审计样例</a>
+  <a href="05-compliance.html">05 合规映射表</a>
+  <a href="06-risk.html" class="active">06 风险评估</a>
+  <a href="07-test.html">07 测试报告</a>
+  <a href="08-degradation.html">08 降级预案</a>
+</aside>
+
+<main>
+  <h1>06 风险评估</h1>
+  <p class="lead">主动列出已知风险、可能性、影响与缓解措施及责任方。</p>
+
+  <h2>1. 风险清单</h2>
+  <table>
+    <tr><th>#</th><th>风险</th><th>可能性</th><th>影响</th><th>缓解措施</th><th>责任方</th></tr>
+    <tr><td>R1</td><td>AI 越权操作设备/服务</td><td>中</td><td>高</td><td>五重安全校验 + 四级风险分级 + 令牌收敛</td><td>产品方</td></tr>
+    <tr><td>R2</td><td>高危操作未审批被误执行</td><td>中</td><td>高</td><td>auth 级强制审批；disable 级前置拦截</td><td>产品方</td></tr>
+    <tr><td>R3</td><td>个人信息明文泄露</td><td>中</td><td>高</td><td>分层：离站打码/落库加密/审计强制打码</td><td>产品方</td></tr>
+    <tr><td>R4</td><td>账号被冒用 / 弱口令</td><td>中</td><td>高</td><td>随机初始化密码；支持 SSO/AD；Argon2 哈希</td><td>双方</td></tr>
+    <tr><td>R5</td><td>离职人员会话未失效</td><td>中</td><td>中</td><td>停用/删除联动吊销会话；重启防复活</td><td>产品方</td></tr>
+    <tr><td>R6</td><td>数据外传 / 出境</td><td>低</td><td>高</td><td>默认纯本地、不出内网；云端桥接默认关</td><td>双方</td></tr>
+    <tr><td>R7</td><td>备份丢失 / 不可恢复</td><td>中</td><td>高</td><td>加密备份 + 轮转 + 恢复流程演练</td><td>双方</td></tr>
+    <tr><td>R8</td><td>供应链 / 依赖漏洞</td><td>中</td><td>中</td><td>依赖锁定（Cargo.lock + vendor）；插件隔离</td><td>产品方</td></tr>
+    <tr><td>R9</td><td>云端/网络不可用导致业务中断</td><td>中</td><td>中</td><td>纯本地优先，本地链路不依赖云端</td><td>产品方</td></tr>
+    <tr><td>R10</td><td>审计缺失导致无法追责</td><td>低</td><td>中</td><td>4 类结构化审计 + 独立拦截/PII 审计</td><td>产品方</td></tr>
+  </table>
+
+  <h2>2. 越权（R1 / R2）</h2>
+  <ul>
+    <li><b>预防</b>：令牌权限收敛（无权限能力不可见）+ 五重校验；</li>
+    <li><b>拦截</b>：<code>disable</code> 级执行前拦截，<code>auth</code> 级进入审批流；</li>
+    <li><b>追溯</b>：拦截与审批均有独立审计记录。</li>
+  </ul>
+
+  <h2>3. 弱口令（R4）</h2>
+  <ul>
+    <li>首次安装由 <code>ops.sh init</code> 生成<b>随机</b>数据库密码与 JWT 密钥；</li>
+    <li>默认管理员建议首次登录立即改密；</li>
+    <li>企业环境建议<b>禁用本地密码登录</b>，统一走 AD/OIDC。</li>
+  </ul>
+
+  <h2>4. 漏洞响应</h2>
+  <table>
+    <tr><th>等级</th><th>描述</th><th>响应时限</th><th>修复时限</th></tr>
+    <tr><td>严重</td><td>可远程利用 / 数据泄露</td><td>待填写</td><td>待填写</td></tr>
+    <tr><td>高危</td><td>权限绕过 / 敏感信息暴露</td><td>待填写</td><td>待填写</td></tr>
+    <tr><td>中低</td><td>一般缺陷</td><td>待填写</td><td>待填写</td></tr>
+  </table>
+  <div class="note">响应/修复时限需按交付合同填写；升级机制见 <a href="08-degradation.html">08 降级预案</a>。</div>
+
+  <h2>5. 供应链</h2>
+  <ul>
+    <li>后端依赖通过 <code>Cargo.lock</code> 锁定，并使用 <code>vendor/</code> 离线构建，构建结果可复现；</li>
+    <li>插件为独立 Python 子进程，<b>进程隔离</b>，依赖在自身 <code>requirements.txt</code> 声明；</li>
+    <li>文档目录为<b>纯静态页面</b>，不含可执行脚本。</li>
+  </ul>
+
+  <div class="pager"><a href="05-compliance.html">← 05 合规映射表</a><a href="07-test.html">07 测试报告 →</a></div>
+  <div class="footer">Apex MCP Bridge · 过评审包</div>
+</main>
+</div>
+</body>
+</html>
