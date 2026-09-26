@@ -28,7 +28,7 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 | 🚀 **Fast to install** | One-command deployment; Docker + MariaDB is the whole stack; database auto-initialized on first start; runs on 2 cores / 2 GB / 16 GB (verified on a 2-core / 2 GB cloud VM; linux/amd64 images today, arm64 in testing) |
 | 🔒 **Tightly governed** | Five-layer security (authn · authz · expiry · bypass-proof · rate-limit) + 4-level risk grading + human approval for high-risk actions; credentials stay vaulted, never handed to the agent |
 | 📋 **Fully auditable** | Operation / grant / token / sign-in audit trails end to end — replayable, exportable; even the export action itself is logged |
-| 🧩 **Broadly connectable** | Standard MCP — Claude / Cursor / Coze / Dify / TRAE / WorkBuddy / ERNIE / your own agent all work; install a plugin = connect a system; OpenAPI-to-MCP conversion built in |
+| 🧩 **Broadly connectable** | Standard MCP — overseas: Codex / Claude; CN: WorkBuddy / TRAE / ERNIE / Dify / your own agent all work; install a plugin = connect a system; OpenAPI-to-MCP conversion built in |
 | 🏠 **Zero lock-in** | Purely local: zero SaaS dependency, zero data egress, zero subscription tiers; cloud access is optional and requires **explicit admin authorization** — authorized accounts are flagged as "cloud accounts" in the system, and the data-egress risk is acknowledged and owned by the admin |
 | 🖥️ **Visible value** | Chinese-first admin console, 5 domains / 49 pages, bilingual UI, dark mode, Ctrl+K palette, value & cost dashboards |
 
@@ -56,8 +56,8 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ Layer 1  Agents     Claude / Cursor / Coze / Dify / TRAE / yours  │
-│                     — "how AI thinks" stays with agent platforms  │
+│ Layer 1  Agents     Codex / Claude / WorkBuddy / TRAE / ERNIE /   │
+│                     Dify / yours  — "how AI thinks" stays there   │
 └──────────────────────────────┬───────────────────────────────────┘
                                │  MCP standard (Streamable HTTP)
 ┌──────────────────────────────▼───────────────────────────────────┐
@@ -109,7 +109,7 @@ Don't let the 5-domain / 49-page console scare you — each step takes under 30 
 
 | # | 🎯 Pain first → what you try | How | What you'll see / what it proves |
 |---|---|---|---|
-| **1** | *After delivery, every little question comes back to you — the engineer becomes a 24/7 human helpline* → **Let the agent answer for you** (live demo · 5 min · zero install) | Sign in at <https://fde.agent-plat.com> (`admin` / `admin123`) → **Admin Center › Access & Authorization › MCP Tokens** → create a token → paste the MCP config into Claude / Cursor / Coze etc. → ask **"What's in the knowledge base?"** → check the trail under **Audit Center › Operation Audit** | The agent lists the system's capabilities one by one. ✔ Your customers' simple questions get answered by the agent, not by you; ✔ this very Q&A is already audited — the value dashboard now has its first datapoint |
+| **1** | *After delivery, every little question comes back to you — the engineer becomes a 24/7 human helpline* → **Let the agent answer for you** (live demo · 5 min · zero install) | Sign in at <https://fde.agent-plat.com> (`admin` / `admin123`) → **Admin Center › Access & Authorization › MCP Tokens** → create a token → paste the MCP config into Claude / Codex / WorkBuddy etc. → ask **"What's in the knowledge base?"** → check the trail under **Audit Center › Operation Audit** | The agent lists the system's capabilities one by one. ✔ Your customers' simple questions get answered by the agent, not by you; ✔ this very Q&A is already audited — the value dashboard now has its first datapoint |
 | **2** | *Traditional platforms need environment reviews, approvals, a week of waiting; demos require hauling in your own server* → **Local deploy, local calls** (30 min) | Follow Quick start above — `install.ps1` on Windows, `install.sh` on Linux | The full system running on your own machine, data never leaves it. ✔ Fast install, zero SaaS dependency |
 | **3** | *Customers dare not hand permissions to AI: full access is scary, full lockdown is useless* → **Install your first plugin, touch the agent's boundary** (Feishu / WeCom / DingTalk / intranet · 20 min) | Copy a plugin folder from the repo's `service_plugins/` (Feishu, WeCom, DingTalk, intranet API, etc.) into the deployment directory `fde-mcp-blade/data/service-plugins/` — the host auto-discovers and loads it, no restart → ask the agent **"Which users are in the system?"**: with PII masking on by default, phone numbers come back as 138\*\*\*\*5678 — sensitive fields the agent can't see → go to **Admin Center › Platform Capabilities › PII Masking**, disable the rule or whitelist it → ask again: full details → fill in the Feishu app credentials under **Plugin Config** and enable it (credentials go into the **Plugin Vault**, the agent never sees them) → have the agent message a user or a group directly | A message lands in your Feishu from "the agent"; the phone number's journey from masked to unmasked is a boundary you operated by hand. ✔ Install a plugin = connect a system; ✔ encryption & masking are on by default; ✔ you define the boundary |
 | **4** | *Every new system = vendor scheduling + tens of thousands in customization; delivery can't scale* → **Write your own plugin from the template** (~half a day) | Model yours on the **plugin development standard** and existing plugins in the repo's `service_plugins/`, fill in your intranet system's address / APIs / credentials (install it under **Admin Center › Plugin Management**); for well-documented systems, enable **OpenAPI-to-MCP** there too — paste the doc URL and get an MCP Server in 10 minutes, zero code | Your own system shows up in the agent's tool list. ✔ No need to modify Blade or wait for us (the dev standard and official plugins live in the repo's service_plugins/ directory) |
@@ -133,7 +133,7 @@ Naming prefixes: `gen-` general-purpose / `biz-` business & enterprise scenarios
 
 1. Sign in to the console → **Admin Center › Access & Authorization › MCP Tokens** → create a token;
 2. The result gives you a **copy-paste-ready MCP config plus a QR code** — no hand-assembling;
-3. Paste it into Claude / Cursor / TRAE…, ask the AI to list its tools — you're connected.
+3. Paste it into Claude / WorkBuddy / TRAE…, ask the AI to list its tools — you're connected.
 
 ```json
 {
