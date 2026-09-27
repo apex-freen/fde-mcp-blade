@@ -28,7 +28,7 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 | 🚀 **Fast to install** | One-command deployment; Docker + MariaDB is the whole stack; database auto-initialized on first start; runs on 2 cores / 2 GB / 16 GB (verified on a 2-core / 2 GB cloud VM; linux/amd64 images today, arm64 in testing) |
 | 🔒 **Tightly governed** | Five-layer security (authn · authz · expiry · bypass-proof · rate-limit) + 4-level risk grading + human approval for high-risk actions; credentials stay vaulted, never handed to the agent |
 | 📋 **Fully auditable** | Operation / grant / token / sign-in audit trails end to end — replayable, exportable; even the export action itself is logged |
-| 🧩 **Broadly connectable** | Standard MCP — overseas: Codex / Claude; CN: WorkBuddy / TRAE / ERNIE / Dify / your own agent all work; install a plugin = connect a system; OpenAPI-to-MCP conversion built in |
+| 🧩 **Broadly connectable** | Standard MCP — overseas: Codex / Claude; CN: WorkBuddy / TRAE / ERNIE / Kimi / Dify and any MCP client; install a plugin = connect a system; OpenAPI-to-MCP conversion built in |
 | 🏠 **Zero lock-in** | Purely local: zero SaaS dependency, zero data egress, zero subscription tiers; cloud access is optional and requires **explicit admin authorization** — authorized accounts are flagged as "cloud accounts" in the system, and the data-egress risk is acknowledged and owned by the admin |
 | 🖥️ **Visible value** | Chinese-first admin console, 5 domains / 49 pages, bilingual UI, dark mode, Ctrl+K palette, value & cost dashboards |
 
@@ -57,7 +57,7 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ Layer 1  Agents     Codex / Claude / WorkBuddy / TRAE / ERNIE /   │
-│                     Dify / yours  — "how AI thinks" stays there   │
+│                     Kimi / Dify / yours — "AI thinks" in cloud    │
 └──────────────────────────────┬───────────────────────────────────┘
                                │  MCP standard (Streamable HTTP)
 ┌──────────────────────────────▼───────────────────────────────────┐
