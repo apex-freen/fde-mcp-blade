@@ -287,6 +287,8 @@ import { ref, reactive, onMounted, computed, nextTick, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api'
+import { normalizeMcpConfig } from '@/utils/mcpConfig'
+import { copyTextToClipboard } from '@/utils/clipboard'
 import QRCode from 'qrcode'
 
 const { t } = useI18n()
@@ -458,9 +460,8 @@ const handleCreateSubmit = async () => {
 
     createModalVisible.value = false
 
-    // MCP 地址归一化（见 normalizeMcpConfig 注释块）：按当前访问地址改写本地 MCP 的 host
-    mcpUrlAdapted.value = false
-    normalizeMcpConfig(payload)
+    // MCP 地址归一化：按当前访问地址改写本地 MCP 的 host（实现见 @/utils/mcpConfig）
+    mcpUrlAdapted.value = normalizeMcpConfig(payload)
 
     // 展示创建成功弹窗
     createdTokenInfo.value = {
@@ -501,56 +502,8 @@ const createdTokenInfo = ref({
 })
 
 // ==================== MCP 地址归一化 ====================
-// 后端拿不到外部访问拓扑（HTTPS 卸载、端口转发、反向代理端口），生成的 mcpLocal.url
-// 可能与用户实际可达地址不一致。例：站点走 https://fde.agent-plat.com（443 反代 → 8018），
-// 后端却生成 http://fde.agent-plat.com:8018/mcp —— 协议错、端口多余，贴进智能体连不上。
-//
-// 归一化规则：控制台能从哪个地址打开，同源的 /mcp 就从哪个地址可达 ——
-// 直接以 window.location.origin 改写协议+域名+端口，保留路径与查询串。
-//   - 本地部署 http://192.168.x.x:8018 控制台与 MCP 同源，origin 不变 → 无副作用；
-//   - 反代/端口转发站点 https://fde.agent-plat.com → 自动变成 https://域名/mcp（无端口）；
-//   - 云端配置（mcpCloud）指向云端中转、域名不同，不做改写；
-//   - localhost / 127.0.0.1 访问（本地开发）跳过，避免覆盖后端下发的正确内网地址。
+// 归一化规则与实现见 @/utils/mcpConfig（管理台与「我的令牌」页共用）
 const mcpUrlAdapted = ref(false)
-
-const rewriteOrigin = (raw) => {
-  try {
-    const u = new URL(raw)
-    if (u.origin === window.location.origin) return raw
-    return window.location.origin + u.pathname + u.search + u.hash
-  } catch (e) {
-    return raw
-  }
-}
-
-const normalizeMcpConfig = (info) => {
-  const loc = window.location
-  // 本地开发（localhost 访问）不归一化
-  if (loc.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(loc.hostname)) return
-  // 后端结构是 mcpLocal.mcpServers.<server名>.url（可能还有别的包裹层），
-  // 递归深改：凡是 mcpLocal 子树里挂了 http(s) url 属性的对象都按当前访问地址改写。
-  // ⚠️ 只处理 mcpLocal；mcpCloud 指向云端中转、域名不同，不改写。
-  const rewriteDeep = (node) => {
-    if (!node || typeof node !== 'object') return
-    for (const key of Object.keys(node)) {
-      const v = node[key]
-      if (!v || typeof v !== 'object') continue
-      if (typeof v.url === 'string' && /^https?:\/\//i.test(v.url)) {
-        const before = v.url
-        v.url = rewriteOrigin(v.url)
-        if (v.url !== before) mcpUrlAdapted.value = true
-      }
-      rewriteDeep(v)
-    }
-  }
-  rewriteDeep(info.mcp_config?.mcpLocal)
-  // 本地二维码内容若是 http(s) 链接，同样按当前访问地址改写
-  if (info.mcpLocalQrCode && /^https?:\/\//i.test(info.mcpLocalQrCode)) {
-    const before = info.mcpLocalQrCode
-    info.mcpLocalQrCode = rewriteOrigin(info.mcpLocalQrCode)
-    if (info.mcpLocalQrCode !== before) mcpUrlAdapted.value = true
-  }
-}
 
 // MCP 配置 JSON 文本（格式化后的完整结构，供展示/复制）
 const mcpConfigJsonText = computed(() => {
@@ -605,46 +558,7 @@ const handleDownloadQrCode = async (canvasRef, tag) => {
   }
 }
 
-// 通用复制函数：优先使用 Clipboard API，失败则 fallback 到 execCommand
-const copyTextToClipboard = async (text, successMsg, fallbackMsg) => {
-  // 方式一：现代 Clipboard API（需要安全上下文 HTTPS/localhost）
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(text)
-      Message.success(successMsg)
-      return true
-    } catch (e) {
-      // 继续 fallback
-    }
-  }
-
-  // 方式二：传统 execCommand + 临时 textarea（兼容 HTTP 等非安全上下文）
-  try {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.top = '-1000px'
-    textarea.style.left = '-1000px'
-    textarea.style.opacity = '0'
-    textarea.readOnly = true
-    document.body.appendChild(textarea)
-    textarea.select()
-    textarea.setSelectionRange(0, textarea.value.length)
-    const ok = document.execCommand('copy')
-    document.body.removeChild(textarea)
-    if (ok) {
-      Message.success(successMsg)
-      return true
-    }
-  } catch (e) {
-    // 继续 fallback
-  }
-
-  // 方式三：都失败时，提示用户手动复制
-  Message.info(fallbackMsg)
-  return false
-}
-
+// 复制实现见 @/utils/clipboard（管理台与「我的令牌」页共用）
 const handleCopyToken = async () => {
   if (!createdTokenInfo.value.token) {
     Message.warning(t('token.tokenEmpty'))

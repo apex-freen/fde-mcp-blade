@@ -23,7 +23,11 @@
         <template #columns>
           <a-table-column :title="t('dept.deptName')" data-index="deptName" />
           <a-table-column :title="t('dept.orderNum')" data-index="orderNum" :width="90" />
-          <a-table-column :title="t('dept.leader')" data-index="leader" :width="120" />
+          <a-table-column :title="t('dept.leader')" :width="140">
+            <template #cell="{ record }">
+              {{ record.leader || (record.leaderUserId ? `#${record.leaderUserId}` : '-') }}
+            </template>
+          </a-table-column>
           <a-table-column :title="t('dept.phone')" data-index="phone" :width="140" />
           <a-table-column :title="t('dept.email')" data-index="email" :width="200" />
           <a-table-column :title="t('dept.status')" :width="90">
@@ -90,8 +94,21 @@
         </a-row>
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item field="leader" :label="t('dept.leader')">
-              <a-input v-model="form.leader" allow-clear />
+            <!-- 1041 §5.6：负责人必须是「用户」（决定谁能管理本部门知识库），只填姓名不生效 -->
+            <a-form-item field="leaderUserId" :label="t('dept.leader')" :help="t('dept.leaderUserTip')">
+              <a-select
+                :model-value="form.leaderUserId"
+                :filter-option="false"
+                :search-delay="300"
+                :options="leaderUserOptions"
+                :fallback-option="leaderUserFallback"
+                :loading="leaderUserLoading"
+                :placeholder="t('dept.leaderUserPlaceholder')"
+                allow-clear
+                @search="handleLeaderUserSearch"
+                @popup-visible-change="handleLeaderUserPopupToggle"
+                @change="handleLeaderUserChange"
+              />
             </a-form-item>
           </a-col>
           <a-col :span="12">
@@ -113,10 +130,13 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Message } from '@arco-design/web-vue'
 import { getDeptList, createDept, updateDept, deleteDept } from '@/api/modules/gisUserDept'
+import { getGisUserPicker } from '@/api/modules/gisUser'
 import { useUserStore } from '@/stores/user'
 
 // 字段风格：camelCase（见「26 接口字段命名调整说明」）
-// 响应：deptId / parentId / deptName / orderNum / ancestors / leader / phone / email / status
+// 响应：deptId / parentId / deptName / orderNum / ancestors / leader / leaderUserId / phone / email / status
+// 1041 §5.6 新增：leaderUserId（负责人用户 ID），是「谁能管本部门知识库」的判权依据；
+//                原 leader（姓名文本）保留，仅用于展示。请求体与响应体都是 camelCase。
 
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -135,11 +155,60 @@ const emptyForm = () => ({
   deptName: '',
   orderNum: 0,
   leader: '',
+  leaderUserId: undefined,
   phone: '',
   email: '',
   status: '0'
 })
 const form = reactive(emptyForm())
+
+// ---------- 负责人（用户）下拉（1041 §5.6） ----------
+// 数据源用 picker（不挂权限点、登录即可），写法同 1016 §5.1.1：
+// filter-option=false 服务端搜、缓存只增不减、last-write-wins（丢弃过期响应）
+const leaderUserOptions = ref([])
+const leaderUserLoading = ref(false)
+const leaderUserCache = new Map()
+let leaderUserSeq = 0
+
+const leaderUserLabel = (u) => `${u.nick_name || u.user_name}(${u.user_id})`
+
+const toLeaderOption = (u) => {
+  leaderUserCache.set(u.user_id, u)
+  return { label: leaderUserLabel(u), value: u.user_id }
+}
+
+// 已选值不在当前结果页时的标签兜底（Arco fallback-option）
+const leaderUserFallback = (value) => {
+  if (value === undefined || value === null || value === '') return { value, label: '' }
+  const u = leaderUserCache.get(value)
+  return { value, label: u ? leaderUserLabel(u) : `#${value}` }
+}
+
+async function fetchLeaderUserOptions(keyword = '') {
+  const seq = ++leaderUserSeq
+  leaderUserLoading.value = true
+  try {
+    const res = await getGisUserPicker({ keyword, page: 1, page_size: 100 })
+    if (seq !== leaderUserSeq) return
+    leaderUserOptions.value = (res.rows || res.data?.rows || []).map(toLeaderOption)
+  } catch (_) { /* request.js 已弹错 */ }
+  finally { if (seq === leaderUserSeq) leaderUserLoading.value = false }
+}
+
+function handleLeaderUserSearch(value) {
+  fetchLeaderUserOptions(value || '')
+}
+
+function handleLeaderUserPopupToggle(visible) {
+  if (visible) fetchLeaderUserOptions('')
+}
+
+/** 选中/清空负责人：清空 = leaderUserId 置 0（提交即清空），姓名文本一并处理 */
+function handleLeaderUserChange(value) {
+  form.leaderUserId = value ?? 0
+  const u = value ? leaderUserCache.get(value) : null
+  form.leader = u ? (u.nick_name || u.user_name) : ''
+}
 
 const rules = {
   deptName: [{ required: true, message: t('dept.deptNameRequired') }]
@@ -225,21 +294,36 @@ async function loadData() {
 function openCreate(parentId) {
   isEdit.value = false
   Object.assign(form, emptyForm(), { parentId: parentId ?? 0 })
+  // 负责人下拉：清空候选与已选
+  leaderUserOptions.value = []
   modalVisible.value = true
 }
 
 function openEdit(record) {
   isEdit.value = true
+  const leaderUserId = record.leaderUserId ?? undefined
   Object.assign(form, emptyForm(), {
     deptId: record.deptId,
     parentId: record.parentId ?? 0,
     deptName: record.deptName,
     orderNum: record.orderNum ?? 0,
     leader: record.leader ?? '',
+    leaderUserId,
     phone: record.phone ?? '',
     email: record.email ?? '',
     status: record.status ?? '0'
   })
+  // 已选负责人不在当前候选页 → 先用记录里的姓名兜底，保证标签可见
+  if (leaderUserId) {
+    leaderUserCache.set(leaderUserId, {
+      user_id: leaderUserId,
+      user_name: record.leader || '',
+      nick_name: record.leader || ''
+    })
+    leaderUserOptions.value = [{ value: leaderUserId, label: leaderUserLabel(leaderUserCache.get(leaderUserId)) }]
+  } else {
+    leaderUserOptions.value = []
+  }
   modalVisible.value = true
 }
 
@@ -250,13 +334,17 @@ async function handleSubmit() {
     return false
   }
   const operator = userStore.userInfo?.userName || userStore.userInfo?.username
+  // 1041 §5.6：leaderUserId 不传 = 不改，传 0 = 清空，传 >0 = 设为该用户
+  const { leaderUserId, ...rest } = form
+  const payload = { ...rest }
+  if (leaderUserId !== undefined && leaderUserId !== null) payload.leaderUserId = leaderUserId
   try {
     if (isEdit.value) {
       // deptId 放在 body 里，不在路径上
-      await updateDept({ ...form, updatedBy: operator })
+      await updateDept({ ...payload, updatedBy: operator })
       Message.success(t('dept.editSuccess'))
     } else {
-      await createDept({ ...form, createdBy: operator })
+      await createDept({ ...payload, createdBy: operator })
       Message.success(t('dept.createSuccess'))
     }
     await loadData()

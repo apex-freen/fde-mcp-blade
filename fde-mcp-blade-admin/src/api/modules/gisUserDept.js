@@ -10,7 +10,8 @@ import { get, post, put, del } from '@/utils/request'
 
 /**
  * 查询部门列表（扁平列表，前端自行组树）
- * 响应字段：deptId / parentId / deptName / orderNum / ancestors / leader / phone / email / status
+ * 响应字段：deptId / parentId / deptName / orderNum / ancestors / leader / leaderUserId / phone / email / status
+ * ⚠️ 1041 §5.6：请求体与响应体**都是 camelCase** —— 负责人字段是 `leaderUserId`（不是 leader_user_id）
  */
 export function getDeptList() {
   return get('/biz/gis_user_dept')
@@ -18,7 +19,8 @@ export function getDeptList() {
 
 /**
  * 新增部门
- * @param {Object} data - { parentId, deptName, orderNum?, leader?, phone?, email?, status? ("0"正常 / "1"停用), createdBy? }
+ * @param {Object} data - { parentId, deptName, orderNum?, leader?, leaderUserId?, phone?, email?, status? ("0"正常 / "1"停用), createdBy? }
+ *   leaderUserId 是「谁能管本部门知识库」的判权依据：不传 = 不改，0 = 清空，>0 = 设为该用户（1041 §5.6）
  */
 export function createDept(data) {
   return post('/biz/gis_user_dept', data)
