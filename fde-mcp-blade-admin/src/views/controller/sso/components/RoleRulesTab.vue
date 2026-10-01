@@ -1,6 +1,7 @@
 <template>
   <div class="tab-inner">
-    <a-alert type="info" class="alert-hint" :content="t('ssoRoleRules.hint')" />
+    <!-- Arco Vue 的 a-alert 没有 content 属性，正文走默认插槽 -->
+    <a-alert type="info" class="alert-hint">{{ t('ssoRoleRules.hint') }}</a-alert>
 
     <!-- 工具栏 -->
     <div class="table-toolbar">

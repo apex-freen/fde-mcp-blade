@@ -66,13 +66,14 @@
       </a-button>
     </a-space>
 
-    <!-- 测试结果展示 -->
+    <!-- 测试结果展示（Arco Vue 的 a-alert 没有 content 属性，正文走默认插槽） -->
     <a-alert
       v-if="testResult"
       :type="testResult.success ? 'success' : 'error'"
       class="test-result"
-      :content="testResult.message"
-    />
+    >
+      {{ testResult.message }}
+    </a-alert>
   </div>
 </template>
 

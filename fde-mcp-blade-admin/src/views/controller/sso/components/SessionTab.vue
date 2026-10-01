@@ -1,6 +1,7 @@
 <template>
   <div class="tab-inner">
-    <a-alert type="info" class="alert-hint" :content="t('ssoConfig.sessionRefreshHint')" />
+    <!-- Arco Vue 的 a-alert 没有 content 属性，正文走默认插槽 -->
+    <a-alert type="info" class="alert-hint">{{ t('ssoConfig.sessionRefreshHint') }}</a-alert>
 
     <a-form layout="vertical" :model="config">
       <a-form-item :label="t('ssoConfig.sessionRefreshEnabled')">
