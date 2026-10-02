@@ -11,7 +11,7 @@
 //     前端可以用同一个渲染函数处理。
 // ==========================================
 
-import { get, del } from '@/utils/request'
+import { get, post, del } from '@/utils/request'
 
 /**
  * 工作台首屏：一次返回全部卡片（后端内部并发查 5 个域）
@@ -25,7 +25,8 @@ export function getMineOverview(params = {}) {
 
 /**
  * 有什么消息（items 最多 10 条，created_time 倒序；total 是全部条数）
- * 点击跳转直接用 items[].biz_ref_route，前端不要自己拼路由
+ * - 出参新增 unread（我未读的条数，红点用它），items[] 每项新增 is_read（当前登录人是否已读）；
+ * - 点击跳转直接用 items[].biz_ref_route，前端不要自己拼路由。
  */
 export function getMineMessage() {
   return get('/biz/gis_mine/message')
@@ -35,14 +36,39 @@ export function getMineMessage() {
  * 我的消息明细列表（1017 §2.1，P0 已上线）——「我的消息」独立页数据源
  * - 出参 {total, rows}，字段与 getMineMessage 逐字段一致（message_id/event_key/event_level/
  *   title/content/biz_ref_type/biz_ref_id/biz_ref_route/created_time），前端同一个渲染函数复用；
+ * - rows[] 每项新增 is_read（true = 当前登录人已读），未读行加粗+红点、已读行置灰；
  * - event_level ∈ todo / alert / notice / risk（主筛），event_key 可选精确筛，AND 组合；
  * - 排序后端固定 created_time DESC, message_id DESC（与首屏卡片前 10 条一致），前端不传排序；
- * - 本版不做已读/未读（无 read 入参/出参）；
  * - 跳转直接用 rows[].biz_ref_route，前端不自己拼路由。
  * @param {{event_level?: 'todo'|'alert'|'notice'|'risk', event_key?: string, page?: number, page_size?: number}} [params]
  */
 export function getMineMessageList(params = {}) {
   return get('/biz/gis_mine/message/list', params)
+}
+
+// ========== 我的消息「已读」（个人域，不挂权限点，登录即可） ==========
+// 口径：这是「已读」不是「已处理」——只表示"我知道了"，不代表办完了。
+// 待办类（event_level = todo）是否消失取决于单据状态，不要用标已读当成办完；
+// 消息中心（/biz/gis_message/* 共享列表）不做已读，一人读不影响他人。
+
+/**
+ * 标记若干条消息为已读（幂等）
+ * - 服务端只标记"发给当前登录人"的消息，传别人的 message_id 不生效，前端不用兜底；
+ * - **不要传 user_id**；
+ * - message_ids 必填非空，空数组会报参数错误。
+ * @param {Array<number|string>} messageIds - 消息 ID 列表，非空
+ * @returns data = { updated } 本次新增的已读标记数，重复标记返回 0
+ */
+export function readMineMessages(messageIds) {
+  return post('/biz/gis_mine/message/read', { message_ids: messageIds })
+}
+
+/**
+ * 把我全部未读标记为已读（幂等，无请求体）
+ * @returns data = { updated } 本次新增的已读标记数，重复调用返回 0
+ */
+export function readAllMineMessages() {
+  return post('/biz/gis_mine/message/read_all')
 }
 
 /**

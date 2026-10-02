@@ -71,10 +71,75 @@
       <div v-if="selectedIndex && !canManage" class="section-tip readonly-tip">
         {{ t('vectorKb.readonlyTip') }}
       </div>
+
+      <!-- 库级操作（原先在「知识库列表」工具栏里）：提到顶部后与所选库同处一屏，
+           且不再受下方分区切换影响，任何分区下都能点 -->
+      <a-divider :margin="14" />
+      <div class="table-toolbar">
+        <a-button :loading="indexLoading" @click="loadIndexes()">
+          <template #icon><icon-refresh /></template>
+          {{ t('commonTable.refresh') }}
+        </a-button>
+        <!-- 重新同步（107 §6.2，仅管理员可见）：无入参，「同步全部库（内置 + 各部门）」。
+             1041 §2.2：这是全局动作，只给管理员；部门知识库页不显示。
+             注意按钮必须叫「重新同步」而不是「重建索引」——rebuild 只补算向量、不会扫出新文档（107 §八） -->
+        <a-button v-if="isAdminMode && isAdmin" type="primary" :loading="syncing" @click="handleSync">
+          <template #icon><icon-sync /></template>
+          {{ t('vectorKb.sync') }}
+        </a-button>
+        <!-- 1042 附件：新建组织级库（仅管理员）。部门库由部门负责人自助开通，入口不在此 -->
+        <a-button v-if="isAdminMode && isAdmin" :loading="creatingOrgKb" @click="handleCreateOrgKb">
+          <template #icon><icon-plus /></template>
+          {{ t('vectorKb.createOrgKb') }}
+        </a-button>
+        <!-- 重建 / 强制重建：作用于当前选中的那一个库；1041 §3.5 需 can_manage -->
+        <a-popconfirm
+          v-if="canManage"
+          :content="t('vectorKb.confirmRebuild')"
+          position="br"
+          @ok="handleRebuild()"
+        >
+          <a-button :disabled="!selectedIndex">{{ t('vectorKb.rebuildCurrent') }}</a-button>
+        </a-popconfirm>
+        <!-- 个人库不支持强制重建：置灰并说明原因（tooltip 需要包一层 span 才能响应 hover） -->
+        <a-tooltip
+          v-if="canManage && !!selectedIndex && !canForceRebuild"
+          :content="t('vectorKb.forceRebuildUserTip')"
+        >
+          <span>
+            <a-button status="danger" disabled>{{ t('vectorKb.forceRebuildCurrent') }}</a-button>
+          </span>
+        </a-tooltip>
+        <a-popconfirm
+          v-else-if="canManage"
+          :content="t('vectorKb.confirmForceRebuild')"
+          position="br"
+          @ok="handleRebuild(true)"
+        >
+          <a-button status="danger" :disabled="!selectedIndex">
+            {{ t('vectorKb.forceRebuildCurrent') }}
+          </a-button>
+        </a-popconfirm>
+      </div>
     </a-card>
 
-    <!-- 说明区块（107 §一之三，可折叠） -->
-    <a-card :bordered="false" style="margin-top: 16px">
+    <!-- 一个可管理的库都没有时不显示分区（上方空态已给出唯一动作，避免一堆空表） -->
+    <template v-if="selectableIndexes.length">
+      <!-- 1043：按功能分区，避免单页无限拉长。
+           用 tag 式分段切换 + v-show（不是 a-tabs），好处：切分区不发请求、不丢当前状态
+           （检索结果、展开的探针行都保留） -->
+      <div class="kb-tabbar">
+        <a-radio-group v-model="activeTab" type="button">
+          <a-radio value="docs">{{ t('vectorKb.tabDocs') }}</a-radio>
+          <a-radio value="search">{{ t('vectorKb.tabSearch') }}</a-radio>
+          <a-radio value="selfcheck">{{ t('vectorKb.tabSelfCheck') }}</a-radio>
+          <a-radio v-if="isAdminMode && isAdmin" value="settings">{{ t('vectorKb.tabSettings') }}</a-radio>
+          <a-radio v-if="isAdminMode && isAdmin" value="insight">{{ t('vectorKb.tabInsight') }}</a-radio>
+        </a-radio-group>
+      </div>
+
+    <!-- 说明区块（107 §一之三，可折叠）：属「文档」分区 -->
+    <a-card v-show="activeTab === 'docs'" :bordered="false" style="margin-top: 16px">
       <div class="help-head" @click="helpOpen = !helpOpen">
         <icon-down v-if="helpOpen" />
         <icon-right v-else />
@@ -94,6 +159,7 @@
     <!-- ① 检索设置（1040 §三：A 检索侧增强，仅管理员可见可改；1041 §2.2：部门知识库页不展示） -->
     <a-card
       v-if="isAdminMode && isAdmin"
+      v-show="activeTab === 'settings'"
       :bordered="false"
       style="margin-top: 16px"
       :title="t('vectorKb.settingsTitle')"
@@ -203,7 +269,12 @@
     </a-card>
 
     <!-- 语义检索 -->
-    <a-card :bordered="false" style="margin-top: 16px" :title="t('vectorKb.searchTitle')">
+    <a-card
+      v-show="activeTab === 'search'"
+      :bordered="false"
+      style="margin-top: 16px"
+      :title="t('vectorKb.searchTitle')"
+    >
       <a-form :model="searchForm" layout="inline" class="search-bar">
         <a-form-item :label="t('vectorKb.query')">
           <a-input
@@ -255,12 +326,24 @@
             <span class="hit-title">{{ hit.title || hit.source_uri }}</span>
             <a-tag color="arcoblue">{{ t('vectorKb.score') }} {{ formatScore(hit.score) }}</a-tag>
             <a-tag v-if="hit.chunk_no !== undefined && hit.chunk_no !== null" color="gray">
-              {{ t('vectorKb.chunkNo', { no: hit.chunk_no + 1 }) }}
+              {{ chunkRangeText(hit) }}
             </a-tag>
             <a-tag color="gray">{{ hit.index_name }}</a-tag>
             <span class="hit-vec">{{ t('vectorKb.vecScore') }} {{ formatScore(hit.vec_score) }}</span>
           </div>
-          <div class="hit-text">{{ hit.text }}</div>
+          <!-- R10：text 现在是「合并后的完整条目」（最长 4000 字）→ 默认限高，可展开 -->
+          <div class="hit-text" :class="{ 'is-clamped': isHitLong(hit) && !isHitExpanded(hit) }">
+            {{ hit.text }}
+          </div>
+          <a-button
+            v-if="isHitLong(hit)"
+            type="text"
+            size="mini"
+            class="hit-toggle"
+            @click="toggleHitText(hit)"
+          >
+            {{ isHitExpanded(hit) ? t('vectorKb.collapse') : t('vectorKb.expand') }}
+          </a-button>
           <!-- 1041 §4.3：hits[] 新增 4 个元数据字段，便于展示生效日期 / 密级 / 标签 -->
           <div
             v-if="hit.doc_status || hit.effective_date || hit.confidentiality || splitTags(hit.tags).length"
@@ -283,50 +366,14 @@
       <a-empty v-else-if="searched && !searching" :description="t('vectorKb.searchEmpty')" />
     </a-card>
 
-    <!-- 知识库列表（index_list：当前身份可见的全部库，点行即切换上方选择器） -->
-    <a-card :bordered="false" style="margin-top: 16px" :title="t('vectorKb.indexTitle')">
-      <div class="table-toolbar">
-        <a-button :loading="indexLoading" @click="loadIndexes()">
-          <template #icon><icon-refresh /></template>
-          {{ t('commonTable.refresh') }}
-        </a-button>
-        <!-- 重新同步（107 §6.2，仅管理员可见）：无入参，「同步全部库（内置 + 各部门）」。
-             1041 §2.2：这是全局动作，只给管理员；部门知识库页不显示。
-             注意按钮必须叫「重新同步」而不是「重建索引」——rebuild 只补算向量、不会扫出新文档（107 §八） -->
-        <a-button v-if="isAdminMode && isAdmin" type="primary" :loading="syncing" @click="handleSync">
-          <template #icon><icon-sync /></template>
-          {{ t('vectorKb.sync') }}
-        </a-button>
-        <!-- 重建 / 强制重建：作用于当前选中的那一个库；1041 §3.5 需 can_manage -->
-        <a-popconfirm
-          v-if="canManage"
-          :content="t('vectorKb.confirmRebuild')"
-          position="br"
-          @ok="handleRebuild()"
-        >
-          <a-button :disabled="!selectedIndex">{{ t('vectorKb.rebuildCurrent') }}</a-button>
-        </a-popconfirm>
-        <!-- 个人库不支持强制重建：置灰并说明原因（tooltip 需要包一层 span 才能响应 hover） -->
-        <a-tooltip
-          v-if="canManage && !!selectedIndex && !canForceRebuild"
-          :content="t('vectorKb.forceRebuildUserTip')"
-        >
-          <span>
-            <a-button status="danger" disabled>{{ t('vectorKb.forceRebuildCurrent') }}</a-button>
-          </span>
-        </a-tooltip>
-        <a-popconfirm
-          v-else-if="canManage"
-          :content="t('vectorKb.confirmForceRebuild')"
-          position="br"
-          @ok="handleRebuild(true)"
-        >
-          <a-button status="danger" :disabled="!selectedIndex">
-            {{ t('vectorKb.forceRebuildCurrent') }}
-          </a-button>
-        </a-popconfirm>
-      </div>
-
+    <!-- 知识库列表（index_list：当前身份可见的全部库，点行即切换上方选择器）
+         库级操作按钮已提到顶部选择器卡片，避免两处重复 -->
+    <a-card
+      v-show="activeTab === 'docs'"
+      :bordered="false"
+      style="margin-top: 16px"
+      :title="t('vectorKb.indexTitle')"
+    >
       <a-table
         :data="selectableIndexes"
         :loading="indexLoading"
@@ -370,7 +417,12 @@
     </a-card>
 
     <!-- 文档列表（1041 §3.2 元数据列 + §3.6 写入通道） -->
-    <a-card :bordered="false" style="margin-top: 16px" :title="t('vectorKb.docTitle')">
+    <a-card
+      v-show="activeTab === 'docs'"
+      :bordered="false"
+      style="margin-top: 16px"
+      :title="t('vectorKb.docTitle')"
+    >
       <template #extra>
         <!-- 仅 can_manage=true 的库可写文档（1041 §3.1 / §3.3） -->
         <a-space v-if="selectedIndex && canManage">
@@ -508,6 +560,7 @@
     <!-- ② 问答自检（1040 §四：B 用探针问题验证每篇文档能不能被检索到；1041 §3.6 需 can_manage） -->
     <a-card
       v-if="selectedIndex && canManage"
+      v-show="activeTab === 'selfcheck'"
       :bordered="false"
       style="margin-top: 16px"
       :title="t('vectorKb.probeTitle')"
@@ -703,6 +756,7 @@
          联调修正：部门知识库页在没有可管理的库时不渲染，也不发请求 -->
     <a-card
       v-if="isAdminMode || !!selectedIndex"
+      v-show="activeTab === 'selfcheck'"
       :bordered="false"
       style="margin-top: 16px"
       :title="t('vectorKb.reviewTitle')"
@@ -767,6 +821,7 @@
     <!-- 1041 §3.8 P1：内容缺口分析（跨库全局，不含系统自检；1041 §2.2 部门知识库页不展示） -->
     <a-card
       v-if="isAdminMode && isAdmin"
+      v-show="activeTab === 'insight'"
       :bordered="false"
       style="margin-top: 16px"
       :title="t('vectorKb.gapTitle')"
@@ -929,6 +984,7 @@
     <!-- 1041 §3.10 P2：反馈回路（仅管理员；只查看与处理，不做提交入口） -->
     <a-card
       v-if="isAdminMode && isAdmin"
+      v-show="activeTab === 'insight'"
       :bordered="false"
       style="margin-top: 16px"
       :title="t('vectorKb.feedbackTitle')"
@@ -1022,6 +1078,8 @@
         </template>
       </a-table>
     </a-card>
+    <!-- /分区内容结束（以下为弹窗，不随分区显隐） -->
+    </template>
 
     <!-- 新增 / 编辑别名（1040 §3.2） -->
     <a-modal
@@ -1079,7 +1137,9 @@
       </a-form>
     </a-modal>
 
-    <!-- 1041 §3.6 / §4.5：文档写入通道（新建 / 编辑；上传走 doc/save 逐文件提交） -->
+    <!-- 1041 §3.6 / §4.5：文档写入通道（新建 / 编辑；上传走 doc/save 逐文件提交）
+         1043：改左右两栏 —— 左边「路径 + 正文」，右边元数据面板；
+         原来把元数据预览挤在编辑器上方一行，字段一多就折行、很难读 -->
     <a-modal
       v-model:visible="docModalVisible"
       :title="docForm.mode === 'edit' ? t('vectorKb.editDoc') : t('vectorKb.newDocTitle')"
@@ -1087,7 +1147,7 @@
       :mask-closable="false"
       :ok-text="t('commonTable.confirm')"
       :cancel-text="t('commonTable.cancel')"
-      :width="900"
+      :width="1040"
       unmount-on-close
     >
       <a-form :model="docForm" layout="vertical">
@@ -1099,51 +1159,98 @@
         >
           {{ t('vectorKb.docOverwriteBackupTip') }}
         </a-alert>
-        <a-form-item
-          :label="t('vectorKb.docPath')"
-          required
-          :help="docForm.mode === 'edit' ? t('vectorKb.pathEditLocked') : t('vectorKb.docPathTip')"
-        >
-          <a-input
-            v-model="docForm.path"
-            :disabled="docForm.mode === 'edit'"
-            :placeholder="t('vectorKb.docPathPlaceholder')"
-          />
-        </a-form-item>
-        <a-form-item :label="t('vectorKb.docContent')">
-          <div class="doc-editor-tools">
-            <a-button size="mini" @click="insertFrontMatterTemplate">
-              {{ t('vectorKb.frontMatterTemplate') }}
-            </a-button>
-            <!-- 保存前让用户看到解析出来的状态（1041 §3.6） -->
-            <span class="fm-preview">
-              <span class="fm-label">{{ t('vectorKb.frontMatterTip') }}：</span>
+
+        <a-row :gutter="16">
+          <!-- 左栏：路径 + 正文 -->
+          <a-col :span="17">
+            <a-form-item
+              :label="t('vectorKb.docPath')"
+              required
+              :help="docForm.mode === 'edit' ? t('vectorKb.pathEditLocked') : t('vectorKb.docPathTip')"
+            >
+              <a-input
+                v-model="docForm.path"
+                :disabled="docForm.mode === 'edit'"
+                :placeholder="t('vectorKb.docPathPlaceholder')"
+              />
+            </a-form-item>
+            <a-form-item :label="t('vectorKb.docContent')">
+              <a-textarea
+                v-model="docForm.content"
+                class="doc-textarea"
+                :auto-size="{ minRows: 18, maxRows: 30 }"
+                :placeholder="t('vectorKb.docContentPlaceholder')"
+              />
+            </a-form-item>
+          </a-col>
+
+          <!-- 右栏：元数据面板（front-matter 解析结果，保存前可见；1041 §3.6） -->
+          <a-col :span="7">
+            <div class="doc-meta-panel">
+              <div class="doc-meta-head">
+                <span class="doc-meta-title">{{ t('vectorKb.frontMatterTip') }}</span>
+                <a-button size="mini" @click="insertFrontMatterTemplate">
+                  {{ t('vectorKb.frontMatterTemplate') }}
+                </a-button>
+              </div>
+
               <template v-if="fmParsed.has">
-                <a-tag :color="docStatusColor(fmParsed.status)" size="small">
-                  {{ docStatusText(fmParsed.status) }}
-                </a-tag>
-                <a-tag v-if="fmParsed.confidentiality" :color="confColor(fmParsed.confidentiality)" size="small">
-                  {{ confText(fmParsed.confidentiality) }}
-                </a-tag>
-                <span class="section-tip">{{ t('vectorKb.owner') }}：{{ fmParsed.owner || t('vectorKb.emptyCell') }}</span>
-                <span class="section-tip">
-                  {{ t('vectorKb.effectiveDate') }}：{{ fmParsed.effective_date || t('vectorKb.emptyCell') }}
-                </span>
-                <span class="section-tip">
-                  {{ t('vectorKb.reviewDate') }}：{{ fmParsed.review_date || t('vectorKb.emptyCell') }}
-                </span>
-                <a-tag v-for="tg in splitTags(fmParsed.tags)" :key="tg" color="gray" size="small">{{ tg }}</a-tag>
+                <div class="doc-meta-row">
+                  <span class="doc-meta-key">{{ t('vectorKb.docStatus') }}</span>
+                  <a-tag :color="docStatusColor(fmParsed.status)" size="small">
+                    {{ docStatusText(fmParsed.status) }}
+                  </a-tag>
+                </div>
+                <div class="doc-meta-row">
+                  <span class="doc-meta-key">{{ t('vectorKb.confidentiality') }}</span>
+                  <a-tag
+                    v-if="fmParsed.confidentiality"
+                    :color="confColor(fmParsed.confidentiality)"
+                    size="small"
+                  >
+                    {{ confText(fmParsed.confidentiality) }}
+                  </a-tag>
+                  <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
+                </div>
+                <div class="doc-meta-row">
+                  <span class="doc-meta-key">{{ t('vectorKb.owner') }}</span>
+                  <span class="doc-meta-val">{{ fmParsed.owner || t('vectorKb.emptyCell') }}</span>
+                </div>
+                <div class="doc-meta-row">
+                  <span class="doc-meta-key">{{ t('vectorKb.effectiveDate') }}</span>
+                  <span class="doc-meta-val">{{ fmParsed.effective_date || t('vectorKb.emptyCell') }}</span>
+                </div>
+                <div class="doc-meta-row">
+                  <span class="doc-meta-key">{{ t('vectorKb.reviewDate') }}</span>
+                  <span class="doc-meta-val">{{ fmParsed.review_date || t('vectorKb.emptyCell') }}</span>
+                </div>
+                <div class="doc-meta-row">
+                  <span class="doc-meta-key">{{ t('vectorKb.tags') }}</span>
+                  <span class="doc-meta-val">
+                    <template v-if="splitTags(fmParsed.tags).length">
+                      <a-tag
+                        v-for="tg in splitTags(fmParsed.tags)"
+                        :key="tg"
+                        color="gray"
+                        size="small"
+                        class="tag-cell"
+                      >
+                        {{ tg }}
+                      </a-tag>
+                    </template>
+                    <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
+                  </span>
+                </div>
+                <div v-if="fmParsed.status === 'draft'" class="section-tip doc-meta-note">
+                  {{ t('vectorKb.docDraftHint') }}
+                </div>
               </template>
-              <span v-else class="section-tip">{{ t('vectorKb.frontMatterNone') }}</span>
-            </span>
-          </div>
-          <a-textarea
-            v-model="docForm.content"
-            class="doc-textarea"
-            :auto-size="{ minRows: 14, maxRows: 26 }"
-            :placeholder="t('vectorKb.docContentPlaceholder')"
-          />
-        </a-form-item>
+              <div v-else class="section-tip">{{ t('vectorKb.frontMatterNone') }}</div>
+
+              <div class="section-tip doc-meta-foot">{{ t('vectorKb.docContentEmptyTip') }}</div>
+            </div>
+          </a-col>
+        </a-row>
       </a-form>
     </a-modal>
 
@@ -1170,6 +1277,33 @@
             :loading="deptOptionsLoading"
             allow-search
             :placeholder="t('vectorKb.createDeptKbPickDept')"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 1042 附件：新建组织级库（仅管理员，库名必填） -->
+    <a-modal
+      v-model:visible="createOrgKbModalVisible"
+      :title="t('vectorKb.createOrgKbTitle')"
+      :on-before-ok="doCreateOrgKb"
+      :mask-closable="false"
+      :ok-text="t('commonTable.confirm')"
+      :cancel-text="t('commonTable.cancel')"
+      unmount-on-close
+    >
+      <a-form :model="createOrgKbForm" layout="vertical">
+        <a-form-item
+          field="org_name"
+          :label="t('vectorKb.createOrgKbName')"
+          required
+          :help="t('vectorKb.createOrgKbTip')"
+        >
+          <a-input
+            v-model="createOrgKbForm.org_name"
+            :max-length="64"
+            allow-clear
+            :placeholder="t('vectorKb.createOrgKbPlaceholder')"
           />
         </a-form-item>
       </a-form>
@@ -1207,7 +1341,8 @@ import {
   getReviewDue,
   getKbFeedbackList,
   handleKbFeedback,
-  createDeptKb
+  createDeptKb,
+  createOrgKb
 } from '@/api/modules/gisVector'
 import { getDeptList } from '@/api/modules/gisUserDept'
 
@@ -1239,6 +1374,15 @@ function markForbidden(err) {
 
 // ---------- 说明区块 ----------
 const helpOpen = ref(false)
+
+// ---------- 1043 分区切换（tag 式）----------
+// 用 v-show 而非 a-tabs：切分区不发请求、不丢当前状态（检索结果 / 展开的探针行都保留）
+//   docs      文档（知识库列表 + 说明 + 文档列表）
+//   search    检索（语义检索）
+//   selfcheck 自检与复审（问答自检 + 待复审）
+//   settings  设置（检索设置 + 别名表，仅管理员）
+//   insight   分析与反馈（内容缺口 + 反馈，仅管理员）
+const activeTab = ref('docs')
 
 const DOC_PAGE_SIZE = 20
 // 探针分组要给文档行显示标题，一次多取一些（doc_list 的 page_size 上限 200）
@@ -1318,6 +1462,35 @@ const searchForm = reactive({
 
 function formatScore(score) {
   return typeof score === 'number' ? score.toFixed(4) : '-'
+}
+
+// ---------- R10：检索结果按「条目」聚合 ----------
+// chunk_no = 条目首段、chunk_no_end = 条目末段（都从 0 起，展示时各 +1）；
+// 两者相等 = 未合并，直接显示「第 N 段」，否则显示区间「第 N-M 段」。
+function chunkRangeText(hit) {
+  const from = hit.chunk_no + 1
+  if (!(hit.chunk_no_end > hit.chunk_no)) return t('vectorKb.chunkNo', { no: from })
+  return t('vectorKb.chunkRange', { from, to: hit.chunk_no_end + 1 })
+}
+
+// 合并后的条目正文最长 4000 字 → 超过阈值默认限高，可单条展开
+const HIT_TEXT_MAX = 300
+// chunk_id 取条目内最高分那一段的 id，天然唯一，用它做展开态的 key
+const expandedHits = ref(new Set())
+
+function isHitLong(hit) {
+  return String(hit.text || '').length > HIT_TEXT_MAX
+}
+
+function isHitExpanded(hit) {
+  return expandedHits.value.has(hit.chunk_id)
+}
+
+function toggleHitText(hit) {
+  const next = new Set(expandedHits.value)
+  if (next.has(hit.chunk_id)) next.delete(hit.chunk_id)
+  else next.add(hit.chunk_id)
+  expandedHits.value = next
 }
 
 function shortHash(hash) {
@@ -1409,6 +1582,52 @@ async function doCreateDeptKb() {
     // 403 = 不是该部门负责人（或部门不存在/停用），只弹错，不整页 403
     return false
   } finally { creatingDeptKb.value = false }
+}
+
+// ---------- 1042 附件：新建组织级库（仅管理员） ----------
+const creatingOrgKb = ref(false)
+const createOrgKbModalVisible = ref(false)
+const createOrgKbForm = reactive({ org_name: '' })
+
+/** 库名校验（前端先挡，后端也校验）：1~64 字符；不能以 _ 或 . 开头；不能含 / \ .. */
+function validateOrgName(name) {
+  const v = (name || '').trim()
+  if (!v) return t('vectorKb.createOrgKbRequired')
+  if (v.length > 64) return t('vectorKb.createOrgKbInvalid')
+  if (v.startsWith('_') || v.startsWith('.')) return t('vectorKb.createOrgKbInvalid')
+  if (v.includes('/') || v.includes('\\') || v.includes('..')) return t('vectorKb.createOrgKbInvalid')
+  return ''
+}
+
+function handleCreateOrgKb() {
+  createOrgKbForm.org_name = ''
+  createOrgKbModalVisible.value = true
+}
+
+/** @returns {Promise<boolean>} 供 a-modal 的 on-before-ok 使用 */
+async function doCreateOrgKb() {
+  const name = createOrgKbForm.org_name.trim()
+  const err = validateOrgName(name)
+  if (err) {
+    Message.warning(err)
+    return false
+  }
+  creatingOrgKb.value = true
+  try {
+    // showError: false → 由本页按文档 §四 口径给文案，避免与拦截器重复弹错
+    const res = await createOrgKb({ org_name: name }, { showError: false })
+    const d = res.data || res
+    Message.success(t('vectorKb.createOrgKbSuccess', { id: d?.index_id ?? '-' }))
+    createOrgKbModalVisible.value = false
+    // 重新拉 index_list 并选中新库（loadIndexes 的 preferIndexId 分支）
+    await loadIndexes(d?.index_id)
+    return true
+  } catch (e) {
+    const status = e?.response?.status ?? e?.code
+    if (status === 403) Message.warning(t('vectorKb.createOrgKbForbidden'))
+    else Message.error(e?.response?.data?.msg || e?.msg || t('vectorKb.createOrgKbFailed'))
+    return false
+  } finally { creatingOrgKb.value = false }
 }
 
 async function loadDocs() {
@@ -1761,10 +1980,13 @@ async function handleSearch() {
     return
   }
   searching.value = true
+  // 新一轮检索 → 清掉上一轮的展开态
+  expandedHits.value = new Set()
   try {
     const payload = { query, top_k: searchForm.top_k, index_id: selectedIndex.value.index_id }
     const res = await vectorSearch(payload)
     // 1040 §3.3：data 由数组改为对象 { hits, low_confidence, suggest_no_answer, expanded_query }
+    // R10：hits 是「条目」粒度，条数可能少于 top_k（几条并成一条），按实际返回渲染即可
     const d = res.data || res
     searchResults.value = Array.isArray(d?.hits) ? d.hits : []
     searchLowConf.value = d?.low_confidence === true
@@ -2468,6 +2690,19 @@ onMounted(() => {
   word-break: break-word;
 }
 
+// R10：合并条目最长 4000 字 → 默认限高并做渐隐，点「展开全文」看全
+.hit-text.is-clamped {
+  max-height: 120px;
+  overflow: hidden;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 1) 60%, rgba(0, 0, 0, 0) 100%);
+}
+
+.hit-toggle {
+  height: auto;
+  margin-top: $space-1;
+  padding: 0;
+}
+
 .hit-source {
   margin-top: $space-2;
   color: $color-text-tertiary;
@@ -2566,24 +2801,60 @@ onMounted(() => {
   margin-left: $space-1;
 }
 
-.doc-editor-tools {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  flex-wrap: wrap;
-  margin-bottom: $space-2;
+// ---------- 1043 分区切换 ----------
+.kb-tabbar {
+  margin-top: $space-4;
 }
 
-.fm-preview {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  flex-wrap: wrap;
+// ---------- 1043 文档编辑器右栏：元数据面板 ----------
+.doc-meta-panel {
+  padding: $space-3;
+  background: $color-bg-muted;
+  border-radius: $radius;
 }
 
-.fm-label {
+.doc-meta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  margin-bottom: $space-3;
+}
+
+.doc-meta-title {
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $color-text;
+}
+
+.doc-meta-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $space-2;
+  padding: $space-1 0;
+  font-size: $font-size-sm;
+}
+
+.doc-meta-key {
+  flex: none;
   color: $color-text-tertiary;
-  font-size: $font-size-xs;
+}
+
+.doc-meta-val {
+  color: $color-text;
+  text-align: right;
+  word-break: break-word;
+}
+
+.doc-meta-note {
+  margin-top: $space-2;
+}
+
+.doc-meta-foot {
+  margin-top: $space-3;
+  padding-top: $space-2;
+  border-top: 1px solid $color-border-light;
 }
 
 .doc-textarea {

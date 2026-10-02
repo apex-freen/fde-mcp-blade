@@ -5,7 +5,7 @@
         {{ $t('mine.messageNotice') }}
       </a-alert>
 
-      <!-- 筛选：event_level 主筛；本版不做已读/未读（1017 §2.1） -->
+      <!-- 筛选：event_level 主筛；「全部已读」调 read_all（幂等） -->
       <div class="table-toolbar">
         <a-space>
           <a-select
@@ -23,6 +23,15 @@
             <template #icon><icon-refresh /></template>
             {{ $t('commonTable.reset') }}
           </a-button>
+          <a-button
+            type="primary"
+            :loading="readAllLoading"
+            :disabled="!rows.length"
+            @click="handleReadAll"
+          >
+            <template #icon><icon-check /></template>
+            {{ $t('mine.messageMarkAllRead') }}
+          </a-button>
         </a-space>
       </div>
 
@@ -33,10 +42,11 @@
             v-for="item in rows"
             :key="item.message_id"
             class="msg-item"
-            :class="{ clickable: !!item.biz_ref_route }"
+            :class="{ clickable: !!item.biz_ref_route, 'is-read': item.is_read === true }"
             @click="goDetail(item)"
           >
             <div class="msg-head">
+              <span v-if="item.is_read !== true" class="msg-dot" :title="$t('mine.messageUnread')" />
               <a-tag :color="levelInfo(item.event_level).color" size="small">
                 {{ $t(levelInfo(item.event_level).label) }}
               </a-tag>
@@ -75,13 +85,15 @@
  * - 数据源 GET /biz/gis_mine/message/list（个人域，不挂权限点；字段与首屏卡片一致，渲染函数复用）
  * - event_level 主筛 todo/alert/notice/risk；排序后端固定，前端不传
  * - 行点击用 rows[].biz_ref_route 直接跳转，**不自己拼路由**（1017 §2.1）
- * - 与顶级「消息中心」分工：本页=我的收件视图（个人域），消息中心=系统消息台账（管理员视角）
- * - 本版不做已读/未读
+ * - 已读：行点击调 message/read 标记该条；顶部「全部已读」调 message/read_all（均幂等）
+ * - 「已读」≠「已处理」：待办类是否消失取决于单据状态，不用已读当办完
+ * - 与顶级「消息中心」分工：本页=我的收件视图（个人域），消息中心=系统消息台账（管理员视角，不做已读）
  */
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getMineMessageList } from '@/api/modules/gisMine'
+import { Message } from '@arco-design/web-vue'
+import { getMineMessageList, readMineMessages, readAllMineMessages } from '@/api/modules/gisMine'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -151,9 +163,35 @@ async function fetchList() {
 }
 
 function goDetail(item) {
+  // 先标已读（乐观更新，不阻塞跳转），再按后端下发的完整路由跳转
+  markRead(item)
   if (!item.biz_ref_route) return
-  // 后端下发的完整路由，直接用
   router.push(item.biz_ref_route).catch(() => {})
+}
+
+// 单条标记已读：幂等，失败回滚本地状态
+function markRead(item) {
+  if (!item || item.is_read === true) return
+  item.is_read = true
+  readMineMessages([item.message_id]).catch(() => {
+    item.is_read = false
+  })
+}
+
+// 全部已读：成功后刷新列表，以服务端为准
+const readAllLoading = ref(false)
+async function handleReadAll() {
+  if (readAllLoading.value) return
+  readAllLoading.value = true
+  try {
+    await readAllMineMessages()
+    Message.success(t('mine.messageMarkAllReadSuccess'))
+    await fetchList()
+  } catch (e) {
+    // 错误已由拦截器提示
+  } finally {
+    readAllLoading.value = false
+  }
 }
 
 onMounted(fetchList)
@@ -192,6 +230,27 @@ onMounted(fetchList)
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  /* 未读红点；已读行整体置灰、标题不加粗 */
+  .msg-dot {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-red);
+  }
+
+  .msg-item.is-read {
+    .msg-title {
+      font-weight: 400;
+      color: var(--color-text-3);
+    }
+
+    .msg-content,
+    .msg-go {
+      color: var(--color-text-3);
+    }
   }
 
   .msg-title {

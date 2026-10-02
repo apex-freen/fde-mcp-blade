@@ -53,6 +53,14 @@ export function getVectorDocList(indexId, page = 1, pageSize = 20) {
  * Doc 19 §4.2；Doc 1040 §3.3 起返回体由数组改为对象：
  *   data = { hits: VectorHit[], low_confidence, suggest_no_answer, expanded_query }
  * 调用方须取 `res.data.hits`（原来是 `res.data` 直接就是数组）。
+ *
+ * R10：`hits[]` 由「切块」改为「条目」粒度（同一 `##` 小节的多个切块在后端合并成一条）：
+ *   · `chunk_no`     该条目**首段**序号（0 起）
+ *   · `chunk_no_end` 该条目**末段**序号（0 起）；== chunk_no 表示未合并
+ *   · `text`         合并后的完整条目，**最长 4000 字**
+ *   · `score`        = 条目内最高分（Top1 / 低置信判定口径不变）
+ *   · `chunk_id`     取条目内分数最高那一段的 id
+ *   · `hits.length`  可能**少于** top_k（几条并成一条），属正常，不要补齐/报错
  * @param {Object} data - { query, index_id?, top_k? (默认 5, 上限 20) }
  */
 export function vectorSearch(data) {
@@ -242,6 +250,23 @@ export function deleteVectorDoc(data) {
  */
 export function createDeptKb(data = {}) {
   return post('/biz/gis_vector/dept_kb/create', data)
+}
+
+/**
+ * 新建组织级知识库（1042 附件：向量知识库 · 新建组织级库）
+ *
+ * 后端行为：建目录 `knowledge_lib/org_<库名>/` → 自动写一篇「已发布」的 README
+ * 占位首页 → 建库索引并入库，建完即出现、可检索。
+ * 幂等：同名库已存在时不覆盖、不重复建索引，返回同一个 index_id。
+ *
+ * 权限：**仅管理员**（非管理员 403）；与部门库（负责人可自助开通）不同。
+ * @param {Object} data - { org_name: string }
+ *   库名规则：1~64 字符；不能以 `_` 或 `.` 开头；不能含 `/`、`\`、`..`
+ * @param {Object} [options] - 透传请求配置；页面自行处理 403 文案时传 { showError: false }
+ * @returns {{ index_id: number }}
+ */
+export function createOrgKb(data, options = {}) {
+  return post('/biz/gis_vector/org_kb/create', data, options)
 }
 
 // ==========================================

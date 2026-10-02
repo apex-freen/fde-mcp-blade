@@ -216,6 +216,11 @@
         <div class="card-hd">
           <span class="bar b-teal" />
           <h3>{{ $t('workspace.messageTitle') }}</h3>
+          <span
+            v-if="messageUnread > 0"
+            class="msg-unread-badge"
+            :title="$t('mine.messageUnread')"
+          >{{ messageUnread }}</span>
           <a-tooltip v-if="degradedReason('message')" :content="degradedReason('message')">
             <icon-info-circle class="reason-icon" />
           </a-tooltip>
@@ -235,9 +240,11 @@
               v-for="item in messageItems"
               :key="item.message_id"
               class="msg-item"
-              @click="goRoute(item.biz_ref_route)"
+              :class="{ 'is-read': item.is_read === true }"
+              @click="handleMessageClick(item)"
             >
               <div class="msg-head">
+                <span v-if="item.is_read !== true" class="msg-dot" />
                 <span class="msg-title">{{ item.title || '-' }}</span>
                 <span class="msg-time">{{ item.created_time || '' }}</span>
               </div>
@@ -611,11 +618,31 @@ const statCards = computed(() => [
 ])
 
 const messageItems = computed(() => cards.message?.data?.items || [])
+// 未读条数（message 卡新增字段），红点用它；待办数量仍取 pending 接口，不要混用
+const messageUnread = computed(() => Number(cards.message?.data?.unread) || 0)
 
 // 跳转直接用后端给的完整路由，前端不自己拼
 function goRoute(route) {
   if (!route) return
   router.push(route).catch(() => {})
+}
+
+// 点开某条消息：先标已读（乐观更新，不阻塞跳转），再按 biz_ref_route 跳转
+function handleMessageClick(item) {
+  markMessageRead(item)
+  goRoute(item?.biz_ref_route)
+}
+
+function markMessageRead(item) {
+  if (!item || item.is_read === true) return
+  const card = cards.message?.data
+  item.is_read = true
+  if (card && Number(card.unread) > 0) card.unread = Number(card.unread) - 1
+  // 失败回滚，避免本地状态与服务端不一致（重复标记幂等，重试无副作用）
+  api.gisMine.readMineMessages([item.message_id]).catch(() => {
+    item.is_read = false
+    if (card) card.unread = Number(card.unread || 0) + 1
+  })
 }
 
 // 卡片下钻：明细已迁出为独立个人域菜单页（1016 §4.1），不再进个人中心 Tab
@@ -1140,6 +1167,42 @@ onMounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* 标题右侧未读数红点（用 message 卡的 unread） */
+.msg-unread-badge {
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--c-red);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  font-family: var(--mono);
+}
+
+/* 每行未读红点；已读行置灰、不加粗 */
+.msg-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-red);
+}
+
+.msg-item.is-read {
+  .msg-title {
+    font-weight: 400;
+    color: var(--text-3);
+  }
+
+  .msg-content {
+    color: var(--text-3);
+    opacity: 0.8;
+  }
 }
 
 /* ---------------- 响应式 ---------------- */

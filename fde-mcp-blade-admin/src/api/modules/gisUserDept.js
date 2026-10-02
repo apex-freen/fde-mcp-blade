@@ -12,9 +12,10 @@ import { get, post, put, del } from '@/utils/request'
  * 查询部门列表（扁平列表，前端自行组树）
  * 响应字段：deptId / parentId / deptName / orderNum / ancestors / leader / leaderUserId / phone / email / status
  * ⚠️ 1041 §5.6：请求体与响应体**都是 camelCase** —— 负责人字段是 `leaderUserId`（不是 leader_user_id）
+ * @param {Object} [options] - 透传请求配置；部门负责人入口可传 { showError: false } 静默失败
  */
-export function getDeptList() {
-  return get('/biz/gis_user_dept')
+export function getDeptList(options = {}) {
+  return get('/biz/gis_user_dept', undefined, options)
 }
 
 /**
