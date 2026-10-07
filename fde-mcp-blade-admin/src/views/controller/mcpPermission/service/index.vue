@@ -1,5 +1,7 @@
 <template>
   <div class="mcp-grant-page">
+    <a-tabs v-model:active-key="activeTab" type="rounded" style="margin-top: 16px">
+      <a-tab-pane key="service" :title="$t('mcpPermission.serviceGrantTab')">
     <!-- 视角切换：按用户授权（默认）/ 按服务授权 -->
     <div class="view-switch">
       <a-radio-group v-model="viewMode" type="button" size="small">
@@ -100,6 +102,7 @@
       </div>
 
       <div class="drawer-content">
+        <div class="risk-instant-hint">{{ $t('mcpPermission.methodRiskInstant') }}</div>
         <div class="tab-toolbar">
           <a-input
             v-model="serviceSearch"
@@ -178,12 +181,19 @@
                     <template #columns>
                       <a-table-column :title="$t('mcpPermission.methodName')" data-index="name" :width="140" />
                       <a-table-column :title="$t('mcpPermission.methodKey')" data-index="name" :width="160" :ellipsis="true" />
-                      <a-table-column :title="$t('mcpPermission.riskLevel')" :width="90">
+                      <a-table-column :title="$t('mcpPermission.riskLevel')" :width="210">
                         <template #cell="{ record: method }">
-                          <a-tag v-if="riskLevelMap[method.risk_level]" :color="riskLevelMap[method.risk_level].color" size="small">
-                            {{ riskLevelMap[method.risk_level].label }}
-                          </a-tag>
-                          <span v-else>-</span>
+                          <a-select
+                            :model-value="method.risk_level"
+                            :loading="method._riskLoading"
+                            size="small"
+                            style="width: 190px"
+                            @change="(v) => handleMethodRiskChange(record, method, v)"
+                          >
+                            <a-option v-for="opt in riskOptions" :key="opt.value" :value="opt.value">
+                              {{ opt.label }}
+                            </a-option>
+                          </a-select>
                         </template>
                       </a-table-column>
                       <a-table-column :title="$t('mcpPermission.grantStatus')" :width="80">
@@ -221,6 +231,11 @@
         </div>
       </div>
     </a-drawer>
+      </a-tab-pane>
+      <a-tab-pane v-if="canSystemGrant" key="fde_system" :title="$t('mcpPermission.systemGrantTab')">
+        <FdeSystemGrantTab v-if="activeTab === 'fde_system'" />
+      </a-tab-pane>
+    </a-tabs>
   </div>
 </template>
 
@@ -231,17 +246,24 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Message, Modal } from '@arco-design/web-vue'
 import { api } from '@/api'
-import { RISK_LEVEL_MAP } from '@/constants/riskLevel'
 import {
   AGENT_ID_DEFAULT,
   OUT_AGENT_ID_DEFAULT
 } from '@/api/modules/gisGrant'
 import GrantUserTable from '../components/GrantUserTable.vue'
 import GrantTargetUsersModal from '../components/GrantTargetUsersModal.vue'
-import { useGrantShared } from '../composables/useGrantShared'
+import FdeSystemGrantTab from '../components/FdeSystemGrantTab.vue'
+import { useGrantShared, useFdeRiskOptions } from '../composables/useGrantShared'
+import { hasPermission } from '@/utils/permission'
 
 const { t } = useI18n()
-const riskLevelMap = RISK_LEVEL_MAP
+// 风险等级选项（1050 §四，本页两个 Tab 通用）
+const { riskOptions } = useFdeRiskOptions()
+
+// 顶层 Tab：插件授权（现状不变）/ 系统功能授权（Doc 1050）
+// Tab2 权限码：controller:mcp_permission:system
+const activeTab = ref('service')
+const canSystemGrant = computed(() => hasPermission('controller:mcp_permission:system'))
 
 const {
   drawerVisible,
@@ -544,6 +566,23 @@ async function handleRevokeSingleMethod(plugin, method) {
     Message.error(e?.msg || t('mcpPermission.revokeFailed'))
   }
 }
+
+// 方法风险等级就地修改（1050 §二）
+// 注意：插件方法的风险存在插件目录的 plugin.json（文件），不是数据库，
+// 与「系统功能工具」（存 gis_mcp_tool 表）是两套存储；后端写回后热更、无需重启。
+async function handleMethodRiskChange(plugin, method, value) {
+  if (!value || value === method.risk_level) return
+  method._riskLoading = true
+  try {
+    await api.pluginService.updateServiceMethod(plugin.name, method.name, value)
+    method.risk_level = value
+    Message.success(t('mcpPermission.riskUpdateSuccess'))
+  } catch (e) {
+    Message.error(e?.msg || t('mcpPermission.riskUpdateFailed'))
+  } finally {
+    method._riskLoading = false
+  }
+}
 </script>
 
 <style scoped>
@@ -572,6 +611,12 @@ async function handleRevokeSingleMethod(plugin, method) {
   display: flex;
   justify-content: flex-end;
   margin: 16px 0;
+}
+
+.risk-instant-hint {
+  color: var(--color-text-3);
+  font-size: 12px;
+  margin-top: 12px;
 }
 
 .drawer-content {

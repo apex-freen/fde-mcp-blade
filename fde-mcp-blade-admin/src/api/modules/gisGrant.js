@@ -112,3 +112,17 @@ export function grantAll(data) {
 export function revokeAll(data) {
   return post('/biz/gis_grant/revoke_all', data)
 }
+
+// ========== Doc 1050：系统功能（fde_system）授权 ==========
+
+/**
+ * 系统功能「工具组」清单（后端组常量，前端不要写死）
+ * 每个元素：{ key, short, name, domain, requires_grant }
+ *   - key：组 key（= 权限码），授权时作为 target_name
+ *   - name：组名（列表展示时把 target_name 翻译成它）
+ *   - domain：功能域
+ *   - requires_grant=false 的组（如「我的组」）无需授权，登录即可用
+ */
+export function getFdeGroups() {
+  return get('/biz/gis_grant/fde_groups')
+}

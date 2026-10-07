@@ -53,6 +53,8 @@ import * as gisRiskInterceptLog from './modules/gisRiskInterceptLog'
 import * as gisMine from './modules/gisMine'
 // Doc 77：审计中心 · 归档导出
 import * as auditExport from './modules/auditExport'
+// Doc 1050：系统操作 MCP 化 · MCP 工具配置（gis_mcp_tool）
+import * as gisMcpTool from './modules/gisMcpTool'
 // 能力清单（GET /biz/capabilities）—— 要求登录、不要求权限码
 import * as capabilities from './modules/capabilities'
 
@@ -106,6 +108,8 @@ export const api = {
   gisMine,
   // Doc 77
   auditExport,
+  // Doc 1050
+  gisMcpTool,
   // 能力清单
   capabilities
 }

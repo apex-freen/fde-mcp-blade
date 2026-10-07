@@ -7,6 +7,7 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api'
 import { useUserStore } from '@/stores/user'
+import { RISK_LEVEL_MAP } from '@/constants/riskLevel'
 
 // 当前登录用户，作为授权操作的执行人（授权页、复制权限弹窗、反向授权弹窗都用它）
 export function useGrantOperator() {
@@ -103,4 +104,23 @@ export function useGrantShared() {
     fetchUserGrants,
     formatGrantTime
   }
+}
+
+// 1050 §四：风险等级文案（本页「插件授权 / 系统功能授权」两个 Tab 通用）
+// 颜色沿用全局风险色板，文案按 1050 约定
+export function useFdeRiskOptions() {
+  const { t } = useI18n()
+  const riskOptions = computed(() => [
+    { value: 'normal', color: RISK_LEVEL_MAP.normal.color, label: t('mcpPermission.riskOptNormal') },
+    { value: 'risk', color: RISK_LEVEL_MAP.risk.color, label: t('mcpPermission.riskOptRisk') },
+    { value: 'auth', color: RISK_LEVEL_MAP.auth.color, label: t('mcpPermission.riskOptAuth') },
+    { value: 'disable', color: RISK_LEVEL_MAP.disable.color, label: t('mcpPermission.riskOptDisable') }
+  ])
+  const riskMap = computed(() =>
+    riskOptions.value.reduce((acc, item) => {
+      acc[item.value] = item
+      return acc
+    }, {})
+  )
+  return { riskOptions, riskMap }
 }
