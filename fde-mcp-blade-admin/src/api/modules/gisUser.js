@@ -17,7 +17,6 @@ import { get, post, put, del } from '@/utils/request'
  * @param {string} [params.user_name] - 用户名，模糊查询
  * @param {string} [params.nick_name] - 用户昵称，模糊查询
  * @param {string} [params.real_name] - 真实姓名，模糊查询
- * @param {string} [params.group_name] - 组名，模糊查询
  * @param {string} [params.user_phone] - 手机号，模糊查询
  * @param {string} [params.status] - 账号状态（0-正常，1-停用），仅这两个值生效
  * @param {number} [params.page] - 页码，从 1 开始
@@ -42,11 +41,9 @@ export function getGisUserList(params) {
  *   · `status`   可选。`'0'` 正常 / `'1'` 停用；**其它值（含空前缀）视为「不筛」**
  *   · `page`     默认 1
  *   · `page_size` 默认 100、**上限 100，超限静默夹取（不报 400）**
- * - 出参：`{ total, rows }`，每项 **6 个字段**：
- *   `user_id` / `user_name` / `nick_name` / `group_name` / `status` / `enable_cloud`
+ * - 出参：`{ total, rows }`，每项 **5 个字段**（2026-10-07 起 `group_name` 已下线）：
+ *   `user_id` / `user_name` / `nick_name` / `status` / `enable_cloud`
  *   · `enable_cloud` 为 `string|null`，`'1'` = 已启用云端（token 页「非云端用户」警示用它）
- *   · `group_name` 取值域**不受控、不参与任何权限判定** → 前端**只直渲，不做值→文案映射**，
- *     空值显示 `—`（SSO JIT 按 `sso_jit_group_name` 写入，可能是任意中文）
  * - 排序：`user_id ASC`
  * - ⚠️ 仍按**数据范围**过滤（可见部门 ∪ 本人）→ 下拉里找不到人先查角色数据范围，不是接口 bug
  * - ⚠️ 与 `/biz/gis_user/list` 的区别：picker **不含 `created_time`**（管理表格才需要）
@@ -60,7 +57,7 @@ export function getGisUserPicker(params = {}) {
 /**
  * 获取所有用户（无分页）
  *
- * ⚠️ 出参与 picker 同为 **6 字段** DTO（v1.9 定稿），实测调用点只读 3 个字段 → 零改动。
+ * ⚠️ 出参与 picker 同为 **5 字段** DTO，实测调用点只读 3 个字段 → 零改动。
  */
 export function getGisUserAll() {
   return get('/biz/gis_user/all')
@@ -79,7 +76,6 @@ export function getGisUserById(id) {
  * @param {Object} data - 用户数据
  * @param {string} [data.out_user_id] - 已废弃，不要传
  * @param {number} [data.gis_agent_id] - 绑定的智能体 ID
- * @param {string} data.group_name - 组名
  * @param {string} data.user_name - 用户名，唯一
  * @param {string} data.nick_name - 用户昵称
  * @param {string} [data.real_name] - 真实姓名（传空串按「未填」处理，存 null）

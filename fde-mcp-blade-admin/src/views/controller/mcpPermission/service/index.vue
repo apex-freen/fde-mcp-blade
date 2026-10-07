@@ -94,10 +94,6 @@
             <span class="label">{{ $t('mcpPermission.nicknameLabel') }}：</span>
             <span>{{ currentUser?.nick_name }}</span>
           </div>
-          <div>
-            <span class="label">{{ $t('mcpPermission.coreRoleLabel') }}：</span>
-            <span>{{ currentUser?.group_name }}</span>
-          </div>
         </a-space>
       </div>
 

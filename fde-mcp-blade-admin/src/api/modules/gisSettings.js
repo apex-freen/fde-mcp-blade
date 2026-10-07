@@ -5,24 +5,6 @@
 
 import { get, post, put } from '@/utils/request'
 
-// ---------- 设备信息 ----------
-
-/**
- * 查询设备基本信息
- * @returns {Promise} { device_name, device_desc, device_area, device_password, device_id, firmware_version }
- */
-export function getDeviceInfo() {
-  return get('/biz/gis_settings/device/info')
-}
-
-/**
- * 修改设备基本信息
- * @param {Object} data - { device_name, device_desc?, device_area?, device_password?, device_id, firmware_version }
- */
-export function updateDeviceInfo(data) {
-  return put('/biz/gis_settings/device/info', data)
-}
-
 // ---------- 主机名称（Docker 环境不可用） ----------
 
 /**
@@ -112,7 +94,7 @@ export function connectWifi(data) {
 
 /**
  * 查询云端 MQTT 客户端配置
- * @returns {Promise} { server_addr, server_port, username, password, is_connected }
+ * @returns {Promise} { server_token, sys_cloud_enabled, mqtt_is_connected, mcp_is_connected }
  */
 export function getCloudConfig() {
   return get('/biz/gis_settings/network/cloud')
@@ -120,10 +102,18 @@ export function getCloudConfig() {
 
 /**
  * 修改云端 MQTT 客户端配置
- * @param {Object} data - { server_addr, server_port, username, password }
+ * @param {Object} data - { server_token, sys_cloud_enabled }
  */
 export function updateCloudConfig(data) {
   return put('/biz/gis_settings/network/cloud', data)
+}
+
+/**
+ * 云端登录回填（仅提交云端令牌，不再需要 username）
+ * @param {string} gisToken - 登录云端平台后返回的令牌
+ */
+export function cloudTokenLogin(gisToken) {
+  return post('/biz/mqtt/client/login', { gis_token: gisToken })
 }
 
 /**

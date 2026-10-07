@@ -96,10 +96,6 @@
             <template #cell="{ record }">{{ record.employee_no || '-' }}</template>
           </a-table-column>
           <a-table-column :title="$t('user.nickname')" data-index="nick_name" :width="120" />
-          <!-- 已隐藏：组名（group_name）列（保留代码，恢复时取消注释即可）
-               65 文档 §5：后端已废弃 gis_user.group_name，不再参与任何权限/角色判定，
-               也不要再把它当角色展示；建议下线该列 -->
-          <!-- <a-table-column :title="$t('user.coreRole')" data-index="group_name" :width="100" /> -->
           <a-table-column :title="$t('user.enableCloud')" data-index="enable_cloud" :width="90">
             <template #cell="{ record }">
               <a-tag :color="record.enable_cloud === '1' ? 'arcoblue' : 'gray'">
@@ -260,21 +256,6 @@
           </a-col>
         </a-row>
         <a-row :gutter="16">
-          <!-- 已隐藏：身份组名（group_name）表单项（保留代码，恢复时取消注释即可）
-               65 文档 §5：后端已废弃 gis_user.group_name，不再参与任何权限/角色判定，
-               身份改由「分配权限组」里的角色决定，表单不再要求填写 -->
-          <!-- <a-col :span="12">
-            <a-form-item field="group_name" :label="$t('user.groupName')">
-              <a-select
-                v-model="formData.group_name"
-                :placeholder="$t('user.selectGroup')"
-                allow-clear
-              >
-                <a-option value="admin">{{ $t('user.adminGroup') }}</a-option>
-                <a-option value="user">{{ $t('user.userGroup') }}</a-option>
-              </a-select>
-            </a-form-item>
-          </a-col> -->
           <!-- 已隐藏：权限等级（保留代码，恢复时取消注释即可）
           <a-col :span="12">
             <a-form-item field="user_perm_level" :label="$t('user.permLevel')">
@@ -635,9 +616,6 @@ const getDefaultFormData = () => ({
   employee_no: '',
   password: '',
   confirmPassword: '',
-  // 已隐藏该字段（表单项见上方注释）：group_name 已废弃、不参与任何判定，
-  // 但新增/编辑接口仍按 String 写入该列，故保留默认值并继续提交，编辑时按详情回填
-  group_name: '',
   // 已隐藏该字段（表单项见上方注释），但接口新增/编辑都要求传 String，
   // 故此处保留默认值 "0"（文档约定普通用户为 "0"），编辑时仍按详情回填
   user_perm_level: '0',
@@ -683,8 +661,6 @@ const formRules = {
     }
   ],
   confirmPassword: [{ validator: validateConfirmPassword }],
-  // 已隐藏：身份组名（group_name）表单项（保留规则，恢复表单项时取消注释即可）
-  // group_name: [{ required: true, message: t('user.groupRequired') }],
   // 已隐藏：权限等级（保留规则，恢复表单项时取消注释即可）
   // user_perm_level: [{ required: true, message: t('user.permLevelRequired') }],
   // 邮箱非必填，填了才校验格式
@@ -725,7 +701,6 @@ const handleEdit = async (record) => {
     nick_name: detail.nick_name,
     real_name: detail.real_name || '',
     employee_no: detail.employee_no || '',
-    group_name: detail.group_name,
     user_perm_level: detail.user_perm_level,
     user_phone: detail.user_phone || '',
     user_email: detail.user_email || '',
@@ -748,7 +723,6 @@ const handleSubmit = async () => {
     const submitData = {
       user_name: formData.user_name,
       nick_name: formData.nick_name,
-      group_name: formData.group_name,
       user_perm_level: formData.user_perm_level,
       user_phone: formData.user_phone || undefined,
       // 整字段替换：显式回传，空串 / 0 分别代表「未填」「未分配」，避免把已有值清掉
@@ -792,7 +766,6 @@ const handleToggleStatus = async (record) => {
     await api.gisUser.updateGisUser(record.user_id, {
       user_name: record.user_name,
       nick_name: record.nick_name,
-      group_name: record.group_name,
       user_perm_level: record.user_perm_level,
       user_phone: record.user_phone || undefined,
       real_name: record.real_name || '',

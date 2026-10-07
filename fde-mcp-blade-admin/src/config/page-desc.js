@@ -77,6 +77,7 @@ export const pageDescMap = {
   // 系统设置（路径不变）
   '/controller/settings/overview': { descriptionKey: 'routeDesc.controller:settings:overview' },
   '/controller/settings/connection': { descriptionKey: 'routeDesc.controller:settings:connection' },
+  '/controller/settings/cloud': { descriptionKey: 'routeDesc.controller:settings:cloud' },
   '/controller/settings/maintenance': { descriptionKey: 'routeDesc.controller:settings:maintenance' },
   '/controller/settings/config': { descriptionKey: 'routeDesc.controller:settings:config' },
 

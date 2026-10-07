@@ -15,9 +15,6 @@
             <a-descriptions-item :label="$t('profile.nickname')">
               {{ fullUser.nick_name || userInfo.nickName || '-' }}
             </a-descriptions-item>
-            <a-descriptions-item :label="$t('profile.groupName')">
-              {{ fullUser.group_name || '-' }}
-            </a-descriptions-item>
             <a-descriptions-item :label="$t('profile.permLevel')">
               {{ fullUser.user_perm_level || '-' }}
             </a-descriptions-item>

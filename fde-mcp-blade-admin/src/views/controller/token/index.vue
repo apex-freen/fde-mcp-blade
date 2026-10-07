@@ -519,7 +519,7 @@ const cloudMcpConfigJsonText = computed(() => {
   return JSON.stringify(cfg, null, 2)
 })
 
-// 生成二维码：本地 + 云端各一张（编码后端返回的短引用 URL）
+// 生成二维码：本地 + 云端各一张（二维码内容即后端返回的完整 mcpServers 配置 JSON 字符串）
 const renderQrCode = async () => {
   try {
     // 本地二维码：编码 mcpLocalQrCode

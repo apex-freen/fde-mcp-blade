@@ -38,7 +38,6 @@ import { get, post, put, del } from '@/utils/request'
  * @property {string} oidcRedirectUri - 回调地址
  *
  * @property {boolean} jitEnabled - 是否启用 JIT 自动建档
- * @property {string} jitGroupName - JIT 用户默认组名
  * @property {number} jitDefaultRoleId - JIT 用户默认角色 ID
  *
  * @property {boolean} sessionRefreshEnabled - 会话刷新开关（DB 优先）

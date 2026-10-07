@@ -74,7 +74,6 @@ const defaultConfig = () => ({
   oidcRedirectUri: '',
   // JIT
   jitEnabled: false,
-  jitGroupName: '',
   jitDefaultRoleId: 0,
   // 会话刷新
   sessionRefreshEnabled: false,

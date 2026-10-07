@@ -59,7 +59,6 @@
         <template #columns>
           <a-table-column :title="$t('mcpPermission.username')" data-index="user_name" :width="140" />
           <a-table-column :title="$t('mcpPermission.nickname')" data-index="nick_name" :width="140" />
-          <a-table-column :title="$t('mcpPermission.coreRole')" data-index="group_name" :width="120" />
           <a-table-column :title="$t('mcpPermission.status')" data-index="status" :width="100">
             <template #cell="{ record }">
               <a-tag :color="record.status === '0' ? 'green' : 'red'">

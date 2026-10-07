@@ -8,20 +8,10 @@
         <a-switch v-model="config.jitEnabled" />
       </a-form-item>
 
-      <a-row :gutter="24">
-        <a-col :span="12">
-          <a-form-item :label="t('ssoConfig.jitGroupName')">
-            <a-input v-model="config.jitGroupName" :placeholder="t('ssoConfig.jitGroupNamePlaceholder')" />
-            <span class="form-hint">{{ t('ssoConfig.jitGroupNameHint') }}</span>
-          </a-form-item>
-        </a-col>
-        <a-col :span="12">
-          <a-form-item :label="t('ssoConfig.jitDefaultRoleId')">
-            <a-input-number v-model="config.jitDefaultRoleId" :min="0" style="width: 100%" />
-            <span class="form-hint">{{ t('ssoConfig.jitDefaultRoleIdHint') }}</span>
-          </a-form-item>
-        </a-col>
-      </a-row>
+      <a-form-item :label="t('ssoConfig.jitDefaultRoleId')">
+        <a-input-number v-model="config.jitDefaultRoleId" :min="0" style="width: 100%" />
+        <span class="form-hint">{{ t('ssoConfig.jitDefaultRoleIdHint') }}</span>
+      </a-form-item>
     </a-form>
 
     <a-space class="tab-footer">
@@ -48,7 +38,6 @@ async function handleSave() {
   try {
     await updateSsoConfig({
       jitEnabled: config.jitEnabled,
-      jitGroupName: config.jitGroupName,
       jitDefaultRoleId: config.jitDefaultRoleId
     })
     Message.success(t('ssoSaveSuccess'))

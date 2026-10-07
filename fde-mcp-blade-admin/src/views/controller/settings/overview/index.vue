@@ -1,32 +1,5 @@
 <template>
   <div class="overview-page">
-    <!-- 设备信息卡片 -->
-    <a-card :bordered="false" style="margin-top: 16px">
-      <template #title>
-        <div class="section-title">
-          <icon-storage />
-          <span>{{ $t('settingsOverview.deviceInfo') }}</span>
-        </div>
-      </template>
-      <template #extra>
-        <a-button type="text" size="small" @click="handleEditDevice">
-          <template #icon><icon-edit /></template>
-          {{ $t('settingsOverview.edit') }}
-        </a-button>
-      </template>
-
-      <a-spin :loading="deviceLoading" style="width: 100%">
-        <a-descriptions :column="3" bordered>
-          <a-descriptions-item :label="$t('settingsOverview.deviceName')">{{ deviceInfo.device_name || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('settingsOverview.deviceId')">{{ deviceInfo.device_id || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('settingsOverview.firmwareVersion')">{{ deviceInfo.firmware_version || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('settingsOverview.deviceDesc')">{{ deviceInfo.device_desc || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('settingsOverview.deviceArea')">{{ deviceInfo.device_area || '-' }}</a-descriptions-item>
-          <a-descriptions-item :label="$t('settingsOverview.devicePassword')">******</a-descriptions-item>
-        </a-descriptions>
-      </a-spin>
-    </a-card>
-
     <!-- 系统监控卡片 -->
     <a-card :bordered="false" style="margin-top: 16px">
       <template #title>
@@ -87,100 +60,19 @@
         </a-descriptions>
       </a-spin>
     </a-card>
-
-    <!-- 设备信息编辑弹窗 -->
-    <a-modal
-      v-model:visible="deviceModalVisible"
-      :title="$t('settingsOverview.editDeviceTitle')"
-      :ok-loading="deviceSaving"
-      @ok="handleDeviceSubmit"
-      @cancel="deviceModalVisible = false"
-    >
-      <a-form :model="deviceForm" layout="vertical">
-        <a-form-item field="device_name" :label="$t('settingsOverview.deviceName')" required>
-          <a-input v-model="deviceForm.device_name" />
-        </a-form-item>
-        <a-form-item field="device_desc" :label="$t('settingsOverview.deviceDesc')">
-          <a-input v-model="deviceForm.device_desc" />
-        </a-form-item>
-        <a-form-item field="device_area" :label="$t('settingsOverview.deviceArea')">
-          <a-input v-model="deviceForm.device_area" />
-        </a-form-item>
-        <a-form-item field="device_password" :label="$t('settingsOverview.devicePassword')">
-          <a-input-password v-model="deviceForm.device_password" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
-import { getDeviceInfo, updateDeviceInfo, getSystemHealth } from '@/api/modules/gisSettings'
+import { getSystemHealth } from '@/api/modules/gisSettings'
 
 const { t } = useI18n()
 const userStore = useUserStore()
 const { isDocker } = storeToRefs(userStore)
-
-// ============ 设备信息 ============
-const deviceLoading = ref(false)
-const deviceInfo = ref({})
-const deviceModalVisible = ref(false)
-const deviceSaving = ref(false)
-const deviceForm = reactive({
-  device_name: '',
-  device_desc: '',
-  device_area: '',
-  device_password: '',
-  device_id: '',
-  firmware_version: ''
-})
-
-const loadDeviceInfo = async () => {
-  deviceLoading.value = true
-  try {
-    const res = await getDeviceInfo()
-    deviceInfo.value = res.data || {}
-  } catch (e) {
-    // 错误已由拦截器提示
-  } finally {
-    deviceLoading.value = false
-  }
-}
-
-const handleEditDevice = () => {
-  Object.assign(deviceForm, {
-    device_name: deviceInfo.value.device_name || '',
-    device_desc: deviceInfo.value.device_desc || '',
-    device_area: deviceInfo.value.device_area || '',
-    device_password: deviceInfo.value.device_password || '',
-    device_id: deviceInfo.value.device_id || '',
-    firmware_version: deviceInfo.value.firmware_version || ''
-  })
-  deviceModalVisible.value = true
-}
-
-const handleDeviceSubmit = async () => {
-  if (!deviceForm.device_name) {
-    Message.warning(t('settingsOverview.nameRequired'))
-    return
-  }
-  deviceSaving.value = true
-  try {
-    await updateDeviceInfo({ ...deviceForm })
-    Message.success(t('settingsOverview.updateSuccess'))
-    deviceModalVisible.value = false
-    loadDeviceInfo()
-  } catch (e) {
-    // 错误已由拦截器提示
-  } finally {
-    deviceSaving.value = false
-  }
-}
 
 // ============ 系统监控 ============
 const healthLoading = ref(false)
@@ -224,7 +116,6 @@ const formatUptime = (seconds) => {
 }
 
 onMounted(() => {
-  loadDeviceInfo()
   loadHealth()
 })
 </script>
