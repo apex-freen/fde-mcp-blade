@@ -80,7 +80,7 @@ curl -s -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/int
 
 - 每个发送类方法提供可选参数 `sender`（如 `"张三"`、`"运维"`），缺省取 `config.default_sender`；
 - 插件把 `sender` 作为**署名**写入消息文本或卡片头部（如 `📢 张三 · NAS 存储告警`）；
-- 防冒用：若配置了 `config.allowed_senders` 白名单，`sender` 必须命中名单，否则拒绝执行（机制参考 hom-message-board 的 `members` 校验）；
+- 防冒用：若配置了 `config.allowed_senders` 白名单，`sender` 必须命中名单，否则拒绝执行（本插件的 `allowed_senders` 校验即该机制的先例，后续插件可参考本插件）；
 - 宿主侧可结合方法 `risk_level`（见下）对该类调用做审计/授权，形成"谁在什么级别下发了什么"的完整链路。
 
 ### 3.3 给"某个人"发消息的标识：`open_id`，不是姓名
@@ -218,7 +218,7 @@ feishu.im.send_card
 
 ### 为何独立建表而非加列
 
-映射是**两个身份体系之间的一行一用户关系**（user_name ↔ open_id），不属于现有任何业务表（留言、文件等）的属性；塞进业务表会造成每张表都要冗余这张映射并污染业务记录。故按同库新建 `feishu_user_map` 表，沿用插件"首次调用自动建表"约定（参考 hom-message-board）。
+映射是**两个身份体系之间的一行一用户关系**（user_name ↔ open_id），不属于现有任何业务表（留言、文件等）的属性；塞进业务表会造成每张表都要冗余这张映射并污染业务记录。故按同库新建 `feishu_user_map` 表，沿用插件"首次调用自动建表"约定（本插件的 `feishu_user_map` 即该约定的先例，后续插件可参考本插件）。
 
 ### 表结构草案
 

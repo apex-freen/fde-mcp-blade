@@ -5,12 +5,7 @@ description: 向飞书发企业通知/消息的完整指南：前置条件与配
 metadata:
   version: "1.1.0"
   author: biz-feishu-connector
-allowed-tools:
-  - feishu.im.send_text
-  - feishu.im.send_card
-  - feishu.contact.search_user
-  - feishu.contact.user_info
-  - feishu.contact.departments
+allowed-tools: feishu.im.send_text feishu.im.send_card feishu.contact.search_user feishu.contact.user_info feishu.contact.departments
 ---
 
 # 飞书消息发送指南（企业飞书连接服务）

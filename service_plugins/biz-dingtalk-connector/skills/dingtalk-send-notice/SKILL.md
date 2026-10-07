@@ -5,12 +5,7 @@ description: 向钉钉发企业通知/消息的完整指南：前置条件与配
 metadata:
   version: "1.0.0"
   author: biz-dingtalk-connector
-allowed-tools:
-  - dingtalk.app.send_text
-  - dingtalk.app.send_markdown
-  - dingtalk.robot.send
-  - dingtalk.contact.search_user
-  - dingtalk.contact.user_info
+allowed-tools: dingtalk.app.send_text dingtalk.app.send_markdown dingtalk.robot.send dingtalk.contact.search_user dingtalk.contact.user_info
 ---
 
 # 钉钉消息发送指南（企业钉钉连接服务）

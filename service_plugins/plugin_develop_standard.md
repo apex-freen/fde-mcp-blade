@@ -182,22 +182,21 @@ file_path = real_path + "/data/test.json"  # 避免直接拼接，防止路径�
 ```json
 {
     "manifest": {
-        "name": "hom-message-board",
-        "serviceType": "family-board",
-        "scenario": "home"
+        "name": "biz-feishu-connector",
+        "serviceType": "feishu-connector",
+        "scenario": "business"
     }
 }
 ```
 **可选值（枚举）**：
 | 值 | 含义 | 管理端徽章 |
 | --- | --- | --- |
-| `home` | 家庭场景（家用 NAS、客厅影音、家人留言等） | 🏠 家庭 |
 | `business` | 商业场景（门店、企业、运营等） | 🏪 商业 |
-| `general` | 通用（两端都适用，默认值） | 🌐 通用 |
+| `general` | 通用（默认值） | 🌐 通用 |
 
 **约定**：
 1. 未声明或填写非法值时，宿主统一按 `general`（通用）处理，不影响加载；
-2. 跨场景插件（家庭/商业都适用）应标 `general`，而不是多选；
+2. 跨场景插件应标 `general`，而不是多选；
 3. 宿主在 `local_service_discover` 返回中透传 `scenario`，智能体可据此选择合适场景的插件；
 4. 管理端插件列表会展示场景徽章。
-5. **目录名 = manifest.name = 场景前缀 + 功能名**（hom-家庭 / biz-商业 / gen-通用，全部带前缀），如 hom-message-board、biz-message-board、gen-dmc-to-mcp。
+5. **目录名 = manifest.name = 场景前缀 + 功能名**（biz-商业 / gen-通用，全部带前缀），如 biz-feishu-connector、gen-intranet-fetcher。

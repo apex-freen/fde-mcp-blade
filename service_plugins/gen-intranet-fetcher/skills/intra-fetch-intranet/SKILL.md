@@ -6,13 +6,8 @@ description: 内网（局域网）服务信息获取操作指南：先查预配�
 metadata:
   version: "1.1.0"
   author: gen-intranet-fetcher
-  manual_avg_minutes: 5
-allowed-tools:
-  - intra.site.list
-  - intra.http.request
-  - intra.soap.call
-  - intra.mqtt.request
-  - intra.shadow.status
+  manual_avg_minutes: "5"
+allowed-tools: intra.site.list intra.http.request intra.soap.call intra.mqtt.request intra.shadow.status
 ---
 
 # 内网服务信息获取操作指南

@@ -53,8 +53,7 @@ Plugins are prefixed by **scenario type** so users can instantly identify a plug
 
 | Prefix | Scenario | Description |
 |--------|----------|-------------|
-| `gen-` | **General** | General-purpose plugins applicable to any environment — home, business, or industrial. Not tied to a specific use case. |
-| `hom-` | **Home** | Home / personal use plugins — family messaging, household reminders, personal media. Optimized for small-scale, single-user scenarios. |
+| `gen-` | **General** | General-purpose plugins applicable to any environment — business, operations, or industrial. Not tied to a specific use case. |
 | `biz-` | **Business** | Business / store / enterprise plugins — customer-facing messaging, multi-role workflows, commercial operations. Designed for multi-user, multi-role environments. |
 
 ## Available Plugins
@@ -63,7 +62,6 @@ Plugins are prefixed by **scenario type** so users can instantly identify a plug
 |--------|-------------|-------------|---------------|
 | [gen-dmc-to-mcp](./gen-dmc-to-mcp/) | `dlna-controller` | DLNA DMC media control — discover devices, browse media library, push playback, control status | ✅ Media control console |
 | [message-board](./biz-message-board/) | `message-board` | Store message board — customer/manager/official three-role messaging, replies, likes, pinning, summary stats | ✅ Admin panel + large-screen carousel |
-| [hom-message-board](./hom-message-board/) | `family-board` | Family message board — family messaging, reminders, mark-as-done, pin important items | ✅ Family board (large screen/mobile) |
 
 > The plugin ecosystem is continuously expanding. All plugins are natively exposed as MCP tools — install and invoke via any MCP-compatible client, or operate directly through the plugin visualization Web UI (zero token cost). More plugins are under active development.
 
@@ -84,7 +82,6 @@ Plugins are prefixed by **scenario type** so users can instantly identify a plug
 │  ┌──────────────────────────┐ │
 │  │  gen-dmc-to-mcp/             │ │
 │  │  biz-message-board/          │ │
-│  │  hom-message-board/   │ │
 │  │  future-plugins/         │ │
 │  └──────────────────────────┘ │
 └──────────────────────────────┘

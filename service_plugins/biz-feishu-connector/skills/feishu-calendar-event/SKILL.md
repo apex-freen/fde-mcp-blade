@@ -5,9 +5,7 @@ description: 飞书日历日程操作指南：前置条件核对、按毫秒时�
 metadata:
   version: "1.0.0"
   author: biz-feishu-connector
-allowed-tools:
-  - feishu.calendar.create_event
-  - feishu.calendar.list_events
+allowed-tools: feishu.calendar.create_event feishu.calendar.list_events
 ---
 
 # 飞书日历日程操作指南（企业飞书连接服务）

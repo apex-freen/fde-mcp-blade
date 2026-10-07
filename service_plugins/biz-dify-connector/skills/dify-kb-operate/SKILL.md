@@ -5,13 +5,7 @@ description: 操作自托管 Dify 知识库（RAG）的完整指南：前置条�
 metadata:
   version: "1.0.0"
   author: biz-dify-connector
-allowed-tools:
-  - dify.dataset.create
-  - dify.dataset.list
-  - dify.doc.add_text
-  - dify.doc.upload
-  - dify.dataset.retrieve
-  - dify.chat.ask
+allowed-tools: dify.dataset.create dify.dataset.list dify.doc.add_text dify.doc.upload dify.dataset.retrieve dify.chat.ask
 ---
 
 # Dify 知识库操作指南（Dify 知识库连接服务）

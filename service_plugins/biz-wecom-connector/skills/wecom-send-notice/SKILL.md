@@ -5,12 +5,7 @@ description: 向企业微信发企业通知/消息的完整指南：前置条件
 metadata:
   version: "1.0.0"
   author: biz-wecom-connector
-allowed-tools:
-  - wecom.app.send_text
-  - wecom.app.send_markdown
-  - wecom.robot.send
-  - wecom.contact.search_user
-  - wecom.contact.user_info
+allowed-tools: wecom.app.send_text wecom.app.send_markdown wecom.robot.send wecom.contact.search_user wecom.contact.user_info
 ---
 
 # 企业微信消息发送指南（企业微信连接服务）
