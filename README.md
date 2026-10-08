@@ -76,12 +76,12 @@ Other platforms make AI smarter; Blade makes AI *enter your company safely and s
 ## Quick start in 30 seconds
 
 ```bash
-# 1. Clone (the deployment package lives in the fde-mcp-blade/ subdirectory)
+# 1. Clone (the repo ships three packs — see "Repository layout" below)
 git clone https://github.com/apex-freen/fde-mcp-blade.git
-cd fde-mcp-blade/fde-mcp-blade
 
-# 2. One-command install (guided: secrets → image pull → start → health check)
-./install.sh
+# 2. Enter the deployment pack and install (guided: secrets → image pull → start → health check)
+cd fde-mcp-blade/fde-mcp-blade
+bash install.sh              # run with bash; ./install.sh needs the executable bit. Add -y for unattended install
 ```
 
 Or the manual two-liner:
@@ -110,11 +110,11 @@ Don't let the 5-domain / 49-page console scare you — each step takes under 30 
 | # | 🎯 Pain first → what you try | How | What you'll see / what it proves |
 |---|---|---|---|
 | **1** | *After delivery, every little question comes back to you — the engineer becomes a 24/7 human helpline* → **Let the agent answer for you** (live demo · 5 min · zero install) | Sign in at <https://fde.agent-plat.com> (`admin` / `admin123`) → **Admin Center › Access & Authorization › MCP Tokens** → create a token → paste the MCP config into Claude / Codex / WorkBuddy etc. → ask **"What's in the knowledge base?"** → check the trail under **Audit Center › Operation Audit** | The agent lists the system's capabilities one by one. ✔ Your customers' simple questions get answered by the agent, not by you; ✔ this very Q&A is already audited — the value dashboard now has its first datapoint |
-| **2** | *Traditional platforms need environment reviews, approvals, a week of waiting; demos require hauling in your own server* → **Local deploy, local calls** (30 min) | Follow Quick start above — `install.ps1` on Windows, `install.sh` on Linux | The full system running on your own machine, data never leaves it. ✔ Fast install, zero SaaS dependency |
+| **2** | *Traditional platforms need environment reviews, approvals, a week of waiting; demos require hauling in your own server* → **Local deploy, local calls** (30 min) | Follow Quick start above — `install.ps1` on Windows, `bash install.sh` on Linux | The full system running on your own machine, data never leaves it. ✔ Fast install, zero SaaS dependency |
 | **3** | *Customers dare not hand permissions to AI: full access is scary, full lockdown is useless* → **Install your first plugin, touch the agent's boundary** (Feishu / WeCom / DingTalk / intranet · 20 min) | Copy a plugin folder from the repo's `service_plugins/` (Feishu, WeCom, DingTalk, intranet API, etc.) into the deployment directory `fde-mcp-blade/data/service-plugins/` — the host auto-discovers and loads it, no restart → ask the agent **"Which users are in the system?"**: with PII masking on by default, phone numbers come back as 138\*\*\*\*5678 — sensitive fields the agent can't see → go to **Admin Center › Platform Capabilities › PII Masking**, disable the rule or whitelist it → ask again: full details → fill in the Feishu app credentials under **Plugin Config** and enable it (credentials go into the **Plugin Vault**, the agent never sees them) → have the agent message a user or a group directly | A message lands in your Feishu from "the agent"; the phone number's journey from masked to unmasked is a boundary you operated by hand. ✔ Install a plugin = connect a system; ✔ encryption & masking are on by default; ✔ you define the boundary |
 | **4** | *Every new system = vendor scheduling + tens of thousands in customization; delivery can't scale* → **Write your own plugin from the template** (~half a day) | Model yours on the **plugin development standard** and existing plugins in the repo's `service_plugins/`, fill in your intranet system's address / APIs / credentials (install it under **Admin Center › Plugin Management**); for well-documented systems, enable **OpenAPI-to-MCP** there too — paste the doc URL and get an MCP Server in 10 minutes, zero code | Your own system shows up in the agent's tool list. ✔ No need to modify Blade or wait for us (the dev standard and official plugins live in the repo's service_plugins/ directory) |
 
-## Official plugin pack (service_plugins/)
+## Official plugin pack (service_plugins/ · Pack 3)
 
 The repo ships a set of official plugins, **copy-to-install**: drop a plugin folder into the deployment directory `fde-mcp-blade/data/service-plugins/` and the host scans the directory in real time, auto-discovers and loads it — no restart. Credentials never live inside plugin files — put them in the console's **Plugin Vault** (`gis_secret`); the agent can never reach them.
 
@@ -166,17 +166,38 @@ Naming prefixes: `gen-` general-purpose / `biz-` business & enterprise scenarios
 | **Dashboards** | Value report, cost panel, FDE value (human-equivalent minutes — numbers, not promises) |
 | **Delivery kit** | Full Chinese admin console, bilingual UI (2200+ strings), dark mode, built-in knowledge base for self-service answers |
 
-## Repository layout
+## Repository layout: three packs
+
+The repo root `fde-mcp-blade/` is split into three packs by purpose — use whichever you need:
 
 ```
-fde-mcp-blade/
-├── fde-mcp-blade/          # Deployment package: compose + install/ops/backup scripts + guides (EN/CN)
-├── fde-mcp-blade-admin/    # Web console source (Vue 3.4 + Vite 5 + Arco Design)
-├── service_plugins/        # Official plugin pack: Feishu / WeCom / DingTalk / intranet / Dify + plugin dev standard
-├── docs/                   # Architecture diagram & screenshots
-├── LICENSE                 # Apache 2.0
+fde-mcp-blade/                     # project (repo) root
+│
+├── fde-mcp-blade/                 # [Pack 1] Deployment pack — use this to run the project directly
+│   ├── install.sh / install.ps1   #   one-command install (Linux / Windows)
+│   ├── docker-compose.yml         #   CN orchestration (Aliyun ACR)
+│   ├── docker-compose_en.yml      #   Global orchestration (Docker Hub)
+│   ├── .env_                      #   env template (only JWT_SECRET is required)
+│   ├── ops.sh / backup.sh         #   ops / backup scripts
+│   ├── deploy/                    #   EN/CN language packs used by the scripts
+│   └── README.md / README.zh-CN.md#   deployment guide (install / upgrade / ops / FAQ)
+│
+├── fde-mcp-blade-admin/           # [Pack 2] Frontend source pack — for self-build / customization
+│   └── ...                        #   Vue 3.4 + Vite 5 + Arco Design console source
+│
+├── service_plugins/               # [Pack 3] Official plugin pack — pick as needed after deploy
+│   └── ...                        #   Feishu / WeCom / DingTalk / intranet / Dify + plugin dev standard
+│
+├── docs/                          # architecture diagram & screenshots
+├── LICENSE                        # Apache 2.0
 └── README.md / README.zh-CN.md
 ```
+
+| Pack | Directory | When to use it |
+|---|---|---|
+| **Pack 1 · Deployment pack** | `fde-mcp-blade/` | **Use this to run the project directly**: enter the directory and run `bash install.sh`. Ships the default frontend (baked into the image, ready out of the box) and **no plugins by default**. |
+| **Pack 2 · Frontend source pack** | `fde-mcp-blade-admin/` | When you want to rebrand the console for your own company, or build your own against the frontend API — build it from this source. |
+| **Pack 3 · Official plugin pack** | `service_plugins/` | Pick as needed once deployed: copy plugin folders into the deployment's `data/service-plugins/`; the host scans in real time, auto-discovers and loads — no restart. |
 
 ## Roadmap
 
