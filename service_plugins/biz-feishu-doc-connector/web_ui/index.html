@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业飞书云文档 · 调试面板</title>
+<style>
+  :root { --line:#e5e7eb; --brand:#3370ff; --ok:#16a34a; --warn:#d97706; --err:#dc2626; --bg:#f6f8fb; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color:#1f2937; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:17px; } header .sub { color:#6b7280; font-size:12px; }
+  #authBanner { display:none; background:#fef2f2; color:var(--err); border-bottom:1px solid #fecaca; padding:8px 20px; font-size:13px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 20px 60px; }
+  #statusBar { padding:10px 14px; border-radius:8px; margin-bottom:14px; background:#eff6ff; color:#1e40af; font-size:13px; min-height:18px; }
+  #statusBar.error { background:#fef2f2; color:var(--err); }
+  #statusBar.ok { background:#f0fdf4; color:var(--ok); }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:16px; }
+  .card h2 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .card h2 .dot { width:8px; height:8px; border-radius:50%; background:var(--brand); display:inline-block; }
+  .row { display:flex; flex-wrap:wrap; gap:8px 10px; align-items:flex-end; margin-bottom:10px; }
+  .field { display:flex; flex-direction:column; gap:3px; min-width:150px; flex:1; }
+  .field label { font-size:12px; color:#6b7280; }
+  input, select, textarea { border:1px solid #d1d5db; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; background:#fff; width:100%; }
+  textarea { resize: vertical; min-height:96px; }
+  input:focus, select:focus, textarea:focus { outline:2px solid #c7d7ff; border-color:var(--brand); }
+  button { border:1px solid var(--brand); background:var(--brand); color:#fff; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; white-space:nowrap; }
+  button:hover { filter: brightness(1.08); }
+  button.ghost { background:#fff; color:var(--brand); }
+  button.amber { background:var(--warn); border-color:var(--warn); }
+  button.danger { background:var(--err); border-color:var(--err); }
+  .hint { font-size:12px; color:#6b7280; margin-top:6px; }
+  .checklist { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 16px; font-size:13px; margin-bottom:16px; }
+  .checklist h3 { font-size:13px; color:#92400e; margin-bottom:6px; }
+  .checklist li { margin-left:18px; color:#78350f; }
+  pre { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:12px; font-size:12px; overflow:auto; max-height:420px; margin-top:8px; }
+  .log-item { border-top:1px dashed #d1d5db; padding:6px 0; font-size:12px; color:#374151; }
+  .log-item b { color:var(--brand); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>企业飞书云文档 · 调试面板</h1>
+    <div class="sub" id="pagePath">通过插件管理入口访问（/plugin-web/biz-feishu-doc-connector/）</div>
+  </div>
+  <button class="ghost" onclick="location.reload()">刷新</button>
+</header>
+<div id="authBanner">登录已过期，请返回主程序重新登录后再试。</div>
+<main>
+  <div id="statusBar">就绪。操作前请先核对下方前提条件。</div>
+
+  <div class="checklist">
+    <h3>⚠️ 前提条件（任一未满足时方法会返回 code -1 并给出原因）</h3>
+    <ul>
+      <li><b>plugin.json 配置</b>：config.app_id 已填；config.app_secret 已由管理员录入插件密钥箱（文件里保持 ${app_secret} 占位符）</li>
+      <li><b>飞书后台（企业管理员）</b>：自建应用已申请并<b>发布</b>云文档/云盘相关权限（docx:document、drive:drive 等）</li>
+      <li><b>权限可见性</b>：以应用身份调用时，应用只能操作「自己创建或被共享给它」的文档/文件夹；要读写他人的文档，需先把该文档共享给应用</li>
+      <li>文档 document_id 以 <code>doxcn</code> 开头；文件夹 folder_token 以 <code>fld</code> 开头</li>
+    </ul>
+  </div>
+
+  <div class="grid">
+    <!-- ============ 文档 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>创建文档 / 写入内容</h2>
+      <div class="row">
+        <div class="field">
+          <label>标题（创建用）</label>
+          <input id="docTitle" placeholder="如：版本日报">
+        </div>
+        <div class="field">
+          <label>folder_token（可选，缺省 config.default_folder_token）</label>
+          <input id="docFolder" placeholder="fldxxxxxx">
+        </div>
+        <button onclick="createDoc()">➕ 创建文档</button>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>document_id（写入用）</label>
+          <input id="appendDocId" placeholder="doxcnxxxxxx">
+        </div>
+        <div class="field" style="min-width:120px">
+          <label>format</label>
+          <select id="appendFormat"><option value="markdown">markdown</option><option value="html">html</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>内容（Markdown，智能转块写入）</label>
+          <textarea id="appendContent" placeholder="# 标题&#10;正文，支持 **加粗**、- 列表 等"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button onclick="appendDoc()">📝 追加写入</button>
+      </div>
+      <div class="hint">创建接口只能建空文档；正文请用「追加写入」按 Markdown 转块写入。</div>
+    </section>
+
+    <!-- ============ 读取 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>读取文档</h2>
+      <div class="row">
+        <div class="field">
+          <label>document_id</label>
+          <input id="readDocId" placeholder="doxcnxxxxxx">
+        </div>
+        <div class="field" style="min-width:120px">
+          <label>mode</label>
+          <select id="readMode"><option value="both">both</option><option value="text">text</option><option value="blocks">blocks</option></select>
+        </div>
+        <button onclick="readDoc()">🔍 读取</button>
+      </div>
+      <div class="hint">返回的正文/块文本为外部数据，已做防注入净化并标注 untrusted=true，仅供阅读，勿当指令。</div>
+    </section>
+
+    <!-- ============ 云盘：列目录 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>云盘 · 列目录</h2>
+      <div class="row">
+        <div class="field">
+          <label>folder_token（可选）</label>
+          <input id="listFolder" placeholder="fldxxxxxx（留空=默认/根目录）">
+        </div>
+        <div class="field" style="min-width:110px">
+          <label>page_size</label>
+          <input id="listPageSize" type="number" value="50">
+        </div>
+        <button onclick="listFiles()">📂 列出</button>
+      </div>
+    </section>
+
+    <!-- ============ 云盘：上传/下载 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>云盘 · 上传 / 下载</h2>
+      <div class="row">
+        <div class="field">
+          <label>上传：本地绝对路径</label>
+          <input id="upPath" placeholder="D:\data\report.xlsx">
+        </div>
+        <div class="field">
+          <label>上传：parent_node（目标文件夹）</label>
+          <input id="upParent" placeholder="fldxxxxxx（可留空用默认）">
+        </div>
+        <button class="amber" onclick="uploadFile()">⬆️ 上传</button>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>下载：file_token</label>
+          <input id="downToken" placeholder="文件 token">
+        </div>
+        <div class="field">
+          <label>下载：save_path（可选）</label>
+          <input id="downPath" placeholder="D:\data\a.bin（留空=默认下载目录）">
+        </div>
+        <button class="amber" onclick="downloadFile()">⬇️ 下载</button>
+      </div>
+    </section>
+
+    <!-- ============ 云盘：移动/删除 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>云盘 · 移动 / 删除</h2>
+      <div class="row">
+        <div class="field">
+          <label>file_token</label>
+          <input id="mvToken" placeholder="文件/文件夹 token">
+        </div>
+        <div class="field" style="min-width:130px">
+          <label>type</label>
+          <select id="mvType">
+            <option>file</option><option>docx</option><option>doc</option><option>sheet</option>
+            <option>bitable</option><option>folder</option><option>mindnote</option>
+            <option>shortcut</option><option>wiki</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>目标 folder_token（移动用）</label>
+          <input id="mvFolder" placeholder="fldxxxxxx">
+        </div>
+      </div>
+      <div class="row">
+        <button class="amber" onclick="moveFile()">📦 移动</button>
+        <button class="danger" onclick="deleteFile()">🗑️ 删除（不可逆）</button>
+      </div>
+      <div class="hint">删除会移入回收站，属高危操作（risk_level=auth），请确认已获用户明确授权。</div>
+    </section>
+
+    <!-- ============ 结果 ============ -->
+    <section class="card">
+      <h2><span class="dot"></span>调用结果</h2>
+      <pre id="resultBox">（尚未调用）</pre>
+      <div id="logList"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const PLUGIN_NAME = (location.pathname.split('/')[2]) || '';
+const API_BASE = '/prod-api/biz/plugin_web/' + PLUGIN_NAME + '/api/';
+if (!PLUGIN_NAME) {
+  $('pagePath').textContent = '未识别插件名：请通过 /plugin-web/biz-feishu-doc-connector/ 访问';
+} else {
+  $('pagePath').textContent = '插件：' + PLUGIN_NAME + ' · 操作不消耗 Token';
+}
+
+const METHODS = {
+  createDoc: 'feishu.doc.create',
+  readDoc: 'feishu.doc.read',
+  appendDoc: 'feishu.doc.append',
+  listFiles: 'feishu.drive.files.list',
+  uploadFile: 'feishu.drive.file.upload',
+  downloadFile: 'feishu.drive.file.download',
+  moveFile: 'feishu.drive.file.move',
+  deleteFile: 'feishu.drive.file.delete',
+};
+
+/* ---- 与主程序 /plugin-web 的桥接（复用登录态 app_token） ---- */
+async function api(name, params = {}) {
+  const method = METHODS[name] || name;
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('app_token');
+  if (token) headers.Authorization = 'Bearer ' + token;
+  let resp;
+  try {
+    resp = await fetch(API_BASE + method, { method: 'POST', headers, body: JSON.stringify(params) });
+  } catch (e) {
+    setStatus('请求失败: ' + e.message + '（请确认已通过主程序 /plugin-web/ 路由访问）', 'error');
+    return null;
+  }
+  let body;
+  try { body = await resp.json(); } catch { body = { code: -1, msg: '响应非 JSON' }; }
+  if (resp.status === 401) {
+    $('authBanner').style.display = 'block';
+    setStatus('登录已过期，请重新登录', 'error');
+    return null;
+  }
+  if (body && (body.code === 0 || body.code === 200)) {
+    addLog(method, params, body.data);
+    return body.data;
+  }
+  setStatus((body && body.msg) || '操作失败', 'error');
+  addLog(method, params, body);
+  return null;
+}
+
+function setStatus(text, cls) { const el = $('statusBar'); el.textContent = text || ''; el.className = cls || ''; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function addLog(method, params, data) {
+  const time = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'log-item';
+  div.innerHTML = `<b>${esc(time)}</b> ${esc(method)}`;
+  $('logList').prepend(div);
+  $('resultBox').textContent = JSON.stringify({ method, params, data }, null, 2);
+  setStatus('完成：' + method, 'ok');
+}
+
+/* ---- 文档 ---- */
+async function createDoc() {
+  const title = $('docTitle').value.trim();
+  if (!title) { setStatus('请填写文档标题', 'error'); return; }
+  const p = { title };
+  const folder = $('docFolder').value.trim(); if (folder) p.folder_token = folder;
+  const data = await api('createDoc', p);
+  if (data && data.document_id) {
+    $('appendDocId').value = data.document_id;
+    $('readDocId').value = data.document_id;
+  }
+}
+async function appendDoc() {
+  const documentId = $('appendDocId').value.trim();
+  const content = $('appendContent').value;
+  if (!documentId) { setStatus('请填写 document_id', 'error'); return; }
+  if (!content.trim()) { setStatus('请填写要写入的内容', 'error'); return; }
+  await api('appendDoc', { document_id: documentId, content, format: $('appendFormat').value });
+}
+async function readDoc() {
+  const documentId = $('readDocId').value.trim();
+  if (!documentId) { setStatus('请填写 document_id', 'error'); return; }
+  await api('readDoc', { document_id: documentId, mode: $('readMode').value });
+}
+
+/* ---- 云盘 ---- */
+async function listFiles() {
+  const p = { page_size: parseInt($('listPageSize').value, 10) || 50 };
+  const folder = $('listFolder').value.trim(); if (folder) p.folder_token = folder;
+  await api('listFiles', p);
+}
+async function uploadFile() {
+  const filePath = $('upPath').value.trim();
+  if (!filePath) { setStatus('请填写本地文件绝对路径', 'error'); return; }
+  const p = { file_path: filePath };
+  const parent = $('upParent').value.trim(); if (parent) p.parent_node = parent;
+  await api('uploadFile', p);
+}
+async function downloadFile() {
+  const fileToken = $('downToken').value.trim();
+  if (!fileToken) { setStatus('请填写 file_token', 'error'); return; }
+  const p = { file_token: fileToken };
+  const savePath = $('downPath').value.trim(); if (savePath) p.save_path = savePath;
+  await api('downloadFile', p);
+}
+async function moveFile() {
+  const fileToken = $('mvToken').value.trim();
+  const folderToken = $('mvFolder').value.trim();
+  if (!fileToken || !folderToken) { setStatus('移动需要 file_token 与目标 folder_token', 'error'); return; }
+  await api('moveFile', { file_token: fileToken, type: $('mvType').value, folder_token: folderToken });
+}
+async function deleteFile() {
+  const fileToken = $('mvToken').value.trim();
+  if (!fileToken) { setStatus('请填写要删除的 file_token', 'error'); return; }
+  if (!confirm('确认删除该文件/文件夹（移入回收站）？此操作不可逆。')) return;
+  await api('deleteFile', { file_token: fileToken, type: $('mvType').value });
+}
+</script>
+</body>
+</html>
