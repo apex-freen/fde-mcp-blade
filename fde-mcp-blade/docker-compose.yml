@@ -40,6 +40,9 @@ services:
 
       # 容器模式
       - RUNNING_IN_DOCKER=true
+      # 时区：报告/大屏的时间区间用进程时钟计算，必须与 DB 会话（framework/src/db.rs 里 SET time_zone='+8:00'）一致，
+      # 否则区间 end 会比 created_time 小 8 小时，当天数据被整段切掉
+      - TZ=Asia/Shanghai
       # 宿主机地址（IP 或主机名）：令牌里本地 MCP 地址的主机部分，会写进二维码
       # 优先取 .env 的 HOST_HOSTNAME（install.sh 会探测并确认后写入），
       # 留空则退回运行 compose 时的环境变量 HOSTNAME

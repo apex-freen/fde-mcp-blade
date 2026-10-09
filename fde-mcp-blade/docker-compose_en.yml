@@ -41,6 +41,10 @@ services:
 
       # Container mode
       - RUNNING_IN_DOCKER=true
+      # Timezone: report/screen time windows are computed with the process clock and must match the DB
+      # session (+08:00, set in framework/src/db.rs); otherwise the window end is 8h behind created_time
+      # and the current day's data is cut off
+      - TZ=Asia/Shanghai
       # Host address (IP or hostname): host part of the token's local MCP URL / QR code
       # Prefers HOST_HOSTNAME in .env (detected and confirmed by install.sh);
       # falls back to this shell's HOSTNAME when empty
