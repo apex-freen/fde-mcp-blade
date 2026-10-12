@@ -325,5 +325,5 @@ Write-Host '  docker compose logs -f         # logs'
 Write-Host '  docker compose stop            # stop (containers kept)'
 Write-Host '  docker compose pull; docker compose up -d   # upgrade'
 Write-Host ''
-Write-Note 'If another machine cannot open the URL, allow inbound TCP 8018 in Windows Defender Firewall.'
+Write-Note "If another machine cannot open the URL, allow inbound TCP ${ServerPort} in Windows Defender Firewall."
 Write-Note 'The token/QR code is built from HOST_HOSTNAME: change it in .env and run "docker compose up -d", then re-generate tokens.'

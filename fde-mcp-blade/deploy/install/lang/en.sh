@@ -137,6 +137,9 @@ LANG_CONFIG_SAVED="All configurations saved to .env file"
 LANG_CONFIG_MODIFY_TIP="To modify, edit .env file and restart services"
 LANG_ACCESS_URL="Access URL"
 
+# Firewall hint (%s = service port, substituted with the actual port)
+LANG_FIREWALL_TIP="Note: if another machine or phone cannot open the \"Access URL\" above, allow inbound TCP %s in your firewall (Ubuntu/Debian: sudo ufw allow %s/tcp; CentOS/RHEL: sudo firewall-cmd --add-port=%s/tcp --permanent && sudo firewall-cmd --reload; on a cloud server also allow it in the security group)"
+
 # Post-install next steps
 LANG_NEXT_STEPS="[Next Steps]"
 LANG_NEXT_STEP1="Open the \"Access URL\" shown above in your browser"

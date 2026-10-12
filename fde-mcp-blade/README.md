@@ -112,6 +112,19 @@ docker compose ps
 
 Then open `http://<device-ip>:8018` in a browser to reach the console.
 
+### Open port 8018 (required before other machines can connect)
+
+`curl localhost:8018` succeeding only proves the local loopback — **if another machine cannot open it, check the firewall first**.
+
+| Environment | Command |
+|---|---|
+| Ubuntu / Debian (ufw) | `sudo ufw allow 8018/tcp` |
+| CentOS / RHEL (firewalld) | `sudo firewall-cmd --add-port=8018/tcp --permanent && sudo firewall-cmd --reload` |
+| Cloud server (Alibaba Cloud / Tencent Cloud / AWS …) | Besides the OS firewall, allow **inbound TCP 8018 in the security group** in the console |
+| Behind an Nginx reverse proxy | Open the port to the proxy only — do not expose 8018 to the public internet directly |
+
+> If you changed `SERVER_PORT`, replace `8018` above with your port.
+
 ---
 
 ## 4. Sign-in and default account
@@ -316,6 +329,9 @@ docker --version
 docker compose version
 ```
 
+> ⚠️ **If a script or an AI assistant is doing the deployment for you: start Docker Desktop yourself first**, wait until it shows **Engine running**, and only then hand over. In practice launching this GUI from the command line is unreliable — the command may report success while no process is running at all, and the app may stall on an error dialog; the engine also needs another 30–60 s to become ready.
+> Self-check: `tasklist | findstr /i docker` should list `Docker Desktop.exe` and `com.docker.backend.exe`; `docker info` must print a Server version before you are ready.
+
 > The detailed Docker Desktop setup (OS requirements, WSL2 kernel update, registry mirrors, ...) is out of scope for this package; if you get stuck, search for `Docker Desktop Windows install` or `WSL2 kernel update` (DeepSeek / ChatGPT / the official docs all work).
 > 4 GB RAM or more recommended; below 2 GB the containers will not start.
 
@@ -369,9 +385,15 @@ Then browse to `http://<this machine's LAN IP>:8018` and sign in as `admin` / `a
 | Token address unchanged after editing `HOST_HOSTNAME` | The address is **baked in when a token is created** — re-generate the token |
 | Container keeps restarting | Usually an empty `JWT_SECRET` in `.env`; check `docker compose logs fde-mcp-blade` |
 
-### 11.6 Pulling images fails in mainland China: configure a registry mirror
+### 11.6 Registry choice: mainland China vs. the rest of the world
 
-The app image comes from Alibaba Cloud ACR (reachable from China), but the **database image `mariadb:11` only exists on Docker Hub**, which is often unreachable there. Pick one of the two workarounds.
+| Your network | Compose file | Image source |
+|---|---|---|
+| Mainland China | `docker-compose.yml` (default) | App image from Alibaba Cloud ACR (pulls fine directly); **`mariadb:11` needs a mirror** |
+| Elsewhere | `docker-compose_en.yml` | Both images come from Docker Hub |
+
+> **Outside mainland China you can skip this whole section** — Docker Hub works directly.
+> Measured 2026-10 from a mainland-China network: the 790 MB app image pulled from Alibaba Cloud ACR in one go; **only `mariadb:11` gets stuck** — it exists on Docker Hub alone. Pick one of the two workarounds below.
 
 **Option 1 — configure a registry mirror (one-time; then every Docker Hub image goes through it)**
 
@@ -380,8 +402,8 @@ Windows (Docker Desktop): Docker icon → **Settings** → **Docker Engine**, **
 ```json
 {
   "registry-mirrors": [
-    "https://docker.1ms.run",
-    "https://docker.m.daocloud.io"
+    "https://docker.m.daocloud.io",
+    "https://docker.1ms.run"
   ],
   "builder": {
     "gc": {
@@ -398,25 +420,24 @@ Linux / NAS: edit `/etc/docker/daemon.json` (create it if missing) with the same
 > `registry-mirrors` is an **array — list several** and Docker tries them in order, so keeping more than one is more robust.
 > To add your personal Alibaba Cloud address, append one more entry (**and remember the comma**): `"https://xxxx.mirror.aliyuncs.com"` — get it under "Alibaba Cloud → Container Registry (ACR) → 镜像工具 / 镜像加速器" (free).
 >
-> **What I measured** (anonymous registry API, 2026-09 — public mirrors come and go):
+> **What I measured** (2026-10, actual `docker pull mariadb:11` — public mirrors come and go):
 >
 > | Mirror | Result |
 > |---|---|
-> | Alibaba Cloud personal accelerator address | Most reliable; needs an Alibaba Cloud account (could not test) |
-> | `docker.1ms.run` | Works; lists the `11` tag of `mariadb` |
-> | `docker.m.daocloud.io` | Works; serves the `library/mariadb:11` manifest (tag listing is disabled, pulling by tag is fine) |
-> | Tsinghua `docker.mirrors.tuna.tsinghua.edu.cn` | **Discontinued** (unreachable; their docker help page 404s too) |
-> | USTC `docker.mirrors.ustc.edu.cn`, NetEase `hub-mirror.c.163.com`, `registry.docker-cn.com`, `docker.1panel.live` | All dead (unreachable) |
-> | Tencent Cloud `mirror.ccs.tencentyun.com` | Unreachable (internal to Tencent Cloud only) |
-> | Nanjing University `docker.nju.edu.cn` | 403 access denied |
+> | `docker.m.daocloud.io` | ✅ **pulled successfully** — the only mirror that worked this run (recommended) |
+> | Docker Hub, direct | ❌ `short read: expected 241 bytes but got 0: unexpected EOF` |
+> | `docker.1ms.run` | ❌ same `unexpected EOF` (its anonymous API lists tags, but the pull breaks midway) |
+> | Alibaba Cloud personal accelerator address | Needs an Alibaba Cloud account; the most reliable tier in China |
+> | Tsinghua / USTC / NetEase / Tencent Cloud / Nanjing / `docker.1panel.live` | All dead (unreachable or 403) |
 >
+> `short read ... unexpected EOF` means the transfer was cut mid-stream; retrying or switching mirrors usually gets through — **listing several mirrors so Docker can fall back in order is the most robust setup**.
 > Verify with `docker pull mariadb:11`; once that works, re-run `bash install.sh` / `.\install.ps1`.
 
 **Option 2 — pull it yourself and re-tag (when you would rather not touch the Docker config)**
 
 ```powershell
-docker pull docker.1ms.run/library/mariadb:11
-docker tag docker.1ms.run/library/mariadb:11 mariadb:11
+docker pull docker.m.daocloud.io/library/mariadb:11
+docker tag docker.m.daocloud.io/library/mariadb:11 mariadb:11
 docker compose up -d
 ```
 

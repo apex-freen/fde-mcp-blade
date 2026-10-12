@@ -137,6 +137,9 @@ LANG_CONFIG_SAVED="所有配置已保存到 .env 文件"
 LANG_CONFIG_MODIFY_TIP="如需修改，请编辑 .env 文件后重新启动服务"
 LANG_ACCESS_URL="访问地址"
 
+# 防火墙提示（%s = 服务端口，按实际端口替换）
+LANG_FIREWALL_TIP="提示：若其它机器 / 手机打不开上方「访问地址」，请在系统防火墙放行入站 TCP %s（Ubuntu/Debian：sudo ufw allow %s/tcp；CentOS/RHEL：sudo firewall-cmd --add-port=%s/tcp --permanent && sudo firewall-cmd --reload；云服务器还需在控制台安全组放行）"
+
 # 安装后步骤指引
 LANG_NEXT_STEPS="【后续步骤】"
 LANG_NEXT_STEP1="在浏览器中打开上方「访问地址」"

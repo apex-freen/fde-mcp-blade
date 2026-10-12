@@ -641,6 +641,12 @@ show_install_complete() {
     echo -e "${LANG_ACCESS_URL}: ${GREEN}http://${SERVER_HOST}:$(get_server_port)${NC}"
     echo ""
 
+    # 防火墙提示（端口与上方访问地址同口径，动态取）
+    local PORT_TIP
+    PORT_TIP=$(get_server_port)
+    echo -e "${YELLOW}$(printf "${LANG_FIREWALL_TIP}" "$PORT_TIP" "$PORT_TIP" "$PORT_TIP")${NC}"
+    echo ""
+
     echo -e "${CYAN}${LANG_NEXT_STEPS}${NC}"
     echo -e "  1. ${LANG_NEXT_STEP1}"
     echo -e "  2. ${LANG_NEXT_STEP2}"
