@@ -278,6 +278,20 @@ body {
   background-color: var(--hover);
 }
 
+// 固定列（fixed left/right）横向滚动时靠 sticky 浮在内容之上，底色必须不透明：
+// 上面这条 hover 规则用的是半透明 --hover，会让固定列在悬停时变透，
+// 横向滚动出去的内容从操作列底下透出（视觉上「操作列盖住数据」）。
+// 这里对固定列单独用不透明底色，正常态取 card、悬停取 panel-2，保住高亮又不穿透。
+.arco-table-td.arco-table-col-fixed-left,
+.arco-table-td.arco-table-col-fixed-right {
+  background-color: var(--card);
+}
+
+.arco-table-tr:hover .arco-table-td.arco-table-col-fixed-left,
+.arco-table-tr:hover .arco-table-td.arco-table-col-fixed-right {
+  background-color: var(--panel-2);
+}
+
 .arco-table-border .arco-table-container,
 .arco-table-border-cell .arco-table-td,
 .arco-table-border-cell .arco-table-th {
