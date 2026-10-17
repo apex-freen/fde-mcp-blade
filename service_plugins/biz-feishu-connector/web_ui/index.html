@@ -141,9 +141,10 @@
     <h2><span class="dot"></span>日历（feishu.calendar.*）</h2>
     <div class="row">
       <div class="field" style="min-width:280px">
-        <label>calendar_id（空则取 config.calendar_id）</label>
-        <input id="calId" placeholder="feishu_cn_xxx">
+        <label>calendar_id 或日历名称（空则 config.calendar_id，再空则应用主日历）</label>
+        <input id="calId" placeholder="feishu.cn_xxx@... 或 日历名称">
       </div>
+      <button onclick="listCalendars()">📋 列日历</button>
       <div class="field">
         <label>建日程 · 标题 summary</label>
         <input id="calSummary" placeholder="如：周会">
@@ -169,7 +170,7 @@
       </div>
       <button onclick="listEvents()">🗓 查日程</button>
     </div>
-    <div class="hint">接口只认"毫秒时间戳"，本面板自动把上面的本地时间换算成毫秒后提交。</div>
+    <div class="hint">接口只认"毫秒时间戳"，本面板自动把上面的本地时间换算成毫秒后提交。calendar_id 留空即用「应用主日历」，可先点"列日历"查看可用日历（type=primary 即应用主日历）。</div>
   </section>
 
   <!-- ============ 返回结果 ============ -->
@@ -200,6 +201,7 @@ const METHODS = {
   departments: 'feishu.contact.departments',
   createEvent: 'feishu.calendar.create_event',
   listEvents: 'feishu.calendar.list_events',
+  listCalendars: 'feishu.calendar.list_calendars',
 };
 
 /* ---- 与主程序 /plugin-web 的桥接（复用登录态 app_token） ---- */
@@ -279,6 +281,9 @@ async function departments() {
 }
 
 /* ---- 日历 ---- */
+async function listCalendars() {
+  await api('listCalendars', { page_size: 50 });
+}
 function toMs(sel, name, required) {
   const v = $(sel).value;
   if (!v) { if (required) setStatus('请填写' + name, 'error'); return required ? null : undefined; }

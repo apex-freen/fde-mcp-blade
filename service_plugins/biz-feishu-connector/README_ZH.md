@@ -104,7 +104,8 @@ curl -s -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/int
 | `feishu.contact.search_user` | 按手机号/邮箱反查用户（飞书不支持按姓名检索） | `contact:user.base:readonly` | `risk` | ✅ |
 | `feishu.contact.user_info` | 按 `open_id` 查单个用户详情 | `contact:user.base:readonly` | `risk` | ✅ |
 | `feishu.contact.departments` | 列部门及成员（组织架构速查） | `contact:user.base:readonly` + `contact:department.base:readonly` | `risk` | ✅ |
-| `feishu.calendar.create_event` | 为用户/群建日程（会议、提醒） | `calendar:calendar` 等日历权限 | `auth` | ✅ |
+| `feishu.calendar.list_calendars` | 列出应用可见的日历（id/名称/类型） | 日历只读权限 | `risk` | ✅ |
+| `feishu.calendar.create_event` | 在指定日历/应用主日历建日程（会议、提醒） | `calendar:calendar` 等日历权限 | `auth` | ✅ |
 | `feishu.calendar.list_events` | 查某日历近期日程 | 日历只读权限 | `risk` | ✅ |
 | `feishu.bitable.query/add` | 多维表格读写（当轻量数据库） | 多维表格相关权限 | `risk` | 二期 |
 | `feishu.docs.read` | 读云文档正文 | 云文档权限 | `risk` | 二期 |
@@ -127,11 +128,12 @@ biz-feishu-connector/
 ├── search_user.py       # feishu.contact.search_user
 ├── user_info.py         # feishu.contact.user_info
 ├── departments.py       # feishu.contact.departments
+├── list_calendars.py    # feishu.calendar.list_calendars
 ├── create_event.py      # feishu.calendar.create_event
 ├── list_events.py       # feishu.calendar.list_events
 ├── skills/              # 智能体技能（宿主自动注入索引，正文按需 skill_get）
 │   ├── feishu-send-notice/SKILL.md     # 发消息指南（前提条件+查人+发文本/卡片）
-│   └── feishu-calendar-event/SKILL.md  # 日历日程指南（建日程/查日程）
+│   └── feishu-calendar-event/SKILL.md  # 日历日程指南（查日历/建日程/查日程）
 ├── web_ui/index.html    # 可视化调试面板：前提条件核对提示/发消息/查人/日历操作（不消耗 Token）
 ├── README_ZH.md         # 本文档
 └── README.md
@@ -150,9 +152,12 @@ biz-feishu-connector/
     { "name": "张三", "type": "user",  "target": "ou_xxxx" },
     { "name": "IT告警群", "type": "chat", "target": "oc_xxxx" }
   ],
-  "calendar_id": ""                      // 可选：日历 id（feishu_ 开头），calendar 方法缺省用此值
+  "calendar_id": "",                     // 可选：默认日历。可填日历 id 或日历名称（按可见日历精确匹配）；留空 = 用应用主日历
+  "timezone": "Asia/Shanghai"            // 可选：建日程写入的时区（IANA），默认 Asia/Shanghai
 }
 ```
+
+> 日历口径（重要）：插件以**应用身份**操作日历，只能碰"应用可见的日历"（`feishu.calendar.list_calendars` 可查，其中 `type=primary` 即应用主日历）。目标日历按 **参数 `calendar_id` → `config.calendar_id` → 应用主日历** 三级回退；填的是名称（不含 `@`）时按日历名称精确匹配、唯一命中才用，重名/未命中会明确报错并列出可用日历。员工私人日历不在范围内（需本人 OAuth）。
 
 > token 说明：`tenant_access_token` 有效期约 2 小时，`feishu_utils.py` 内做内存缓存（单次调用进程短命，缓存仅单次有效；SDK 会自行续期逻辑，二次调用自动重新换取即可，可接受）。
 
@@ -257,7 +262,7 @@ CREATE TABLE IF NOT EXISTS feishu_user_map (
 1. **连通性**：`curl` 打 token 接口（见第一节）；
 2. **发机器人消息到测试群**：管理端把机器人拉进测试群，调用 `feishu.im.send_text`（`receive_type=chat`）验证；
 3. **个人消息**：先 `feishu.contact.search_user` 用自己手机号查出 `open_id`，再发 `receive_type=user`；
-4. **web_ui 调试面板**（[web_ui/index.html](web_ui/index.html)）：通过插件管理入口或 `/plugin-web/biz-feishu-connector/` 访问，内置前提条件核对提示，可直观完成发文本/发卡片、手机号反查用户、查用户详情、列子部门、建日程/查日程，无需消耗 Token。
+4. **web_ui 调试面板**（[web_ui/index.html](web_ui/index.html)）：通过插件管理入口或 `/plugin-web/biz-feishu-connector/` 访问，内置前提条件核对提示，可直观完成发文本/发卡片、手机号反查用户、查用户详情、列子部门、**列日历**、建日程/查日程（calendar_id 留空即用应用主日历），无需消耗 Token。
 
 ---
 
@@ -273,7 +278,8 @@ CREATE TABLE IF NOT EXISTS feishu_user_map (
 | `default_sender` | 否 | 自定义默认署名，如"企业助手" |
 | `allowed_senders` | 否 | 允许的发起人姓名数组（防冒用白名单） |
 | `recipients` | 否 | 常用收件人别名数组 `[{name,type,target}]`；`target` 是 open_id(`ou_`)/chat_id(`oc_`)，通过「机器人拉进群 → 用插件 `feishu.im.group_list`（若已加）或 `search_user`」取得 |
-| `calendar_id` | 否 | 日历 id（`feishu_` 开头），一般来自你订阅/可写的日历 |
+| `calendar_id` | 否 | 默认日历：可填日历 id，或日历名称；**留空即用应用主日历**。不知道有哪些日历就先调 `feishu.calendar.list_calendars`（`type=primary` 是应用主日历） |
+| `timezone` | 否 | 建日程写入的时区名（IANA），默认 `Asia/Shanghai` |
 
 飞书后台还需：**开启机器人**能力；在「权限管理」申请并**发布版本**后才生效（个人消息需对方在应用可用范围；发群需机器人已在该群）。
 

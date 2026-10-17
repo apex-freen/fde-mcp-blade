@@ -5,6 +5,9 @@ create_event.py —— 创建日历日程（feishu.calendar.create_event）
 ================================================================
 在指定日历上创建日程。start_ms/end_ms 为毫秒时间戳。
 
+目标日历：参数 calendar_id → config.calendar_id（日历 id 或日历名称）→ 应用主日历
+（应用身份可写，不依赖员工私人日历 OAuth 授权）。
+
 注意：以租户身份(tenant_access_token)建日程，日历须为应用可写的日历
 （如 config.calendar_id 指向的订阅日历）；企业成员的私人日历通常需要
 该用户 OAuth 授权（user_access_token），超出本插件一期范围——若遇权限
@@ -17,9 +20,10 @@ stdin/stdout 协议：
 import sys
 import traceback
 
-from lark_oapi.api.calendar.v4 import CreateCalendarEventRequestBuilder, CalendarEventBuilder, EventTimeBuilder
+from lark_oapi.api.calendar.v4 import CreateCalendarEventRequestBuilder, CalendarEventBuilder, TimeInfoBuilder
 
 from feishu_utils import (
+    DEFAULT_TIMEZONE,
     clean,
     check_app_credentials,
     ensure_ok,
@@ -27,6 +31,7 @@ from feishu_utils import (
     get_config,
     output_json,
     read_params,
+    resolve_calendar_id,
 )
 
 
@@ -37,10 +42,6 @@ def main():
     try:
         cfg = get_config()
         check_app_credentials(cfg)
-
-        calendar_id = str(params.get("calendar_id", "")).strip() or str(cfg.get("calendar_id", "")).strip()
-        if not calendar_id:
-            output_json(-1, "缺少 calendar_id: 请传 calendar_id 参数，或在 plugin.json 的 config.calendar_id 中预配")
 
         summary = str(params.get("summary", "")).strip()
         if not summary:
@@ -55,13 +56,19 @@ def main():
 
         description = str(params.get("description", "")).strip()
 
+        client = get_client(cfg)
+        # 目标日历：参数 calendar_id → config.calendar_id（id 或名称）→ 应用主日历
+        calendar_id = resolve_calendar_id(cfg, params, client)
+
         # 【影子演练】已上移宿主：由宿主的影子闸门统一拦截（不再在插件内实现）
 
+        # 飞书 start_time/end_time 为 time_info：timestamp 取值是"秒级"时间戳，且需带 timezone
+        timezone = str(cfg.get("timezone", "")).strip() or DEFAULT_TIMEZONE
         ev = CalendarEventBuilder() \
             .summary(summary) \
             .description(description or None) \
-            .start_time(EventTimeBuilder().time_stamp(str(start_ms)).build()) \
-            .end_time(EventTimeBuilder().time_stamp(str(end_ms)).build()) \
+            .start_time(TimeInfoBuilder().timestamp(str(start_ms // 1000)).timezone(timezone).build()) \
+            .end_time(TimeInfoBuilder().timestamp(str(end_ms // 1000)).timezone(timezone).build()) \
             .build()
 
         req = CreateCalendarEventRequestBuilder() \
@@ -70,7 +77,6 @@ def main():
             .request_body(ev) \
             .build()
 
-        client = get_client(cfg)
         data = ensure_ok(client.calendar.v4.calendar_event.create(req), "创建日程")
 
         evt = clean(getattr(data, "event", None)) or {}
@@ -80,6 +86,7 @@ def main():
             "summary": summary,
             "start_ms": start_ms,
             "end_ms": end_ms,
+            "timezone": timezone,
             "app_link": evt.get("app_link"),
         })
     except SystemExit:

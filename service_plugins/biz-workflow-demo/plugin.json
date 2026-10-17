@@ -1,0 +1,547 @@
+{
+  "manifest": {
+    "name": "biz-workflow-demo",
+    "apiVersion": "plugin.gis/v1",
+    "kind": "Plugin",
+    "version": "1.0.0",
+    "serviceType": "workflow-demo",
+    "disabled": false,
+    "serverUrl": "",
+    "scenario": "business"
+  },
+  "info": {
+    "title": "工作流整体演示",
+    "description": "工作流整体演示用的方法集：覆盖 OA（报销、差旅）、MES（设备点检、良率分析处置、质检分析处置、工艺分析处置）、财务（月度整理入账）三个业务域，共 27 个方法。方法只回显入参并打时间戳，不连数据库、不写文件、不调用外部系统，用于演示「工作流建模 → 智能体按流程调用 → 单据自动串联 → 人工审批 → 看板与下钻」整条链路。",
+    "tags": ["workflow", "demo", "oa", "mes", "finance", "semiconductor", "business"],
+    "manual_avg_minutes": 5
+  },
+  "runtime": {
+    "interpreter": "python3",
+    "workDir": "./service_plugins/biz-workflow-demo",
+    "defaultTimeout": 15
+  },
+  "methods": [
+    {
+      "name": "oa.expense.submit",
+      "description": "【演示·OA】提交报销：录入发票与事由，提交报销单。演示方法，不做持久化。大额报销请在参数里带 amount_level=high，系统会要求人工审批。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "外部单号（报销单号），仅用于回显" },
+          "title": { "type": "string", "description": "摘要，如「差旅费报销-上海行」" },
+          "amount_level": { "type": "string", "description": "金额档位：high=大额（触发人工审批）/ normal=普通（直接通过）" },
+          "payload": { "type": "object", "description": "业务字段（金额 / 发票号 / 费用科目等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 15,
+      "risk_elevate": { "arg": "amount_level", "values": ["high"], "to": "auth" },
+      "side_effect": true
+    },
+    {
+      "name": "oa.expense.mgr_approve",
+      "description": "【演示·OA】部门审批：部门负责人审核报销事由与金额合理性。本方法为高风险（auth），每次调用都需要人工审批。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "报销单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（审批意见 / 审批人等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "auth",
+      "manual_avg_minutes": 30,
+      "side_effect": true
+    },
+    {
+      "name": "oa.expense.fin_review",
+      "description": "【演示·OA】财务审核：核对发票合规性与预算科目。本方法为高风险（auth），每次调用都需要人工审批。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "报销单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（发票号 / 科目 / 审核意见等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "auth",
+      "manual_avg_minutes": 45,
+      "side_effect": true
+    },
+    {
+      "name": "oa.expense.pay",
+      "description": "【演示·OA】出纳付款：按审批结果付款并回填付款流水。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "报销单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（付款方式 / 流水号等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 20,
+      "side_effect": true
+    },
+    {
+      "name": "oa.expense.archive",
+      "description": "【演示·OA】归档：凭证归档，形成可追溯记录。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "报销单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（档案号 / 归档人等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": true
+    },
+    {
+      "name": "oa.trip.apply",
+      "description": "【演示·OA】提交差旅申请：填写出差事由、目的地与起止时间。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "外部单号（差旅申请单号），仅用于回显" },
+          "title": { "type": "string", "description": "摘要，如「上海出差 3 天」" },
+          "payload": { "type": "object", "description": "业务字段（目的地 / 起止日期 / 预估费用等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 15,
+      "side_effect": true
+    },
+    {
+      "name": "oa.trip.mgr",
+      "description": "【演示·OA】主管审批：直属主管确认出差必要性。本方法为高风险（auth），每次调用都需要人工审批。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "差旅申请单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（审批意见等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "auth",
+      "manual_avg_minutes": 30,
+      "side_effect": true
+    },
+    {
+      "name": "oa.trip.book",
+      "description": "【演示·OA】行政预订：行政按差旅标准预订交通与住宿。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "差旅申请单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（车次航班 / 酒店 / 费用等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 25,
+      "side_effect": true
+    },
+    {
+      "name": "oa.trip.fin",
+      "description": "【演示·OA】财务备案：备案预算科目与预计费用。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "差旅申请单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（预算科目 / 预计费用等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "mes.check.plan",
+      "description": "【演示·MES】生成点检计划：按周期生成点检计划与点检项。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "点检单号（系统发号），仅用于回显" },
+          "title": { "type": "string", "description": "摘要，如「1号空压机 周点检」" },
+          "payload": { "type": "object", "description": "业务字段（设备编号 / 点检项等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 20,
+      "side_effect": true
+    },
+    {
+      "name": "mes.check.inspect",
+      "description": "【演示·MES】现场点检：按点检表逐项确认并记录读数。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "点检单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（各点检项读数 / 点检人等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 30,
+      "side_effect": true
+    },
+    {
+      "name": "mes.check.abnormal",
+      "description": "【演示·MES】异常上报：发现异常项时上报并附现场记录。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "点检单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（异常项 / 现象描述 / 紧急度等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "mes.check.verify",
+      "description": "【演示·MES】复核关闭：复核整改结果，关闭点检单。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "点检单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（整改结果 / 复核人等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 15,
+      "side_effect": true
+    },
+    {
+      "name": "mes.yield.analyze",
+      "description": "【演示·MES】良率分析：按批次拉取良率数据，算出各工序良率与 Top 失效项。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号（如 YL-<批号>），仅用于回显" },
+          "title": { "type": "string", "description": "摘要，如「批次 A001 良率分析」" },
+          "payload": { "type": "object", "description": "业务字段（lot_id 批号 / 目标良率 / 实测良率 / 失效项等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 20,
+      "side_effect": true
+    },
+    {
+      "name": "mes.qc.analyze",
+      "description": "【演示·MES】质检分析：按批次取样质检，汇总不合格项与分布。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号（如 QC-<批号>），仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（lot_id 批号 / 抽样数 / 不合格项等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 30,
+      "side_effect": true
+    },
+    {
+      "name": "mes.process.analyze",
+      "description": "【演示·MES】工艺分析：按批次分析温度/压力/时间等工艺参数越限情况。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号（如 PE-<批号>），仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（lot_id 批号 / 工序 / 参数值 / 规格上下限等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 25,
+      "side_effect": true
+    },
+    {
+      "name": "mes.judge",
+      "description": "【演示·MES·三域共用】分析判定：与目标值/警戒线比对，判定批次是否超标、合格或参数越限。良率、质检、工艺三条流程共用本方法。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（判定依据 / 阈值 / 结论等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "mes.dispose",
+      "description": "【演示·MES·三域共用】处置：按判定结论处置（良率通报处置 / 质检返工让步报废 / 工艺参数调整）。演示方法，不做持久化。判定为报废（disposition=scrap）时系统会要求人工审批。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "disposition": { "type": "string", "description": "处置方式：rework=返工 / concession=让步接收 / scrap=报废（触发人工审批）" },
+          "payload": { "type": "object", "description": "业务字段（处置措施 / 责任工序 / 通知对象等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 20,
+      "risk_elevate": { "arg": "disposition", "values": ["scrap"], "to": "auth" },
+      "side_effect": true
+    },
+    {
+      "name": "mes.retest",
+      "description": "【演示·MES·三域共用】复测复检：处置完成后复测验证效果（工艺链为首件确认）。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（复测项 / 复测结果等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 100,
+      "side_effect": true
+    },
+    {
+      "name": "mes.close",
+      "description": "【演示·MES·三域共用】异常关闭：确认恢复后关闭批次异常单。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "批次异常单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（关闭结论 / 确认人等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": true
+    },
+    {
+      "name": "mes.lot.query",
+      "description": "【演示·MES·独立工具】批次查询：按批号查询工序、站点、状态、良率与在制品数量。不属于任何工作流，随时可单独调用。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "查询条件（lot_id 批号等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 5,
+      "side_effect": false
+    },
+    {
+      "name": "fin.invoice.collect",
+      "description": "【演示·财务】票据收集：归集本期票据与附件。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "月结单号（系统发号），仅用于回显" },
+          "title": { "type": "string", "description": "摘要，如「2026-10 月度整理」" },
+          "payload": { "type": "object", "description": "业务字段（期间 / 票据数 / 金额合计等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 30,
+      "side_effect": true
+    },
+    {
+      "name": "fin.invoice.verify",
+      "description": "【演示·财务】票据校验：校验票面信息与业务单据一致性。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "月结单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（校验结果 / 异常票据等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 40,
+      "side_effect": true
+    },
+    {
+      "name": "fin.post",
+      "description": "【演示·财务】凭证入账：生成记账凭证并过账。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "月结单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（凭证号 / 借贷方科目 / 金额等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 60,
+      "side_effect": true
+    },
+    {
+      "name": "fin.review",
+      "description": "【演示·财务】账务复核：复核科目与金额，确认本期账务。本方法为高风险（auth），每次调用都需要人工审批。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "月结单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（复核意见 / 复核人等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "auth",
+      "manual_avg_minutes": 30,
+      "side_effect": true
+    },
+    {
+      "name": "fin.report",
+      "description": "【演示·财务】出报表：出具本期报表。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_no": { "type": "string", "description": "月结单号，仅用于回显" },
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "业务字段（报表类型 / 关键指标等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 20,
+      "side_effect": true
+    },
+    {
+      "name": "fin.stat.daily",
+      "description": "【演示·财务·独立工具】日常统计：按日期出收付、费用、票据口径的日报。不属于任何工作流，随时可单独调用。演示方法，不做持久化。",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "摘要" },
+          "payload": { "type": "object", "description": "统计条件（日期 / 口径等），原样回显" }
+        },
+        "required": []
+      },
+      "handler": "workflow_demo.py",
+      "mode": "sync",
+      "timeout": 10,
+      "risk_level": "normal",
+      "manual_avg_minutes": 10,
+      "side_effect": false
+    }
+  ],
+  "prompts": [],
+  "config": {
+    "shadow_mode": false
+  },
+  "config_help": {
+    "shadow_mode": { "label": "影子演练", "type": "boolean", "desc": "开启后，声明了 side_effect 的方法本次调用只落一条待审记录、不真实执行（宿主闸门）。演示期间必须保持关闭，否则所有演示方法都会被拦成待审。" }
+  }
+}

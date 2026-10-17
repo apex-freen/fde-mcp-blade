@@ -9,7 +9,8 @@ feishu_utils.py —— 企业飞书连接服务公共模块
   3. 构造 lark-oapi 客户端（自动管理 tenant_access_token）；
   4. 发起人署名归一化：缺省 default_sender、误传 ou_ 自动反查姓名、白名单校验（防冒用）；
   5. 收件人解析（open_id/chat_id / config.recipients 预配名字，含配置格式校验）；
-  6. 通用响应数据清理（去掉模型中的 None 空字段，便于返回干净 JSON）。
+  6. 日历解析（参数 → config.calendar_id → 按名称匹配 → 应用主日历，供建/查日程定位目标日历）；
+  7. 通用响应数据清理（去掉模型中的 None 空字段，便于返回干净 JSON）。
 
 通信协议遵循插件标准：
   sys.argv[1] = 方法名；参数从 stdin 读单行 JSON；结果输出唯一一行 JSON 到 stdout。
@@ -21,6 +22,7 @@ import json
 
 from lark_oapi import Client, LogLevel
 from lark_oapi.api.contact.v3 import GetUserRequestBuilder
+from lark_oapi.api.calendar.v4 import ListCalendarRequestBuilder, PrimaryCalendarRequestBuilder
 
 # ============================================================
 # 统一响应输出
@@ -261,6 +263,97 @@ def resolve_receive(cfg: dict, params: dict):
         return "chat_id", target
 
     output_json(-1, f"receive_type 无效: [{receive_type}]，可选值: user / chat")
+
+
+# ============================================================
+# 日历解析（参数 → config.calendar_id → 按名称匹配 → 应用主日历）
+# ============================================================
+
+# 时间口径：对外统一"毫秒时间戳"，飞书日历接口收/发的是"秒级"时间戳，故内部换算
+DEFAULT_TIMEZONE = "Asia/Shanghai"
+
+# 日历 id 形如 feishu.cn_xxx@group.calendar.feishu.cn（一定带 @ 域名后缀）；不含 @ 的一律按"日历名称"处理
+_CALENDAR_SLIM_KEYS = ("calendar_id", "summary", "summary_alias", "type", "role", "permissions")
+
+
+def _is_calendar_id(value: str) -> bool:
+    return "@" in value
+
+
+def fetch_calendars(client, page_size: int = 100, page_token: str = "") -> tuple:
+    """查询日历列表（当前应用身份可见的日历），返回 (items, has_more, next_page_token)
+
+    item 只保留常用字段：calendar_id / summary(名称) / summary_alias / type / role / permissions。
+    type=primary 即应用主日历；shared 为应用创建/订阅的共享日历。
+    """
+    builder = ListCalendarRequestBuilder().page_size(page_size)
+    if page_token:
+        builder = builder.page_token(page_token)
+    data = ensure_ok(client.calendar.v4.calendar.list(builder.build()), "查询日历列表")
+
+    items = []
+    for cal in clean(getattr(data, "calendar_list", None)) or []:
+        if isinstance(cal, dict):
+            items.append({k: cal.get(k) for k in _CALENDAR_SLIM_KEYS if cal.get(k) is not None})
+    return items, bool(getattr(data, "has_more", False)), str(getattr(data, "page_token", "") or "")
+
+
+def _fetch_all_calendars(client, max_pages: int = 10) -> list:
+    """按页拉全量日历（按名称匹配用）；page_size=100，最多 max_pages 页兜底防死循环"""
+    out, token = [], ""
+    for _ in range(max_pages):
+        items, has_more, token = fetch_calendars(client, page_size=100, page_token=token)
+        out.extend(items)
+        if not has_more or not token:
+            break
+    return out
+
+
+def _primary_calendar_id(client) -> str:
+    """取当前身份（应用/机器人）的主日历 id —— 不依赖任何员工的 OAuth 授权"""
+    data = ensure_ok(client.calendar.v4.calendar.primary(PrimaryCalendarRequestBuilder().build()), "查询主日历")
+    for uc in clean(getattr(data, "calendars", None)) or []:
+        cal = uc.get("calendar") if isinstance(uc, dict) else None
+        cid = str((cal or {}).get("calendar_id", "")).strip()
+        if cid:
+            return cid
+    output_json(-1, "无法获取应用主日历（接口未返回 calendar_id）。"
+                    "请改传 calendar_id，或先用 feishu.calendar.list_calendars 查询可用日历")
+
+
+def _match_calendar_by_name(client, name: str, source: str) -> str:
+    """按日历名称（summary / summary_alias）精确匹配，唯一命中才返回其 id"""
+    items = _fetch_all_calendars(client)
+    hit = [c for c in items
+           if name in (str(c.get("summary", "")).strip(), str(c.get("summary_alias", "")).strip())]
+    if len(hit) == 1:
+        return str(hit[0].get("calendar_id", "")).strip()
+
+    available = ", ".join(f"{c.get('summary')}({c.get('type')})" for c in items) or "（无）"
+    if not hit:
+        output_json(-1, f"未找到名为 [{name}] 的日历（来自 {source}）。当前应用可见的日历: {available}。"
+                        "请改用日历 id，或留空 config.calendar_id 使用应用主日历")
+    ids = ", ".join(str(c.get("calendar_id", "")) for c in hit)
+    output_json(-1, f"名为 [{name}] 的日历有 {len(hit)} 个（{ids}），无法确定用哪一个（来自 {source}）。请改用日历 id")
+
+
+def resolve_calendar_id(cfg: dict, params: dict, client) -> str:
+    """解析目标日历 id，三级回退：
+      1. 参数 calendar_id：含 @ 视为日历 id 直接用；否则视为日历名称，按日历列表精确匹配；
+      2. config.calendar_id：同 1 的规则；
+      3. 两者都为空 → 应用主日历（tenant 身份，不依赖员工私人日历授权）。
+    """
+    param_id = str(params.get("calendar_id", "") or "").strip()
+    if param_id:
+        raw, source = param_id, "参数 calendar_id"
+    else:
+        raw, source = str(cfg.get("calendar_id", "") or "").strip(), "config.calendar_id"
+
+    if not raw:
+        return _primary_calendar_id(client)
+    if _is_calendar_id(raw):
+        return raw
+    return _match_calendar_by_name(client, raw, source)
 
 
 # ============================================================

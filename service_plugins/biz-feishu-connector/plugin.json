@@ -11,7 +11,7 @@
   },
   "info": {
     "title": "企业飞书连接服务",
-    "description": "对接飞书开放平台（自建应用）的连接插件：消息通知推送（文本/卡片）、通讯录查询（按手机号/邮箱查人、查用户信息、部门列表）、日历日程（建日程/查日程）。以机器人身份发送，sender 署名 + allowed_senders 白名单防冒用。需在飞书开放平台创建企业自建应用并开通机器人/相应权限。",
+    "description": "对接飞书开放平台（自建应用）的连接插件：消息通知推送（文本/卡片）、通讯录查询（按手机号/邮箱查人、查用户信息、部门列表）、日历日程（查可用日历/建日程/查日程）。以机器人身份发送，sender 署名 + allowed_senders 白名单防冒用。需在飞书开放平台创建企业自建应用并开通机器人/相应权限。",
     "tags": [
       "feishu",
       "lark",
@@ -210,12 +210,35 @@
       "manual_avg_minutes": 2
     },
     {
+      "name": "feishu.calendar.list_calendars",
+      "description": "列出当前应用（机器人身份）可见的日历，返回每个日历的 calendar_id / 名称(summary) / 类型(type)。type=primary 即应用主日历；建/查日程未传 calendar_id 时也会自动回退到应用主日历。用于先看清可操作的日历，再决定目标日历。",
+      "inputSchema": {
+        "properties": {
+          "page_size": {
+            "description": "每页条数，默认 50，最大 100",
+            "type": "integer"
+          },
+          "page_token": {
+            "description": "翻页标记（上一页返回 has_more=true 时传回 page_token）",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "handler": "list_calendars.py",
+      "mode": "sync",
+      "timeout": 30,
+      "risk_level": "risk",
+      "manual_avg_minutes": 1
+    },
+    {
       "name": "feishu.calendar.create_event",
-      "description": "在指定日历上创建日程（事件）。calendar_id 可填 config.calendar_id 预配值。start_ms/end_ms 为毫秒时间戳。注意：以租户身份（tenant_access_token）建日程通常只对应用可写/订阅的日历生效，实际生产中可能需要该用户的 OAuth 授权，若返回权限类错误请据此处理。",
+      "description": "在指定日历上创建日程（事件）。calendar_id 可填日历 id（含 @ 的 id）或日历名称（按可见日历名称精确匹配、唯一命中才用），缺省取 config.calendar_id，两者都无则使用应用主日历。start_ms/end_ms 为毫秒时间戳。注意：以租户身份（tenant_access_token）建日程只对应用可写/订阅的日历（含应用主日历）生效，企业成员的私人日历需该用户 OAuth 授权；若返回权限类错误请据此处理。",
       "inputSchema": {
         "properties": {
           "calendar_id": {
-            "description": "日历 id（feishu_ 开头），缺省取 config.calendar_id",
+            "description": "日历 id 或日历名称，缺省取 config.calendar_id，留空则用应用主日历",
             "type": "string"
           },
           "description": {
@@ -251,11 +274,11 @@
     },
     {
       "name": "feishu.calendar.list_events",
-      "description": "查询指定日历的日程列表。calendar_id 缺省取 config.calendar_id；可用 start_ms/end_ms（毫秒时间戳）限定时间段，缺省返回最近一周。返回每个日程的 event_id/标题/描述/起止时间/跳转链接。",
+      "description": "查询指定日历的日程列表。calendar_id 可填日历 id 或日历名称，缺省取 config.calendar_id，两者都无则使用应用主日历；可用 start_ms/end_ms（毫秒时间戳）限定时间段，缺省返回最近一周。返回每个日程的 event_id/标题/描述/起止时间/跳转链接。",
       "inputSchema": {
         "properties": {
           "calendar_id": {
-            "description": "日历 id，缺省取 config.calendar_id",
+            "description": "日历 id 或日历名称，缺省取 config.calendar_id，留空则用应用主日历",
             "type": "string"
           },
           "end_ms": {
@@ -290,7 +313,8 @@
     "default_sender": "企业助手",
     "domain": "feishu",
     "recipients": [],
-    "shadow_mode": false
+    "shadow_mode": false,
+    "timezone": "Asia/Shanghai"
   },
   "config_help": {
     "allowed_senders": {
@@ -312,9 +336,9 @@
       "desc": "飞书开放平台 App Secret；值存密钥箱，本键保持 ${app_secret} 占位符"
     },
     "calendar_id": {
-      "label": "默认日历 ID",
+      "label": "默认日历",
       "type": "string",
-      "desc": "日历日程类方法未传 calendar_id 时使用的默认日历"
+      "desc": "日历日程类方法未传 calendar_id 时使用的日历：可填日历 id 或日历名称（按可见日历名称精确匹配），留空则使用应用主日历。可先用 feishu.calendar.list_calendars 查可用日历"
     },
     "default_sender": {
       "label": "缺省署名",
@@ -335,6 +359,11 @@
       "label": "影子演练",
       "type": "boolean",
       "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）"
+    },
+    "timezone": {
+      "label": "日历时区",
+      "type": "string",
+      "desc": "建日程时写入的时区名（IANA，如 Asia/Shanghai），默认 Asia/Shanghai；影响传毫秒时间戳被解释为哪个时区的当地时间"
     }
   }
 }
