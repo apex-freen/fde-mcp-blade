@@ -18,10 +18,15 @@
               <a-tag :color="statusColor(doc.status)" size="small">{{ statusLabel(doc.status) }}</a-tag>
             </a-space>
           </div>
-          <a-button @click="backToList">
-            <template #icon><icon-left /></template>
-            {{ $t('bizObject.backToList') }}
-          </a-button>
+          <a-space :size="8">
+            <a-button v-if="canCancel" status="danger" @click="openCancel">
+              {{ $t('bizObject.cancelDoc') }}
+            </a-button>
+            <a-button @click="backToList">
+              <template #icon><icon-left /></template>
+              {{ $t('bizObject.backToList') }}
+            </a-button>
+          </a-space>
         </div>
 
         <a-descriptions :column="3" layout="inline-horizontal" style="margin-top: 16px">
@@ -30,6 +35,9 @@
           </a-descriptions-item>
           <a-descriptions-item :label="$t('bizObject.lastCallTime')">
             {{ doc.last_call_time || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.endedTime')">
+            {{ doc.ended_time || '-' }}
           </a-descriptions-item>
           <a-descriptions-item :label="$t('bizObject.callCount')">
             {{ doc.call_count ?? '-' }}
@@ -50,14 +58,14 @@
         </a-descriptions>
       </a-card>
 
-      <!-- 节点计划 -->
+      <!-- 节点计划：hit_count 只算成功次数 → 「是否达成」只看它；待审批 / 失败单独计数 -->
       <a-card :bordered="false" style="margin-top: 16px" :title="$t('bizObject.plan')" :loading="loading">
         <div v-if="planList.length" class="stage-plan">
           <div
             v-for="(item, index) in planList"
             :key="item.stage || index"
             class="stage-item"
-            :class="{ 'not-reached': !item.hit_count }"
+            :class="`stage-${stageState(item)}`"
           >
             <div class="stage-head">
               <span class="stage-seq">{{ item.seq }}</span>
@@ -67,10 +75,16 @@
               {{ $t('bizObject.stageManualMinutes') }}: {{ numOrDash(item.manual_minutes) }}
             </div>
             <div class="stage-line">
-              {{ $t('bizObject.stageHitCount') }}: {{ item.hit_count ?? 0 }}
+              {{
+                $t('bizObject.stageHitSummary', {
+                  ok: item.hit_count ?? 0,
+                  pending: item.hit_pending ?? 0,
+                  failed: item.hit_failed ?? 0
+                })
+              }}
             </div>
-            <a-tag v-if="!item.hit_count" size="small" class="not-reached-tag">
-              {{ $t('bizObject.stageNotReached') }}
+            <a-tag :color="stageInfo(item).color" size="small" class="stage-tag">
+              {{ $t(`bizObject.${stageInfo(item).key}`) }}
             </a-tag>
           </div>
         </div>
@@ -78,7 +92,15 @@
       </a-card>
 
       <!-- 调用时间线 -->
-      <a-card :bordered="false" style="margin-top: 16px" :title="$t('bizObject.timeline')">
+      <a-card
+        :bordered="false"
+        style="margin-top: 16px"
+        :title="$t('bizObject.timeline')"
+        class="timeline-card"
+      >
+        <template #extra>
+          <span class="hint-text">{{ $t('bizObject.rowClickHint') }}</span>
+        </template>
         <a-alert v-if="timelineTruncated" type="warning" style="margin-bottom: 12px">
           {{ $t('bizObject.timelineTruncated') }}
         </a-alert>
@@ -90,30 +112,34 @@
           :pagination="false"
           row-key="_rowKey"
           :row-class="timelineRowClass"
-          :scroll="{ x: 1600 }"
+          :scroll="{ x: '100%' }"
+          @row-click="openCallDetail"
         >
           <template #columns>
-            <a-table-column :title="$t('bizObject.time')" data-index="created_time" :width="180" />
+            <a-table-column :title="$t('bizObject.time')" data-index="created_time" :width="145" />
             <a-table-column :title="$t('bizObject.user')" :width="110">
               <template #cell="{ record }">{{ record.user_name || '-' }}</template>
             </a-table-column>
-            <a-table-column :title="$t('bizObject.tool')" :width="160" :ellipsis="true" :tooltip="true">
-              <template #cell="{ record }">{{ record.tool_name || '-' }}</template>
+            <a-table-column :title="$t('bizObject.tool')" :width="80" :ellipsis="true" :tooltip="true">
+              <template #cell="{ record }">{{ toolLabel(record) }}</template>
             </a-table-column>
-            <a-table-column :title="$t('bizObject.method')" :width="180" :ellipsis="true" :tooltip="true">
+            <a-table-column :title="$t('bizObject.method')" :width="80" :ellipsis="true" :tooltip="true">
               <template #cell="{ record }">{{ record.method_name || '-' }}</template>
             </a-table-column>
             <a-table-column :title="$t('bizObject.currentStage')" :width="120">
               <template #cell="{ record }">
-                <span v-if="record.stage_name">{{ record.stage_name }}</span>
-                <span v-else class="muted-text">{{ $t('bizObject.stageUnmapped') }}</span>
+                <!-- stage 为空 = 工作流引擎句柄调用（流程外动作），不再是「未分配节点」 -->
+                <span :class="{ 'muted-text': !record.stage_name }">{{ nodeLabel(record) }}</span>
               </template>
             </a-table-column>
-            <a-table-column :title="$t('commonTable.status')" :width="90">
+            <a-table-column :title="$t('commonTable.status')" :width="130">
               <template #cell="{ record }">
-                <a-tag :color="record.success ? 'green' : 'red'" size="small">
-                  {{ record.success ? $t('commonTable.success') : $t('commonTable.failure') }}
-                </a-tag>
+                <!-- 审批结论优先（驳回不会产生新行，只能靠 approval_status 表达）；无审批环节 → 回落执行结果 -->
+                <a-tooltip :content="rowStatus(record).tip" :disabled="!rowStatus(record).tip">
+                  <a-tag :color="rowStatus(record).color" size="small">
+                    {{ rowStatus(record).label }}
+                  </a-tag>
+                </a-tooltip>
               </template>
             </a-table-column>
             <a-table-column :title="$t('bizObject.resultCode')" :width="110">
@@ -123,28 +149,39 @@
             </a-table-column>
             <a-table-column
               :title="$t('bizObject.resultMsg')"
-              :width="220"
+              :width="80"
               :ellipsis="true"
               :tooltip="true"
             >
               <template #cell="{ record }">{{ record.result_msg || '-' }}</template>
             </a-table-column>
-            <a-table-column :title="$t('bizObject.errorType')" :width="120">
-              <template #cell="{ record }">{{ record.error_type || '-' }}</template>
+            <!-- error_type 与 error.data.category 同一套字典，按字典渲染；未知值回落显示原始值 -->
+            <a-table-column :title="$t('bizObject.errorType')" :width="140">
+              <template #cell="{ record }">{{ failCategoryLabel(record.error_type) }}</template>
             </a-table-column>
             <a-table-column :title="$t('bizObject.elapsed')" :width="100">
               <template #cell="{ record }">{{ elapsedText(record.elapsed_ms) }}</template>
             </a-table-column>
-            <a-table-column :title="$t('bizObject.handoverTag')" :width="220" fixed="right">
+            <a-table-column :title="$t('bizObject.handoverTag')" :width="130" fixed="right">
               <template #cell="{ record }">
                 <div v-if="record._handover" class="handover-cell">
                   <a-tag color="orange" size="small">{{ $t('bizObject.handoverTag') }}</a-tag>
                   <a-tag v-if="record._replay" color="arcoblue" size="small">
                     {{ $t('bizObject.replayTag') }}
                   </a-tag>
-                  <a-link v-if="record._hasApproval" @click="goApproval(record._approvalId)">
+                  <a-link v-if="record._hasApproval" @click.stop="goApproval(record._approvalId)">
                     {{ $t('bizObject.approvalNo') }} #{{ record._approvalId }}
                   </a-link>
+                  <!-- 待人工审批 → 允许撤回；本人限定与 pending 校验最终由后端判定（非本人 403、非 pending 409） -->
+                  <a-button
+                    v-if="canCancelApproval(record)"
+                    type="text"
+                    size="small"
+                    status="danger"
+                    @click.stop="openCancelApproval(record)"
+                  >
+                    {{ $t('bizObject.approvalCancel') }}
+                  </a-button>
                 </div>
                 <span v-else class="muted-text">-</span>
               </template>
@@ -156,16 +193,149 @@
         </a-table>
       </a-card>
     </template>
+
+    <!-- 作废（必填原因，二次确认） -->
+    <a-modal
+      v-model:visible="cancelVisible"
+      :title="$t('bizObject.cancelTitle')"
+      :ok-loading="cancelLoading"
+      :ok-text="$t('bizObject.cancelDoc')"
+      unmount-on-close
+      @before-ok="handleCancel"
+    >
+      <a-alert type="warning" style="margin-bottom: 12px">
+        {{ $t('bizObject.cancelConfirmHint') }}
+      </a-alert>
+      <a-form :model="cancelForm" layout="vertical">
+        <a-form-item :label="$t('bizObject.cancelReason')" required>
+          <a-textarea
+            v-model="cancelForm.reason"
+            :placeholder="$t('bizObject.cancelReasonPlaceholder')"
+            :auto-size="{ minRows: 3, maxRows: 6 }"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+    <!-- 撤回审批申请（仅待人工审批的单可撤；原因选填，≤512） -->
+    <a-modal
+      v-model:visible="cancelApprovalVisible"
+      :title="$t('bizObject.approvalCancelTitle')"
+      :ok-loading="cancelApprovalLoading"
+      :ok-text="$t('bizObject.approvalCancel')"
+      unmount-on-close
+      @before-ok="handleCancelApproval"
+    >
+      <a-alert type="warning" style="margin-bottom: 12px">
+        {{ $t('bizObject.approvalCancelHint') }}
+      </a-alert>
+      <a-form :model="cancelApprovalForm" layout="vertical">
+        <a-form-item :label="$t('bizObject.approvalCancelReason')">
+          <a-textarea
+            v-model="cancelApprovalForm.reason"
+            :placeholder="$t('bizObject.approvalCancelReasonPlaceholder')"
+            :auto-size="{ minRows: 3, maxRows: 6 }"
+            :max-length="512"
+            show-word-limit
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+    <!-- 单次调用详情（§3.7 下钻：时间线行点击） -->
+    <a-drawer
+      v-model:visible="callVisible"
+      :title="$t('bizObject.callDetailTitle')"
+      :width="720"
+      :footer="false"
+      unmount-on-close
+    >
+      <a-spin :loading="callLoading" style="width: 100%">
+        <a-descriptions :column="2" bordered size="small" layout="inline-horizontal">
+          <a-descriptions-item :label="$t('bizObject.time')">
+            {{ callDetail.created_time || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.user')">
+            {{ callDetail.user_name || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.tool')">
+            {{ callDetail.tool_name || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.plugin')">
+            {{ callDetail.plugin_name || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.method')">
+            {{ callDetail.method_name || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.currentStage')">
+            {{ callDetail.stage_name || callDetail.stage || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('commonTable.status')">
+            <a-tag :color="rowStatus(callDetail).color" size="small">
+              {{ rowStatus(callDetail).label }}
+            </a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.approvalExecStatus')">
+            {{ approvalExecLabel(callDetail.approval_exec_status) }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.resultCode')">
+            {{ callDetail.result_code ?? '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.errorType')">
+            {{ failCategoryLabel(callDetail.error_type) }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.elapsed')">
+            {{ elapsedText(callDetail.elapsed_ms) }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.riskLevel')">
+            <a-tag v-if="riskInfo(callDetail.risk_level)" :color="riskInfo(callDetail.risk_level).color" size="small">
+              {{ riskInfo(callDetail.risk_level).label }}
+            </a-tag>
+            <span v-else>-</span>
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.cmdType')">
+            {{ callDetail.cmd_type || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item v-if="callDetail.approval_id != null" :label="$t('bizObject.approvalNo')">
+            <a-link @click="goApproval(callDetail.approval_id)">#{{ callDetail.approval_id }}</a-link>
+          </a-descriptions-item>
+          <a-descriptions-item v-if="callDetail.reject_reason" :label="$t('bizObject.rejectReason')" :span="2">
+            {{ callDetail.reject_reason }}
+          </a-descriptions-item>
+          <a-descriptions-item :label="$t('bizObject.traceId')" :span="2">
+            {{ callDetail.trace_id || '-' }}
+          </a-descriptions-item>
+        </a-descriptions>
+
+        <div class="call-section">
+          <div class="call-section-title">{{ $t('bizObject.resultMsg') }}</div>
+          <pre class="json-block">{{ callDetail.result_msg || '-' }}</pre>
+        </div>
+        <div class="call-section">
+          <div class="call-section-title">{{ $t('bizObject.callRequestParams') }}</div>
+          <pre class="json-block">{{ formatJson(callDetail.request_params) }}</pre>
+        </div>
+        <div class="call-section">
+          <div class="call-section-title">{{ $t('bizObject.callResponseBody') }}</div>
+          <pre class="json-block">{{ formatJson(callDetail.response_body) }}</pre>
+        </div>
+      </a-spin>
+    </a-drawer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { Message } from '@arco-design/web-vue'
 import { api } from '@/api'
+import { useFailCategoryDict } from '@/constants/failCategory'
+import { useRiskLevelDict } from '@/constants/riskLevel'
+import { useCallOutcomeDict } from '@/constants/callOutcome'
 
 const { t } = useI18n()
+const { failCategoryLabel } = useFailCategoryDict()
+const { riskLevelMap } = useRiskLevelDict()
+const { callOutcome } = useCallOutcomeDict()
 const route = useRoute()
 const router = useRouter()
 
@@ -251,10 +421,121 @@ function timelineRowClass(record) {
   const classes = []
   if (record._sameOrder) classes.push('same-approval-row')
   if (isBlocked(record)) classes.push('blocked-row')
+  // 流程外动作行：灰底 + 小字号，与业务节点主线区分
+  if (isOffFlow(record)) classes.push('off-flow-row')
   return classes
 }
 
+// 流程外动作：stage 为空的工作流引擎句柄调用（不代表任何业务节点，不进 plan[]）
+// 中文名按 tool_name 映射，未命中回退原始 tool_name
+const OFF_FLOW_TOOL_KEYS = {
+  biz_create: 'offFlowBizCreate',
+  biz_query: 'offFlowBizQuery',
+  biz_next: 'offFlowBizNext',
+  biz_finish: 'offFlowBizFinish'
+}
+
+function isOffFlow(record) {
+  return !record?.stage
+}
+
+function toolLabel(record) {
+  const key = OFF_FLOW_TOOL_KEYS[record?.tool_name]
+  return key ? t(`bizObject.${key}`) : record?.tool_name || '-'
+}
+
+function nodeLabel(record) {
+  if (record?.stage_name) return record.stage_name
+  if (isOffFlow(record)) return t('bizObject.offFlowAction')
+  return t('bizObject.stageUnmapped')
+}
+
 const timelineTruncated = computed(() => (timeline.value || []).length >= 500)
+
+// ==================== 单次调用详情（下钻，§3.7） ====================
+const callVisible = ref(false)
+const callLoading = ref(false)
+const callDetail = ref({})
+// 防止快速点行时旧响应覆盖新响应
+let callSeq = 0
+
+async function openCallDetail(record) {
+  const logId = record?.log_id
+  if (logId === null || logId === undefined || logId === '') return
+  const seq = ++callSeq
+  callDetail.value = {}
+  callVisible.value = true
+  callLoading.value = true
+  try {
+    const res = await api.gisBizObject.getBizCallDetail(bizObjectId, logId)
+    if (seq !== callSeq) return
+    callDetail.value = res?.data || res || {}
+  } catch (_) {
+    // request.js 已统一弹错（log_id 不属于该单据 → 404）
+    if (seq === callSeq) callDetail.value = {}
+  } finally {
+    if (seq === callSeq) callLoading.value = false
+  }
+}
+
+// ==================== 行状态（审批结论优先） ====================
+// approval_status 有值 → 按审批结论渲染；为 null（无审批环节）→ 回落「成功/待审批/失败」三态。
+// 注意：驳回不会产生新行（只有批准会重放出第二行），所以「被驳回」只能靠 approval_status 表达。
+function rowStatus(record) {
+  const status = record?.approval_status
+  if (!status) return callOutcome(record)
+  const tip = record?.result_msg || ''
+  if (status === 'rejected') {
+    // 驳回理由优先展示
+    return { color: 'red', label: t('bizObject.approvalRejected'), tip: record?.reject_reason || tip }
+  }
+  if (status === 'approved') {
+    return record?.success === true
+      ? { color: 'green', label: t('bizObject.approvalApprovedDone'), tip }
+      : { color: 'orange', label: t('bizObject.approvalApprovedBlocked'), tip }
+  }
+  if (status === 'pending') {
+    return { color: 'gray', label: t('bizObject.approvalPending'), tip: tip || t('callOutcome.pendingTip') }
+  }
+  if (status === 'timeout') {
+    return { color: 'orange', label: t('bizObject.approvalTimeout'), tip }
+  }
+  // cancelled：审批单被撤销，本次未执行 —— 既不是成功也不是失败
+  return { color: 'gray', label: t('bizObject.approvalCancelled'), tip }
+}
+
+// 批准后自动重放的执行状态（approval_exec_status）
+const APPROVAL_EXEC_KEYS = {
+  pending: 'approvalExecPending',
+  ok: 'approvalExecOk',
+  failed: 'approvalExecFailed',
+  skipped: 'approvalExecSkipped'
+}
+
+function approvalExecLabel(value) {
+  const key = APPROVAL_EXEC_KEYS[value]
+  return key ? t(`bizObject.${key}`) : value || '-'
+}
+
+// ==================== 节点计划（hit_count = 成功次数） ====================
+// 达成只看 hit_count；否则看待审批 / 失败；三者皆 0 → 未达成（空心）
+const STAGE_INFO = {
+  done: { key: 'stageDone', color: 'green' },
+  pending: { key: 'stagePending', color: 'arcoblue' },
+  failed: { key: 'stageFailed', color: 'red' },
+  empty: { key: 'stageNotReached', color: 'gray' }
+}
+
+function stageState(item) {
+  if (Number(item?.hit_count) > 0) return 'done'
+  if (Number(item?.hit_pending) > 0) return 'pending'
+  if (Number(item?.hit_failed) > 0) return 'failed'
+  return 'empty'
+}
+
+function stageInfo(item) {
+  return STAGE_INFO[stageState(item)]
+}
 
 // ==================== 展示辅助 ====================
 const sceneLabel = computed(() => doc.value.scene_name || doc.value.biz_scene || '-')
@@ -294,6 +575,104 @@ function formatRate(val) {
 function elapsedText(val) {
   if (val === null || val === undefined || val === '') return '-'
   return `${val} ms`
+}
+
+// 入参 / 出参：字符串形态的 JSON 尽量格式化，非 JSON 原样展示
+function formatJson(val) {
+  if (val === null || val === undefined || val === '') return '-'
+  if (typeof val === 'string') {
+    try {
+      return JSON.stringify(JSON.parse(val), null, 2)
+    } catch {
+      return val
+    }
+  }
+  try {
+    return JSON.stringify(val, null, 2)
+  } catch {
+    return String(val)
+  }
+}
+
+function riskInfo(level) {
+  if (!level) return null
+  return riskLevelMap.value[level] || { label: level, color: 'gray' }
+}
+
+// ==================== 作废（B4） ====================
+// 能看见该单据即可作废（叠加工作流可见域）+ 管理员；已在终态的不再展示入口
+const TERMINAL_STATUS = ['done', 'failed', 'cancelled']
+const canCancel = computed(
+  () => !!doc.value.biz_object_id && !TERMINAL_STATUS.includes(doc.value.status)
+)
+
+const cancelVisible = ref(false)
+const cancelLoading = ref(false)
+const cancelForm = reactive({ reason: '' })
+
+function openCancel() {
+  cancelForm.reason = ''
+  cancelVisible.value = true
+}
+
+async function handleCancel(done) {
+  const reason = cancelForm.reason.trim()
+  if (!reason) {
+    Message.warning(t('bizObject.cancelReasonRequired'))
+    done(false)
+    return
+  }
+  cancelLoading.value = true
+  try {
+    await api.gisBizObject.closeBizObject(bizObjectId, { reason })
+    Message.success(t('bizObject.cancelOk'))
+    done(true)
+    // 成功后刷新详情（状态与 ended_time 会变化）
+    fetchDetail()
+  } catch (_) {
+    // request.js 已统一弹错（含终态 / 不可见等 400/403）
+    done(false)
+  } finally {
+    cancelLoading.value = false
+  }
+}
+
+// ==================== 撤回审批申请 ====================
+// 仅「待人工审批」的行可撤；是否本人发起由后端判定（非本人 403、非 pending 409）
+const cancelApprovalVisible = ref(false)
+const cancelApprovalLoading = ref(false)
+const cancelApprovalTarget = ref(null)
+const cancelApprovalForm = reactive({ reason: '' })
+
+function canCancelApproval(record) {
+  return !!record?._hasApproval && record.approval_status === 'pending'
+}
+
+function openCancelApproval(record) {
+  cancelApprovalTarget.value = record
+  cancelApprovalForm.reason = ''
+  cancelApprovalVisible.value = true
+}
+
+async function handleCancelApproval(done) {
+  const approvalId = cancelApprovalTarget.value?._approvalId
+  if (approvalId === null || approvalId === undefined) {
+    done(false)
+    return
+  }
+  cancelApprovalLoading.value = true
+  try {
+    await api.gisApprovalRequest.cancelApproval(approvalId, { reason: cancelApprovalForm.reason.trim() })
+    Message.success(t('bizObject.approvalCancelOk'))
+    done(true)
+    // 撤回成功后刷新详情（该行 approval_status 变为 cancelled）
+    fetchDetail()
+  } catch (_) {
+    // request.js 已统一弹错（非本人 403 / 非 pending 409）
+    done(false)
+  } finally {
+    cancelApprovalLoading.value = false
+  }
 }
 
 // ==================== 操作 ====================
@@ -353,15 +732,30 @@ onMounted(() => {
     border-radius: 6px;
     background: var(--color-fill-1);
 
-    &.not-reached {
+    // 只有「已达成」（hit_count > 0）是实心；待审批 / 失败 / 未达成一律空心，靠色相区分
+    &.stage-pending,
+    &.stage-failed,
+    &.stage-empty {
       border-style: dashed;
       background: transparent;
-
-      .stage-seq {
-        background: var(--color-fill-3);
-        color: var(--color-text-3);
-      }
     }
+
+    &.stage-pending .stage-seq {
+      background: rgb(var(--primary-6));
+    }
+
+    &.stage-failed .stage-seq {
+      background: $color-danger;
+    }
+
+    &.stage-empty .stage-seq {
+      background: var(--color-fill-3);
+      color: var(--color-text-3);
+    }
+  }
+
+  .stage-tag {
+    margin-top: 6px;
   }
 
   .stage-head {
@@ -394,19 +788,47 @@ onMounted(() => {
     line-height: 1.8;
   }
 
-  .not-reached-tag {
-    margin-top: 6px;
-    color: var(--color-text-3);
-    border-color: var(--color-border-3);
-    background: transparent;
-  }
-
   .handover-cell {
     display: flex;
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
   }
+
+  .hint-text {
+    font-size: $font-size-xs;
+    color: var(--color-text-3);
+  }
+
+  .call-section {
+    margin-top: 16px;
+  }
+
+  .call-section-title {
+    margin-bottom: 6px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: var(--color-text-1);
+  }
+
+  .json-block {
+    margin: 0;
+    padding: 12px;
+    max-height: 300px;
+    overflow: auto;
+    background: var(--color-fill-2);
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
+
+// 时间线整行可点：下钻单次调用详情
+.timeline-card :deep(.arco-table-tr) {
+  cursor: pointer;
 }
 
 :deep(.same-approval-row) td:first-child {
@@ -415,5 +837,16 @@ onMounted(() => {
 
 :deep(.blocked-row) {
   background: var(--color-fill-1);
+}
+
+// 流程外动作（stage 为空的工作流句柄调用）：灰底 + 小字号 + 虚线左边，不与业务节点主线同级
+:deep(.off-flow-row) td {
+  background: var(--color-fill-1);
+  color: var(--color-text-3);
+  font-size: 12px;
+}
+
+:deep(.off-flow-row) td:first-child {
+  border-left: 3px dashed var(--color-border-3);
 }
 </style>

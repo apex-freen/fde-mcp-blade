@@ -83,11 +83,14 @@
         </a-table-column>
         <a-table-column :title="$t('auditLog.toolName')" data-index="tool_name" :width="160" :ellipsis="true" />
         <a-table-column :title="$t('auditLog.funKey')" data-index="fun_key" :width="150" :ellipsis="true" />
-        <a-table-column :title="$t('commonTable.status')" :width="90">
+        <a-table-column :title="$t('commonTable.status')" :width="140">
           <template #cell="{ record }">
-            <a-tag :color="record.success ? 'green' : 'red'" size="small">
-              {{ record.success ? $t('commonTable.success') : $t('commonTable.failure') }}
-            </a-tag>
+            <!-- 三态：pending（待审批/受理中）不是失败，不要用 success 布尔直接判 -->
+            <a-tooltip :content="callOutcome(record).tip" :disabled="!callOutcome(record).tip">
+              <a-tag :color="callOutcome(record).color" size="small">
+                {{ callOutcome(record).label }}
+              </a-tag>
+            </a-tooltip>
           </template>
         </a-table-column>
         <a-table-column :title="$t('auditLog.time')" data-index="created_time" :width="180" />
@@ -102,10 +105,12 @@ import { useI18n } from 'vue-i18n'
 import { Message } from '@arco-design/web-vue'
 import { api } from '@/api'
 import { useAuditLogDict } from '@/constants/auditDict'
+import { useCallOutcomeDict } from '@/constants/callOutcome'
 import { downloadBlob, buildExportFilename, extractBlobErrorMsg } from '@/utils/download'
 
 const { t } = useI18n()
 const { riskLevelOptions, riskLevelMap, cmdTypeOptions } = useAuditLogDict()
+const { callOutcome } = useCallOutcomeDict()
 
 // 该页聚焦风险调用，默认只看 risk；风险等级候选去掉 disable（不在 cmd_log 口径内）
 const callRiskLevelOptions = computed(() => riskLevelOptions.value.filter(o => o.value !== 'disable'))

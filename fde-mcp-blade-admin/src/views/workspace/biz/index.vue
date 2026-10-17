@@ -2,6 +2,24 @@
   <div class="biz-dashboard-page">
     <!-- 筛选区域 -->
     <a-card :bordered="false" style="margin-top: 16px">
+      <!-- 入口 2：按单据号直达（不参与筛选，直接打开单据时间线） -->
+      <template #extra>
+        <a-space :size="8">
+          <a-input
+            v-model="directId"
+            :placeholder="$t('bizObject.docIdPlaceholder')"
+            allow-clear
+            style="width: 240px"
+            @press-enter="handleDirectJump"
+          />
+          <a-tooltip :content="$t('bizObject.directJumpHint')">
+            <a-button @click="handleDirectJump">
+              <template #icon><icon-arrow-right /></template>
+              {{ $t('bizObject.directJump') }}
+            </a-button>
+          </a-tooltip>
+        </a-space>
+      </template>
       <a-form :model="filter" layout="inline">
         <a-form-item field="time_range" :label="$t('bizObject.timeRange')">
           <a-range-picker v-model="timeRange" style="width: 260px" @change="handleTimeChange" />
@@ -38,6 +56,20 @@
             <a-option :value="false">{{ $t('bizObject.stallExclude') }}</a-option>
           </a-select>
         </a-form-item>
+        <a-form-item field="status" :label="$t('bizObject.statusFilter')">
+          <a-select
+            v-model="filter.status"
+            :placeholder="$t('bizObject.statusAll')"
+            allow-clear
+            style="width: 140px"
+          >
+            <a-option value="open">{{ $t('bizObject.statusOpen') }}</a-option>
+            <a-option value="in_progress">{{ $t('bizObject.statusInProgress') }}</a-option>
+            <a-option value="done">{{ $t('bizObject.statusDone') }}</a-option>
+            <a-option value="failed">{{ $t('bizObject.statusFailed') }}</a-option>
+            <a-option value="cancelled">{{ $t('bizObject.statusCancelled') }}</a-option>
+          </a-select>
+        </a-form-item>
         <a-form-item>
           <a-space>
             <a-button type="primary" @click="handleSearch">
@@ -59,21 +91,28 @@
 
     <!-- 汇总卡片 -->
     <a-row :gutter="16" style="margin-top: 16px">
-      <a-col :span="8">
+      <a-col :span="6">
         <a-card :bordered="false">
           <a-statistic :value="summary.total_docs || 0">
             <template #title>{{ $t('bizObject.docTotal') }}</template>
           </a-statistic>
         </a-card>
       </a-col>
-      <a-col :span="8">
+      <a-col :span="6">
         <a-card :bordered="false">
           <a-statistic :value="summary.stalled_total || 0">
             <template #title>{{ $t('bizObject.stalledTotal') }}</template>
           </a-statistic>
         </a-card>
       </a-col>
-      <a-col :span="8">
+      <a-col :span="6">
+        <a-card :bordered="false">
+          <a-statistic :value="summary.cancelled_total || 0">
+            <template #title>{{ $t('bizObject.cancelledTotal') }}</template>
+          </a-statistic>
+        </a-card>
+      </a-col>
+      <a-col :span="6">
         <a-card :bordered="false">
           <a-statistic :value="summary.unassigned_calls || 0">
             <template #title>
@@ -113,6 +152,9 @@
           <a-table-column :title="$t('bizObject.failedCnt')" :width="90">
             <template #cell="{ record }">{{ numOrDash(record.failed_cnt) }}</template>
           </a-table-column>
+          <a-table-column :title="$t('bizObject.cancelledCnt')" :width="90">
+            <template #cell="{ record }">{{ numOrDash(record.cancelled_cnt) }}</template>
+          </a-table-column>
           <a-table-column :title="$t('bizObject.stalledCnt')" :width="90">
             <template #cell="{ record }">{{ numOrDash(record.stalled_cnt) }}</template>
           </a-table-column>
@@ -138,59 +180,29 @@
       </a-table>
     </a-card>
 
-    <!-- 停摆清单 -->
+    <!-- 入口 1 / 4：单据列表（全量可见单据，点击行或「查看」进详情） -->
+    <a-card :bordered="false" style="margin-top: 16px" :title="$t('bizObject.docList')">
+      <DocListTable
+        :rows="docListData"
+        :loading="docListLoading"
+        :pagination="docPagination"
+        @page-change="(page) => handlePageChange('doc', page)"
+        @page-size-change="(size) => handlePageSizeChange('doc', size)"
+        @view="goDetail"
+      />
+    </a-card>
+
+    <!-- 入口 3：停摆清单（= 单据列表 + stalled=true，按静默天数倒序） -->
     <a-card :bordered="false" style="margin-top: 16px" :title="$t('bizObject.stallList')">
-      <a-table
-        :columns="listColumns"
-        :data="listData"
-        :loading="listLoading"
-        :pagination="pagination"
-        row-key="biz_object_id"
-        @page-change="handlePageChange"
-        @page-size-change="handlePageSizeChange"
-      >
-        <template #columns>
-          <a-table-column :title="$t('bizObject.bizObjectId')" data-index="biz_object_id" :width="180" :ellipsis="true" />
-          <a-table-column :title="$t('bizObject.scene')" :width="130">
-            <template #cell="{ record }">{{ sceneLabel(record) }}</template>
-          </a-table-column>
-          <a-table-column :title="$t('bizObject.statusLabel')" :width="100">
-            <template #cell="{ record }">
-              <a-tag :color="statusColor(record.status)" size="small">{{ statusLabel(record.status) }}</a-tag>
-            </template>
-          </a-table-column>
-          <a-table-column :title="$t('bizObject.currentStage')" :width="120">
-            <template #cell="{ record }">{{ record.stage_name || record.current_stage || '-' }}</template>
-          </a-table-column>
-          <a-table-column :title="$t('bizObject.startedTime')" data-index="started_time" :width="180" />
-          <a-table-column :title="$t('bizObject.lastCallTime')" :width="180">
-            <template #cell="{ record }">{{ record.last_call_time || '-' }}</template>
-          </a-table-column>
-          <a-table-column :title="$t('bizObject.callCount')" :width="100">
-            <template #cell="{ record }">{{ numOrDash(record.call_count) }}</template>
-          </a-table-column>
-          <a-table-column :title="$t('bizObject.stalled')" :width="90">
-            <template #cell="{ record }">
-              <a-tag :color="record.stalled ? 'red' : 'gray'" size="small">
-                {{ record.stalled ? $t('bizObject.yes') : $t('bizObject.no') }}
-              </a-tag>
-            </template>
-          </a-table-column>
-          <a-table-column :title="$t('bizObject.silentDays')" :width="110">
-            <template #cell="{ record }">{{ numOrDash(record.silent_days) }}</template>
-          </a-table-column>
-          <a-table-column :title="$t('commonTable.operation')" :width="90" fixed="right">
-            <template #cell="{ record }">
-              <a-button type="text" size="small" @click="goDetail(record)">
-                {{ $t('bizObject.detail') }}
-              </a-button>
-            </template>
-          </a-table-column>
-        </template>
-        <template #empty>
-          <a-empty :description="$t('bizObject.noData')" />
-        </template>
-      </a-table>
+      <DocListTable
+        :rows="stallListData"
+        :loading="stallListLoading"
+        :pagination="stallPagination"
+        show-silent-days
+        @page-change="(page) => handlePageChange('stall', page)"
+        @page-size-change="(size) => handlePageSizeChange('stall', size)"
+        @view="goDetail"
+      />
     </a-card>
   </div>
 </template>
@@ -201,6 +213,7 @@ import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { api } from '@/api'
+import DocListTable from './components/DocListTable.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -211,9 +224,12 @@ const filter = reactive({
   end_time: '',
   biz_scene: undefined,
   stall_days: 7,
-  stalled: undefined
+  stalled: undefined,
+  status: undefined
 })
 const timeRange = ref([])
+// 「按单据号直达」输入（与筛选无关，仅用于跳转详情）
+const directId = ref('')
 
 function pad(n) {
   return String(n).padStart(2, '0')
@@ -248,6 +264,8 @@ function buildFilterParams() {
   if (filter.stalled !== undefined && filter.stalled !== null && filter.stalled !== '') {
     params.stalled = filter.stalled
   }
+  // 状态筛选（含本次新增的 cancelled 一档）
+  if (filter.status) params.status = filter.status
   return params
 }
 
@@ -260,9 +278,10 @@ function buildSummaryParams() {
 }
 
 function handleSearch() {
-  pagination.current = 1
+  docPagination.current = 1
+  stallPagination.current = 1
   fetchSummary()
-  fetchList()
+  fetchAllLists()
 }
 
 function handleReset() {
@@ -271,10 +290,22 @@ function handleReset() {
   filter.biz_scene = undefined
   filter.stall_days = 7
   filter.stalled = undefined
+  filter.status = undefined
   timeRange.value = []
-  pagination.current = 1
+  docPagination.current = 1
+  stallPagination.current = 1
   fetchSummary()
-  fetchList()
+  fetchAllLists()
+}
+
+// 入口 2：按单据号直达详情；单据不可见时由详情页给出「资源不存在」空态
+function handleDirectJump() {
+  const id = directId.value.trim()
+  if (!id) {
+    Message.warning(t('bizObject.docIdRequired'))
+    return
+  }
+  goDetail({ biz_object_id: id })
 }
 
 // ==================== 汇总 ====================
@@ -303,52 +334,87 @@ async function fetchSummary() {
   }
 }
 
-// ==================== 停摆清单 ====================
-const listLoading = ref(false)
-const listData = ref([])
-const pagination = reactive({
-  current: 1,
-  pageSize: 10,
-  total: 0,
-  showTotal: true,
-  showPageSize: true,
-  pageSizeOptions: [10, 20, 50, 100]
-})
+// ==================== 单据列表 / 停摆清单（共用一份取数逻辑） ====================
+function createPagination() {
+  return reactive({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+    showTotal: true,
+    showPageSize: true,
+    pageSizeOptions: [10, 20, 50, 100]
+  })
+}
 
-async function fetchList() {
-  listLoading.value = true
-  try {
-    // 停摆清单默认只看停摆（stalled=true）；用户在顶部显式选择时以其为准
-    const params = {
-      stalled: true,
-      ...buildFilterParams(),
-      page: pagination.current,
-      page_size: pagination.pageSize,
-      order_by: 'silent_days',
-      is_asc: false
-    }
-    const res = await api.gisBizObject.getBizList(params)
-    const data = res?.data || res || {}
-    listData.value = data.rows || []
-    pagination.total = data.total || 0
-  } catch (e) {
-    console.error(t('bizObject.fetchFailed') + ':', e)
-    listData.value = []
-    pagination.total = 0
-  } finally {
-    listLoading.value = false
+// 单据列表：全量可见单据
+const docListLoading = ref(false)
+const docListData = ref([])
+const docPagination = createPagination()
+
+// 停摆清单：单据列表 + stalled=true，按静默天数倒序
+const stallListLoading = ref(false)
+const stallListData = ref([])
+const stallPagination = createPagination()
+
+const LIST_STATES = {
+  doc: {
+    loading: docListLoading,
+    rows: docListData,
+    pagination: docPagination,
+    orderBy: 'last_call_time',
+    forceStalled: false
+  },
+  stall: {
+    loading: stallListLoading,
+    rows: stallListData,
+    pagination: stallPagination,
+    orderBy: 'silent_days',
+    forceStalled: true
   }
 }
 
-function handlePageChange(page) {
-  pagination.current = page
-  fetchList()
+async function fetchList(kind) {
+  const state = LIST_STATES[kind]
+  state.loading.value = true
+  try {
+    const params = {
+      ...buildFilterParams(),
+      page: state.pagination.current,
+      page_size: state.pagination.pageSize,
+      order_by: state.orderBy,
+      is_asc: false
+    }
+    // 停摆清单默认只看停摆（stalled=true）；用户显式选择停摆、或按状态筛选时以其为准
+    // （否则「作废」等已结束单据会被 stalled=true 过滤掉，筛选形同虚设）
+    if (state.forceStalled && params.stalled === undefined && !params.status) params.stalled = true
+    const res = await api.gisBizObject.getBizList(params)
+    const data = res?.data || res || {}
+    state.rows.value = data.rows || []
+    state.pagination.total = data.total || 0
+  } catch (e) {
+    console.error(t('bizObject.fetchFailed') + ':', e)
+    state.rows.value = []
+    state.pagination.total = 0
+  } finally {
+    state.loading.value = false
+  }
 }
 
-function handlePageSizeChange(size) {
-  pagination.pageSize = size
-  pagination.current = 1
-  fetchList()
+function fetchAllLists() {
+  fetchList('doc')
+  fetchList('stall')
+}
+
+function handlePageChange(kind, page) {
+  LIST_STATES[kind].pagination.current = page
+  fetchList(kind)
+}
+
+function handlePageSizeChange(kind, size) {
+  const state = LIST_STATES[kind]
+  state.pagination.pageSize = size
+  state.pagination.current = 1
+  fetchList(kind)
 }
 
 // ==================== 立即巡检 ====================
@@ -365,9 +431,10 @@ async function handleScan() {
         resolved: data.resolved ?? 0
       })
     )
-    pagination.current = 1
+    docPagination.current = 1
+    stallPagination.current = 1
     fetchSummary()
-    fetchList()
+    fetchAllLists()
   } catch (e) {
     console.error(t('bizObject.fetchFailed') + ':', e)
   } finally {
@@ -377,7 +444,6 @@ async function handleScan() {
 
 // ==================== 展示辅助 ====================
 const sceneColumns = []
-const listColumns = []
 
 function sceneLabel(record) {
   return record?.scene_name || record?.biz_scene || '-'
@@ -398,23 +464,6 @@ function formatRate(val) {
   return `${n.toFixed(2)}%`
 }
 
-const STATUS_MAP = {
-  open: { key: 'statusOpen', color: 'orange' },
-  in_progress: { key: 'statusInProgress', color: 'arcoblue' },
-  done: { key: 'statusDone', color: 'green' },
-  failed: { key: 'statusFailed', color: 'red' },
-  cancelled: { key: 'statusCancelled', color: 'gray' }
-}
-
-function statusLabel(status) {
-  const item = STATUS_MAP[status]
-  return item ? t(`bizObject.${item.key}`) : status || '-'
-}
-
-function statusColor(status) {
-  return STATUS_MAP[status]?.color || 'gray'
-}
-
 function goDetail(record) {
   router.push('/workspace/biz/detail/' + encodeURIComponent(record.biz_object_id))
 }
@@ -422,7 +471,7 @@ function goDetail(record) {
 // ==================== 初始化 ====================
 onMounted(() => {
   fetchSummary()
-  fetchList()
+  fetchAllLists()
 })
 </script>
 

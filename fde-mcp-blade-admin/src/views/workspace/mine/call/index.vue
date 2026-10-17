@@ -45,19 +45,19 @@
         :data="tableData"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1640 }"
+        :scroll="{ x: '100%' }"
         row-key="log_id"
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
       >
         <template #columns>
-          <a-table-column :title="$t('profile.callTime')" data-index="created_time" :width="170" />
+          <a-table-column :title="$t('profile.callTime')" data-index="created_time" :width="145" />
           <!-- 工具名（local_service_call）与插件名（biz-feishu-connector）是两回事 -->
-          <a-table-column :title="$t('profile.toolNameLabel')" data-index="tool_name" :width="170" />
-          <a-table-column :title="$t('profile.pluginNameLabel')" :width="190">
+          <a-table-column :title="$t('profile.toolNameLabel')" data-index="tool_name" :width="80" :ellipsis="true" />
+          <a-table-column :title="$t('profile.pluginNameLabel')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ record.plugin_name || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="$t('profile.methodName')" :width="220">
+          <a-table-column :title="$t('profile.methodName')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ record.method_name || '-' }}</template>
           </a-table-column>
           <a-table-column :title="$t('profile.objectType')" :width="120">
@@ -71,17 +71,20 @@
               <span v-else>-</span>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('profile.resultLabel')" :width="100">
+          <a-table-column :title="$t('profile.resultLabel')" :width="130">
             <template #cell="{ record }">
-              <a-tag :color="record.success ? 'green' : 'red'" size="small">
-                {{ record.success ? $t('commonTable.success') : $t('commonTable.failure') }}
-              </a-tag>
+              <!-- 三态：pending（待审批/受理中）不是失败，不要用 success 布尔直接判 -->
+              <a-tooltip :content="callOutcome(record).tip" :disabled="!callOutcome(record).tip">
+                <a-tag :color="callOutcome(record).color" size="small">
+                  {{ callOutcome(record).label }}
+                </a-tag>
+              </a-tooltip>
             </template>
           </a-table-column>
           <a-table-column :title="$t('profile.resultCode')" :width="110">
             <template #cell="{ record }">{{ record.result_code || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="$t('profile.resultMsg')" :width="180" :ellipsis="true">
+          <a-table-column :title="$t('profile.resultMsg')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ record.result_msg || '-' }}</template>
           </a-table-column>
           <a-table-column :title="$t('profile.elapsedMs')" :width="110">
@@ -123,10 +126,12 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getMineCmdList } from '@/api/modules/gisMine'
 import { useRiskLevelDict } from '@/constants/riskLevel'
+import { useCallOutcomeDict } from '@/constants/callOutcome'
 
 const { t } = useI18n()
 const router = useRouter()
 const { riskLevelMap } = useRiskLevelDict()
+const { callOutcome } = useCallOutcomeDict()
 
 // ==================== 筛选 ====================
 const toolNameFilter = ref('')

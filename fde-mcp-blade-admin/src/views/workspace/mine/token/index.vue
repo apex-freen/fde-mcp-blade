@@ -64,6 +64,7 @@
                 v-if="record.status === 'active'"
                 :content="$t('mine.tokenRevokeConfirm')"
                 type="warning"
+                position="br"
                 @ok="handleRevoke(record)"
               >
                 <a-button status="danger" type="text" size="small" :loading="revokingId === record.id">

@@ -214,10 +214,17 @@
           </div>
 
           <div class="err-row">
-            <div v-for="item in errorItems" :key="item.key" class="err">
+            <div v-for="item in failureItems" :key="item.key" class="err">
               <span class="err-label">{{ item.label }}</span>
               <span class="err-value">{{ fmt(item.value) }}</span>
             </div>
+          </div>
+
+          <!-- pending_approval 是「待办次数」不是失败 → 归到人工环节，不计入失败构成 -->
+          <div class="pending-row">
+            <span class="pend-label">{{ t('callOutcome.handoverTodo') }}</span>
+            <span class="pend-name">{{ pendingItem.label }}</span>
+            <span class="pend-value">{{ fmt(pendingItem.value) }}</span>
           </div>
 
           <div class="fail-title">{{ t('fdeScreen.failureTop') }}</div>
@@ -274,8 +281,10 @@ import { BaseChart } from '@/components/charts'
 import { getScreenFde } from '@/api/modules/gisScreen'
 import { useScreenPolling, buildScreenQuery } from '@/composables/screen'
 import { formatThousands, formatPercent } from '@/utils/format'
+import { useFailCategoryDict } from '@/constants/failCategory'
 
 const { t } = useI18n()
+const { failCategoryOptions } = useFailCategoryDict()
 const route = useRoute()
 
 const data = ref(null)
@@ -344,12 +353,19 @@ const trendNote = computed(() => trend.value.equivalent_note || '')
 
 const errorItems = computed(() => {
   const breakdown = quality.value.error_breakdown || {}
-  return [
-    { key: 'param_error', value: breakdown.param_error, label: t('fdeScreen.errorParam') },
-    { key: 'perm_denied', value: breakdown.perm_denied, label: t('fdeScreen.errorPerm') },
-    { key: 'system_error', value: breakdown.system_error, label: t('fdeScreen.errorSystem') }
-  ]
+  return failCategoryOptions.value.map(item => ({
+    key: item.value,
+    label: item.label,
+    value: breakdown[item.value]
+  }))
 })
+
+// error_breakdown 的 8 个 key 里，pending_approval 是「待办次数」而不是失败：
+// 从失败分类里摘出，归到「人工环节（待办）」（其余 7 个 key 才是失败类）
+const failureItems = computed(() => errorItems.value.filter(item => item.key !== 'pending_approval'))
+const pendingItem = computed(
+  () => errorItems.value.find(item => item.key === 'pending_approval') || { key: 'pending_approval', label: '', value: 0 }
+)
 
 // ⑪ 价值证明：必须保留 4 个指标位，null → 灰色「待接入」（§6.5，不使用 '-'）
 const proofItems = computed(() => {
@@ -1098,11 +1114,13 @@ function scopeText(item) {
 
 .err-row {
   display: flex;
+  flex-wrap: wrap;
   gap: calc(10px * var(--s));
 }
 
+// 失败分类 7 项（pending_approval 已归到人工环节）→ 每行 4 个，末行留空位不拉伸
 .err {
-  flex: 1;
+  flex: 0 1 calc(25% - calc(10px * var(--s)));
   min-width: 0;
   padding: calc(6px * var(--s)) calc(10px * var(--s));
   border: 1px solid tech.$line;
@@ -1124,6 +1142,40 @@ function scopeText(item) {
     font-family: tech.$num-font;
     font-weight: 600;
     text-shadow: 0 0 calc(12px * var(--s)) rgba(255, 192, 97, 0.5);
+  }
+}
+
+// 人工环节（待办）：pending 既不是成功也不是失败 → 灰蓝，不用失败的琥珀色
+.pending-row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--s));
+  padding: calc(6px * var(--s)) calc(10px * var(--s));
+  border: 1px dashed tech.$line;
+  border-radius: calc(3px * var(--s));
+  background: rgba(24, 48, 96, 0.22);
+  font-size: calc(13px * var(--s));
+
+  .pend-label {
+    flex-shrink: 0;
+    color: tech.$t3;
+  }
+
+  .pend-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: tech.$t2;
+  }
+
+  .pend-value {
+    margin-left: auto;
+    color: tech.$t2;
+    font-family: tech.$num-font;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 }
 

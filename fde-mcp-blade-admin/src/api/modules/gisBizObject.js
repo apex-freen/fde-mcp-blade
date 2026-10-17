@@ -41,12 +41,23 @@ export function getBizList(params = {}) {
 
 /**
  * 单据详情（节点计划 plan + 端到端时间线 timeline，时间线最多 500 行）
- * 不存在 → HTTP 400 + code=404
+ * 不存在或不可见 → HTTP 400 + code=404
  * @param {string} bizObjectId - 单据号，如 WO-2026-0915-0001
  * @param {{stall_days?: number}} params
  */
 export function getBizDetail(bizObjectId, params = {}) {
   return get(`/biz/gis_biz_object/${bizObjectId}`, params)
+}
+
+/**
+ * 单次调用详情（1065 新增，时间线行下钻）
+ * 鉴权 = 单据可见性 + log_id 必须属于该单据；log_id 不属于该单据 → HTTP 400 + code=404
+ * request_params / response_body / result_msg 均已在落库前完成 PII 打码，可直接展示
+ * @param {string} bizObjectId - 单据号
+ * @param {number|string} logId - 时间线行的 log_id
+ */
+export function getBizCallDetail(bizObjectId, logId) {
+  return get(`/biz/gis_biz_object/${bizObjectId}/call/${logId}`)
 }
 
 /**
@@ -71,4 +82,15 @@ export function getStallAlertList(params = {}) {
  */
 export function scanStallAlert(data = {}) {
   return post('/biz/gis_biz_object/stall_alert/scan', data)
+}
+
+/**
+ * 单据作废（B4，1060 新增）
+ * @param {string} bizObjectId - 单据号
+ * @param {{reason: string}} data - reason 必填非空（会落到留痕表，可审计）
+ * 行为：status='cancelled' + 写入 ended_time
+ * 失败：已在终态（done/failed/cancelled）→ 400；原因空 → 400；单据不可见 → 403
+ */
+export function closeBizObject(bizObjectId, data) {
+  return post(`/biz/gis_biz_object/${bizObjectId}/close`, data)
 }

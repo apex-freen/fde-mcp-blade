@@ -261,6 +261,22 @@ function actionLabel(type) {
   return opt ? opt.label : type || '-'
 }
 
+// detail 末尾可能带「来源: xxx」标注（1017 §3.4）：标注就写在 detail 文本里，
+// 列表里把它摘出来单独渲染成标签，正文不再重复展示它。
+// 兼容全/半角冒号与是否带括号两种写法，且只认结尾处的标注。
+const DETAIL_SOURCE_RE = /[（(]?\s*来源[:：]\s*([^）)]+?)\s*[）)]?\s*$/
+
+function extractSource(detail) {
+  const match = DETAIL_SOURCE_RE.exec(detail || '')
+  return match ? match[1] : ''
+}
+
+function detailText(detail) {
+  const text = detail || ''
+  const stripped = text.replace(DETAIL_SOURCE_RE, '').trim()
+  return stripped || text
+}
+
 // ==================== 导出 ====================
 const exportLoading = ref(false)
 

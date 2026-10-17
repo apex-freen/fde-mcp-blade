@@ -231,8 +231,6 @@
         :loading="aliasLoading"
         :pagination="false"
         row-key="alias_id"
-        :bordered="false"
-        size="small"
       >
         <template #columns>
           <a-table-column :title="t('vectorKb.aliasCol')" data-index="alias" :width="220" />
@@ -379,8 +377,6 @@
         :loading="indexLoading"
         :pagination="false"
         row-key="index_id"
-        :bordered="false"
-        size="small"
         :row-class="rowClass"
         @row-click="handleRowClick"
       >
@@ -452,15 +448,13 @@
           :loading="docLoading"
           :pagination="false"
           row-key="doc_id"
-          :bordered="false"
-          size="small"
-          :scroll="{ x: 2050 }"
+          :scroll="{ x: '100%' }"
+          :expandable="{ width: 40 }"
         >
           <template #columns>
-            <a-table-column :title="t('vectorKb.docId')" data-index="doc_id" :width="80" />
-            <a-table-column :title="t('vectorKb.docTitle2')" data-index="title" :width="200" />
-            <!-- 1041 §3.2：新增 6 个元数据列（空值显示 —） -->
-            <a-table-column :title="t('vectorKb.docStatus')" :width="100">
+            <a-table-column :title="t('vectorKb.docId')" data-index="doc_id" :width="90" />
+            <a-table-column :title="t('vectorKb.docTitle2')" data-index="title" :width="320" :ellipsis="true" :tooltip="true" />
+            <a-table-column :title="t('vectorKb.docStatus')" :width="110">
               <template #cell="{ record }">
                 <a-tag v-if="record.doc_status" :color="docStatusColor(record.doc_status)" size="small">
                   {{ docStatusText(record.doc_status) }}
@@ -468,21 +462,7 @@
                 <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
               </template>
             </a-table-column>
-            <a-table-column :title="t('vectorKb.owner')" :width="130">
-              <template #cell="{ record }">{{ record.owner || t('vectorKb.emptyCell') }}</template>
-            </a-table-column>
-            <a-table-column :title="t('vectorKb.effectiveDate')" :width="120">
-              <template #cell="{ record }">{{ record.effective_date || t('vectorKb.emptyCell') }}</template>
-            </a-table-column>
-            <a-table-column :title="t('vectorKb.reviewDate')" :width="120">
-              <template #cell="{ record }">
-                <!-- 1041 §3.2：复审日期已过期标红 -->
-                <span :class="{ 'text-danger': isOverdue(record.review_date) }">
-                  {{ record.review_date || t('vectorKb.emptyCell') }}
-                </span>
-              </template>
-            </a-table-column>
-            <a-table-column :title="t('vectorKb.confidentiality')" :width="90">
+            <a-table-column :title="t('vectorKb.confidentiality')" :width="100">
               <template #cell="{ record }">
                 <a-tag v-if="record.confidentiality" :color="confColor(record.confidentiality)" size="small">
                   {{ confText(record.confidentiality) }}
@@ -490,30 +470,7 @@
                 <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
               </template>
             </a-table-column>
-            <a-table-column :title="t('vectorKb.tags')" :width="180">
-              <template #cell="{ record }">
-                <template v-if="splitTags(record.tags).length">
-                  <a-tag
-                    v-for="tg in splitTags(record.tags)"
-                    :key="tg"
-                    color="gray"
-                    size="small"
-                    class="tag-cell"
-                  >
-                    {{ tg }}
-                  </a-tag>
-                </template>
-                <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
-              </template>
-            </a-table-column>
-            <a-table-column :title="t('vectorKb.sourceUri')" data-index="source_uri" :width="300" :ellipsis="true" />
-            <a-table-column :title="t('vectorKb.contentHash')" :width="140">
-              <template #cell="{ record }">
-                <span class="mono">{{ shortHash(record.content_hash) }}</span>
-              </template>
-            </a-table-column>
-            <a-table-column :title="t('vectorKb.createdBy')" data-index="created_by" :width="110" />
-            <a-table-column :title="t('vectorKb.createdTime')" data-index="created_time" :width="170" />
+            <a-table-column :title="t('vectorKb.createdTime')" data-index="created_time" :width="160" />
             <a-table-column :title="t('commonTable.operation')" :width="130" fixed="right">
               <template #cell="{ record }">
                 <template v-if="canManage">
@@ -533,6 +490,49 @@
                 </template>
               </template>
             </a-table-column>
+          </template>
+
+          <!-- 展开行：主行收敛掉的元数据在这里以键值对平铺（13 列会挤成横向滚动条，故收进展开区） -->
+          <template #expand-row="{ record }">
+            <div class="table-expand">
+              <a-descriptions :column="3" bordered size="small" layout="inline-horizontal">
+                <a-descriptions-item :label="t('vectorKb.owner')">
+                  {{ record.owner || t('vectorKb.emptyCell') }}
+                </a-descriptions-item>
+                <a-descriptions-item :label="t('vectorKb.effectiveDate')">
+                  {{ record.effective_date || t('vectorKb.emptyCell') }}
+                </a-descriptions-item>
+                <a-descriptions-item :label="t('vectorKb.reviewDate')">
+                  <!-- 1041 §3.2：复审日期已过期标红 -->
+                  <span :class="{ 'text-danger': isOverdue(record.review_date) }">
+                    {{ record.review_date || t('vectorKb.emptyCell') }}
+                  </span>
+                </a-descriptions-item>
+                <a-descriptions-item :label="t('vectorKb.tags')">
+                  <template v-if="splitTags(record.tags).length">
+                    <a-tag
+                      v-for="tg in splitTags(record.tags)"
+                      :key="tg"
+                      color="gray"
+                      size="small"
+                      class="tag-cell"
+                    >
+                      {{ tg }}
+                    </a-tag>
+                  </template>
+                  <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
+                </a-descriptions-item>
+                <a-descriptions-item :label="t('vectorKb.sourceUri')">
+                  {{ record.source_uri || t('vectorKb.emptyCell') }}
+                </a-descriptions-item>
+                <a-descriptions-item :label="t('vectorKb.contentHash')">
+                  <span class="mono">{{ shortHash(record.content_hash) }}</span>
+                </a-descriptions-item>
+                <a-descriptions-item :label="t('vectorKb.createdBy')">
+                  {{ record.created_by || t('vectorKb.emptyCell') }}
+                </a-descriptions-item>
+              </a-descriptions>
+            </div>
           </template>
           <template #empty>
             <a-empty :description="t('vectorKb.docEmptyList')" />
@@ -628,8 +628,6 @@
         :loading="probeLoading"
         :pagination="false"
         row-key="doc_id"
-        :bordered="false"
-        size="small"
         class="block-gap"
         :expandable="{ width: 40 }"
         :expanded-keys="probeExpandedKeys"
@@ -675,78 +673,78 @@
         </template>
 
         <template #expand-row="{ record }">
-          <a-table
-            :data="record.probes"
-            :pagination="false"
-            row-key="probe_id"
-            :bordered="false"
-            size="small"
-            table-layout="fixed"
-          >
-            <template #columns>
-              <a-table-column :title="t('vectorKb.probeColQuestion')" data-index="question" />
-              <a-table-column :title="t('vectorKb.probeColJudge')" :width="100">
-                <template #cell="{ record: p }">
-                  <a-tag v-if="getProbeResult(p.probe_id)" :color="getProbeResult(p.probe_id).passed === '1' ? 'green' : 'red'" size="small">
-                    {{ getProbeResult(p.probe_id).passed === '1' ? t('vectorKb.probePass') : t('vectorKb.probeFail') }}
-                  </a-tag>
-                  <span v-else class="muted">{{ t('vectorKb.probeNoJudge') }}</span>
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('vectorKb.probeColExpect')" :width="180" :ellipsis="true">
-                <template #cell="{ record: p }">
-                  {{ getProbeResult(p.probe_id)?.expect_title || '-' }}
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('vectorKb.probeColHit')" :width="180" :ellipsis="true">
-                <template #cell="{ record: p }">
-                  {{ getProbeResult(p.probe_id)?.hit_title || '-' }}
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('vectorKb.probeColRank')" :width="80">
-                <template #cell="{ record: p }">
-                  {{ getProbeResult(p.probe_id)?.hit_rank ?? '-' }}
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('vectorKb.probeColScore')" :width="100">
-                <template #cell="{ record: p }">
-                  {{ formatScore(getProbeResult(p.probe_id)?.top1_score) }}
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('vectorKb.probeColSource')" :width="90">
-                <template #cell="{ record: p }">
-                  <a-tag color="gray" size="small">{{ probeSourceText(p) }}</a-tag>
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('vectorKb.status')" :width="90">
-                <template #cell="{ record: p }">
-                  <a-tag :color="p.status !== '1' ? 'green' : 'gray'" size="small">
-                    {{ p.status !== '1' ? t('vectorKb.enabled') : t('vectorKb.disabled') }}
-                  </a-tag>
-                </template>
-              </a-table-column>
-              <a-table-column :title="t('commonTable.operation')" :width="210">
-                <template #cell="{ record: p }">
-                  <a-button type="text" size="mini" @click="openProbeModal(record, p)">
-                    {{ t('commonTable.edit') }}
-                  </a-button>
-                  <!-- 1040 §4.1：停用 / 恢复探针 —— 带 status 提交，其余字段原样回传 -->
-                  <a-button type="text" size="mini" @click="handleToggleProbe(p)">
-                    {{ p.status !== '1' ? t('vectorKb.disabled') : t('vectorKb.restore') }}
-                  </a-button>
-                  <a-popconfirm
-                    :content="t('vectorKb.probeDeleteConfirm')"
-                    position="br"
-                    @ok="handleDeleteProbe(p)"
-                  >
-                    <a-button type="text" size="mini" status="danger">
-                      {{ t('commonTable.delete') }}
+          <div class="table-expand">
+            <a-table
+              :data="record.probes"
+              :pagination="false"
+              row-key="probe_id"
+              table-layout="fixed"
+            >
+              <template #columns>
+                <a-table-column :title="t('vectorKb.probeColQuestion')" data-index="question" />
+                <a-table-column :title="t('vectorKb.probeColJudge')" :width="100">
+                  <template #cell="{ record: p }">
+                    <a-tag v-if="getProbeResult(p.probe_id)" :color="getProbeResult(p.probe_id).passed === '1' ? 'green' : 'red'" size="small">
+                      {{ getProbeResult(p.probe_id).passed === '1' ? t('vectorKb.probePass') : t('vectorKb.probeFail') }}
+                    </a-tag>
+                    <span v-else class="muted">{{ t('vectorKb.probeNoJudge') }}</span>
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('vectorKb.probeColExpect')" :width="180" :ellipsis="true">
+                  <template #cell="{ record: p }">
+                    {{ getProbeResult(p.probe_id)?.expect_title || '-' }}
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('vectorKb.probeColHit')" :width="180" :ellipsis="true">
+                  <template #cell="{ record: p }">
+                    {{ getProbeResult(p.probe_id)?.hit_title || '-' }}
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('vectorKb.probeColRank')" :width="80">
+                  <template #cell="{ record: p }">
+                    {{ getProbeResult(p.probe_id)?.hit_rank ?? '-' }}
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('vectorKb.probeColScore')" :width="100">
+                  <template #cell="{ record: p }">
+                    {{ formatScore(getProbeResult(p.probe_id)?.top1_score) }}
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('vectorKb.probeColSource')" :width="90">
+                  <template #cell="{ record: p }">
+                    <a-tag color="gray" size="small">{{ probeSourceText(p) }}</a-tag>
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('vectorKb.status')" :width="90">
+                  <template #cell="{ record: p }">
+                    <a-tag :color="p.status !== '1' ? 'green' : 'gray'" size="small">
+                      {{ p.status !== '1' ? t('vectorKb.enabled') : t('vectorKb.disabled') }}
+                    </a-tag>
+                  </template>
+                </a-table-column>
+                <a-table-column :title="t('commonTable.operation')" :width="210">
+                  <template #cell="{ record: p }">
+                    <a-button type="text" size="mini" @click="openProbeModal(record, p)">
+                      {{ t('commonTable.edit') }}
                     </a-button>
-                  </a-popconfirm>
-                </template>
-              </a-table-column>
-            </template>
-          </a-table>
+                    <!-- 1040 §4.1：停用 / 恢复探针 —— 带 status 提交，其余字段原样回传 -->
+                    <a-button type="text" size="mini" @click="handleToggleProbe(p)">
+                      {{ p.status !== '1' ? t('vectorKb.disabled') : t('vectorKb.restore') }}
+                    </a-button>
+                    <a-popconfirm
+                      :content="t('vectorKb.probeDeleteConfirm')"
+                      position="br"
+                      @ok="handleDeleteProbe(p)"
+                    >
+                      <a-button type="text" size="mini" status="danger">
+                        {{ t('commonTable.delete') }}
+                      </a-button>
+                    </a-popconfirm>
+                  </template>
+                </a-table-column>
+              </template>
+            </a-table>
+          </div>
         </template>
       </a-table>
       <a-empty v-else-if="!probeLoading" class="block-gap" :description="t('vectorKb.probeEmpty')" />
@@ -782,8 +780,6 @@
         :loading="reviewLoading"
         :pagination="false"
         row-key="doc_id"
-        :bordered="false"
-        size="small"
         class="block-gap"
         :row-class="reviewRowClass"
         @row-click="openEditDoc"
@@ -882,8 +878,6 @@
             :loading="gapLoading"
             :pagination="false"
             :row-key="r => r.query"
-            :bordered="false"
-            size="small"
           >
             <template #columns>
               <a-table-column :title="t('vectorKb.gapColQuery')" data-index="query" :ellipsis="true" />
@@ -911,8 +905,6 @@
             :loading="gapLoading"
             :pagination="false"
             :row-key="r => r.query"
-            :bordered="false"
-            size="small"
           >
             <template #columns>
               <a-table-column :title="t('vectorKb.gapColQuery')" data-index="query" :ellipsis="true" />
@@ -932,8 +924,6 @@
             :loading="gapLoading"
             :pagination="false"
             row-key="doc_id"
-            :bordered="false"
-            size="small"
             @row-click="openEditDoc"
           >
             <template #columns>
@@ -954,8 +944,6 @@
             :loading="gapLoading"
             :pagination="false"
             row-key="doc_id"
-            :bordered="false"
-            size="small"
             @row-click="openEditDoc"
           >
             <template #columns>
@@ -1014,10 +1002,8 @@
         :loading="feedbackLoading"
         :pagination="false"
         row-key="id"
-        :bordered="false"
-        size="small"
         class="block-gap"
-        :scroll="{ x: 1250 }"
+        :scroll="{ x: '100%' }"
       >
         <template #columns>
           <a-table-column :title="t('vectorKb.feedbackColTime')" data-index="created_time" :width="170" />
@@ -1178,7 +1164,7 @@
               <a-textarea
                 v-model="docForm.content"
                 class="doc-textarea"
-                :auto-size="{ minRows: 18, maxRows: 30 }"
+                :auto-size="{ minRows: 12, maxRows: 16 }"
                 :placeholder="t('vectorKb.docContentPlaceholder')"
               />
             </a-form-item>

@@ -80,13 +80,13 @@
         :pagination="pagination"
         :row-key="rowKey"
         :bordered="false"
-        :scroll="{ x: 2100 }"
+        :scroll="{ x: '100%' }"
         size="small"
       >
         <template #columns>
-          <a-table-column :title="t('skillLib.colName')" data-index="name" :width="180" fixed="left" />
-          <a-table-column :title="t('skillLib.colDesc')" data-index="description" :width="220" ellipsis />
-          <a-table-column :title="t('skillLib.colScope')" :width="150">
+          <a-table-column :title="t('skillLib.colName')" data-index="name" :width="80" fixed="left" ellipsis />
+          <a-table-column :title="t('skillLib.colDesc')" data-index="description" :width="80" ellipsis />
+          <a-table-column :title="t('skillLib.colScope')" :width="130">
             <template #cell="{ record }">
               <a-tag :color="scopeColor(record.scope)" size="small">{{ scopeText(record.scope) }}</a-tag>
               <span class="sub-hint">{{ belongsText(record) }}</span>
@@ -111,7 +111,7 @@
           <a-table-column :title="t('skillLib.colReviewDate')" :width="120">
             <template #cell="{ record }">{{ record.review_date || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="t('skillLib.colTags')" :width="160" ellipsis>
+          <a-table-column :title="t('skillLib.colTags')" :width="80" ellipsis>
             <template #cell="{ record }">{{ record.tags || '-' }}</template>
           </a-table-column>
           <a-table-column :title="t('skillLib.colVersion')" :width="80">
@@ -132,8 +132,8 @@
           <a-table-column :title="t('skillLib.colTools')" :width="90">
             <template #cell="{ record }">{{ (record.allowed_tools || []).length }}</template>
           </a-table-column>
-          <a-table-column :title="t('skillLib.colPath')" data-index="dir_path" :width="220" ellipsis />
-          <a-table-column :title="t('commonTable.operation')" :width="230" fixed="right">
+          <a-table-column :title="t('skillLib.colPath')" data-index="dir_path" :width="80" ellipsis />
+          <a-table-column :title="t('commonTable.operation')" :width="130" fixed="right">
             <template #cell="{ record }">
               <a-button type="text" size="mini" @click="openView(record)">
                 {{ t('skillLib.view') }}
@@ -884,7 +884,12 @@ onMounted(() => {
 
 .source-editor {
   width: 100%;
-  min-height: 46vh;
+  /* 弹层内容区上限是 80vh（见 arco-theme 第 8 节），这里减去表单其余控件实测占用的
+     约 370px（范围/技能名/触发描述 + 表单内边距），剩下的才是编辑器可用高度，
+     并给 130px 下限兜底。这样正常屏幕（≥600px 高）下内容区不再整体滚动，
+     超长正文由编辑器自身滚动。*/
+  min-height: max(130px, calc(80vh - 370px));
+  max-height: 60vh;
   padding: $space-3;
   background: $color-bg-muted;
   border: 1px solid $color-border;
@@ -903,6 +908,10 @@ onMounted(() => {
 
 .editor-alert {
   margin-bottom: $space-3;
+  /* 诊断列表给固定上限并自身滚动：lint 条目一多时不会把编辑器挤出弹层、
+     也不会让内容区整体出现滚动条（40vh 编辑器 + 3×10vh 诊断 ≈ 70vh，稳定装进 80vh 内容区） */
+  max-height: 10vh;
+  overflow: auto;
 }
 
 .lint-title {

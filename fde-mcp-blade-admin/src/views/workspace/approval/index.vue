@@ -50,66 +50,77 @@
         </a-tab-pane>
       </a-tabs>
 
-      <!-- 列表 -->
+      <!-- 列表：主行收敛为「单号 / 业务单号 / 工具 / 申请人 / 申请时间 / 状态 / 操作」，其余字段收进展开行 -->
       <a-table
         :data="tableData"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1520 }"
-        :row-class="rowClass"
+        :scroll="{ x: '100%' }"
+        :expandable="{ width: 40 }"
+        :expanded-keys="expandedKeys"
         row-key="approval_id"
         @row-click="handleRowClick"
+        @expanded-change="handleExpandedChange"
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
       >
         <template #columns>
-          <a-table-column :title="$t('hitl.approvalId')" data-index="approval_id" :width="80" />
-          <a-table-column :title="$t('hitl.requestId')" data-index="request_id" :width="190" :ellipsis="true" />
-          <a-table-column :title="$t('hitl.requester')" :width="110">
+          <a-table-column :title="$t('hitl.approvalId')" data-index="approval_id" :width="85" />
+          <a-table-column :title="$t('hitl.requestId')" data-index="request_id" :width="180" />
+          <a-table-column :title="$t('hitl.toolName')" :width="300">
+            <template #cell="{ record }">
+              <div class="cell-main">{{ toolDisplay(record) }}</div>
+              <div v-if="showToolSub(record)" class="cell-sub">{{ toolRaw(record) }}</div>
+            </template>
+          </a-table-column>
+          <a-table-column :title="$t('hitl.requester')" :width="90">
             <template #cell="{ record }">{{ record.requester_name || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="$t('hitl.toolName')" :width="210">
-            <template #cell="{ record }">
-              <div class="cell-main">{{ record.tool_display_name || record.tool_name || '-' }}</div>
-              <div v-if="showToolSub(record)" class="cell-sub">{{ record.tool_name }}</div>
-            </template>
-          </a-table-column>
-          <!-- 对象名：service = 插件名、device = 设备名；改造前的老单为 null，做空值兜底（57 §八#7） -->
-          <a-table-column :title="$t('hitl.targetName')" :width="180" :ellipsis="true">
-            <template #cell="{ record }">{{ record.target_name || '-' }}</template>
-          </a-table-column>
-          <a-table-column :title="$t('hitl.riskLevel')" :width="120">
-            <template #cell="{ record }">
-              <a-tag v-if="riskInfo(record.risk_level)" :color="riskInfo(record.risk_level).color" size="small">
-                {{ riskInfo(record.risk_level).label }}
-              </a-tag>
-              <span v-else>-</span>
-            </template>
-          </a-table-column>
-          <a-table-column :title="$t('hitl.applyTime')" data-index="created_time" :width="165" />
-          <a-table-column :title="$t('hitl.expiresAt')" data-index="expires_at" :width="165" />
-          <a-table-column :title="$t('hitl.status')" :width="190">
+          <a-table-column :title="$t('hitl.applyTime')" data-index="created_time" :width="155" />
+          <a-table-column :title="$t('hitl.status')" :width="145">
             <template #cell="{ record }">
               <a-tooltip :content="statusTip(record)" :disabled="!statusTip(record)" position="left">
                 <a-tag :color="statusInfo(record).color" size="small">{{ statusInfo(record).text }}</a-tag>
               </a-tooltip>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('hitl.operation')" :width="180" fixed="right">
+          <a-table-column :title="$t('hitl.operation')" :width="110" fixed="right">
             <template #cell="{ record }">
               <a-button type="text" size="small" @click.stop="openDetail(record.approval_id)">
                 {{ $t('commonTable.details') }}
               </a-button>
-              <a-tooltip v-if="record.masked_snippet" position="left">
-                <template #content>
-                  <div class="tip-hint">{{ $t('hitl.maskedPreviewHint') }}</div>
-                  <pre class="tip-json">{{ formatJson(record.masked_snippet) }}</pre>
-                </template>
-                <a-button type="text" size="small" @click.stop>{{ $t('hitl.maskedPreview') }}</a-button>
-              </a-tooltip>
             </template>
           </a-table-column>
         </template>
+
+        <!-- 展开行：主行收敛掉的字段以键值对平铺，并附打码预览 -->
+        <template #expand-row="{ record }">
+          <div class="table-expand">
+            <a-descriptions :column="3" bordered size="small" layout="inline-horizontal">
+              <!-- 对象名：service = 插件名、device = 设备名；优先取中文名 target_display_name，老单/未下发时回退 target_name（57 §八#7） -->
+              <a-descriptions-item :label="$t('hitl.targetName')">
+                {{ record.target_display_name || record.target_name || '-' }}
+              </a-descriptions-item>
+              <a-descriptions-item :label="$t('hitl.riskLevel')">
+                <a-tag v-if="riskInfo(record.risk_level)" :color="riskInfo(record.risk_level).color" size="small">
+                  {{ riskInfo(record.risk_level).label }}
+                </a-tag>
+                <span v-else>-</span>
+              </a-descriptions-item>
+              <a-descriptions-item :label="$t('hitl.expiresAt')">{{ record.expires_at || '-' }}</a-descriptions-item>
+            </a-descriptions>
+
+            <!-- 打码预览：单向脱敏快照，不可逆，仅供列表预览（明文参数只在详情抽屉里） -->
+            <div v-if="record.masked_snippet" class="expand-masked">
+              <div class="expand-masked-title">
+                {{ $t('hitl.maskedPreview') }}
+                <span class="expand-masked-hint">{{ $t('hitl.maskedPreviewHint') }}</span>
+              </div>
+              <pre class="json-block">{{ formatJson(record.masked_snippet) }}</pre>
+            </div>
+          </div>
+        </template>
+
         <template #empty>
           <a-empty :description="activeTab === 'pending' ? $t('hitl.noPending') : $t('hitl.noHandled')" />
         </template>
@@ -132,10 +143,10 @@
             <a-descriptions-item :label="$t('hitl.approvalId')">{{ detail.approval_id ?? '-' }}</a-descriptions-item>
             <a-descriptions-item :label="$t('hitl.requestId')">{{ detail.request_id || '-' }}</a-descriptions-item>
             <a-descriptions-item :label="$t('hitl.toolName')">
-              {{ detail.tool_display_name || detail.tool_name || '-' }}
+              {{ detail.method_display_name || detail.tool_display_name || detail.tool_name || '-' }}
             </a-descriptions-item>
             <a-descriptions-item :label="$t('bizObject.method')">{{ methodName || '-' }}</a-descriptions-item>
-            <a-descriptions-item :label="$t('hitl.targetName')">{{ detail.target_name || '-' }}</a-descriptions-item>
+            <a-descriptions-item :label="$t('hitl.targetName')">{{ detail.target_display_name || detail.target_name || '-' }}</a-descriptions-item>
             <a-descriptions-item :label="$t('hitl.riskLevel')">
               <a-tag v-if="riskInfo(detail.risk_level)" :color="riskInfo(detail.risk_level).color" size="small">
                 {{ riskInfo(detail.risk_level).label }}
@@ -357,6 +368,13 @@ const pendingRows = ref([])
 const handledRows = ref([])
 const tableData = computed(() => (activeTab.value === 'pending' ? pendingRows.value : handledRows.value))
 
+// 展开行（key = approval_id）：主行收敛掉的字段在展开行平铺
+const expandedKeys = ref([])
+
+function handleExpandedChange(keys) {
+  expandedKeys.value = keys
+}
+
 const pendingPagination = reactive({
   current: 1,
   pageSize: 10,
@@ -482,10 +500,6 @@ function isExpired(time) {
   return d.isValid() ? d.isBefore(dayjs()) : false
 }
 
-function rowClass(record) {
-  return record.status !== 'pending' || isExpired(record.expires_at) ? 'row-disabled' : ''
-}
-
 // 41 号 §六 状态映射（status='approved' 时用 exec_status 区分 ok / failed / skipped）
 function statusInfo(record) {
   const status = record?.status
@@ -528,8 +542,17 @@ function riskInfo(level) {
   return riskLevelMap.value[level] || { label: level, color: 'gray' }
 }
 
+// 工具列主文案：优先「功能中文名」，其次工具中文名，最后回退原始工具名
+function toolDisplay(record) {
+  return record?.method_display_name || record?.tool_display_name || record?.tool_name || '-'
+}
+// 工具列的原始标识（英文）：功能名优先，用于副行留痕/排查
+function toolRaw(record) {
+  return record?.method_name || record?.tool_name || ''
+}
 function showToolSub(record) {
-  return !!record?.tool_name && !!record?.tool_display_name && record.tool_name !== record.tool_display_name
+  const raw = toolRaw(record)
+  return !!raw && raw !== toolDisplay(record)
 }
 
 function execLabel(exec) {
@@ -636,7 +659,7 @@ const grantHoursText = computed(() => {
 
 const methodName = computed(() => {
   const p = detail.value?.params
-  return p?.arguments?.method_name || p?.method_name || detail.value?.masked_snippet?.method_name || ''
+  return detail.value?.method_name || p?.arguments?.method_name || p?.method_name || detail.value?.masked_snippet?.method_name || ''
 })
 
 const showGrantMissing = computed(() => detail.value?.requester_has_grant === false)
@@ -949,21 +972,20 @@ onMounted(async () => {
     line-height: 1.4;
   }
 
-  .tip-hint {
-    color: var(--color-text-3);
-    font-size: 12px;
-    margin-bottom: 4px;
+  // 展开行里的打码预览块
+  .expand-masked {
+    margin-top: 12px;
   }
-  .tip-json {
-    max-width: 420px;
-    max-height: 240px;
-    overflow: auto;
-    margin: 0;
-    font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  .expand-masked-title {
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: var(--color-text-1);
+  }
+  .expand-masked-hint {
+    margin-left: 8px;
+    font-weight: 400;
     font-size: 12px;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-all;
+    color: var(--color-text-3);
   }
 
   .section {
@@ -1041,9 +1063,9 @@ onMounted(async () => {
     margin-top: 16px;
   }
 
-  :deep(.row-disabled) td {
-    color: var(--color-text-3);
-    background: var(--color-fill-1);
+  // 与 biz 单据列表一致：整行可点进详情
+  :deep(.arco-table-tr) {
+    cursor: pointer;
   }
 }
 </style>

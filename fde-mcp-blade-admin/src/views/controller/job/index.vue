@@ -91,10 +91,10 @@
       >
         <template #columns>
           <a-table-column :title="$t('job.jobId')" data-index="jobId" :width="90" />
-          <a-table-column :title="$t('job.jobName')" data-index="jobName" :width="180" :ellipsis="true" />
+          <a-table-column :title="$t('job.jobName')" data-index="jobName" :width="135" :ellipsis="true" />
           <a-table-column :title="$t('job.jobGroup')" data-index="jobGroup" :width="110" />
-          <a-table-column :title="$t('job.invokeTarget')" data-index="invokeTarget" :width="220" :ellipsis="true" />
-          <a-table-column :title="$t('job.cronExpression')" data-index="cronExpression" :width="150" />
+          <a-table-column :title="$t('job.invokeTarget')" data-index="invokeTarget" :width="165" :ellipsis="true" />
+          <a-table-column :title="$t('job.cronExpression')" data-index="cronExpression" :width="120" />
           <a-table-column :title="$t('job.status')" :width="90">
             <template #cell="{ record }">
               <a-tag :color="record.status === '0' ? 'green' : 'orange'">
@@ -102,9 +102,9 @@
               </a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('job.remark')" data-index="remark" :width="180" :ellipsis="true" />
-          <a-table-column :title="$t('commonTable.createTime')" data-index="createTime" :width="170" />
-          <a-table-column :title="$t('commonTable.operation')" :width="280" fixed="right">
+          <a-table-column :title="$t('job.remark')" data-index="remark" :width="130" :ellipsis="true" />
+          <a-table-column :title="$t('commonTable.createTime')" data-index="createTime" :width="145" />
+          <a-table-column :title="$t('commonTable.operation')" :width="210" fixed="right">
             <template #cell="{ record }">
               <a-space size="mini">
                 <a-popconfirm

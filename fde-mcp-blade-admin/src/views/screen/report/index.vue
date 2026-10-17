@@ -96,10 +96,23 @@
               <div class="ds-stat-value">{{ fmt(quality.total_calls) }}</div>
             </div>
           </div>
-          <div class="ds-stats">
-            <div v-for="item in errorItems" :key="item.key" class="ds-stat">
-              <div class="ds-stat-label">{{ item.label }}</div>
-              <div class="ds-stat-value">{{ fmt(item.value) }}</div>
+          <!-- 失败分类：error_breakdown 固定 8 个 key，其中 pending_approval 属「人工环节（待办）」，
+               不是失败 → 从失败分类里摘出，见下方人工环节区块 -->
+          <div class="err-breakdown">
+            <div class="ds-list-title">{{ t('screen.errorBreakdown') }}</div>
+            <div class="err-grid">
+              <div v-for="item in failureItems" :key="item.key" class="err-cell">
+                <span class="err-name">{{ item.label }}</span>
+                <span class="err-num">{{ fmt(item.value) }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- 人工环节（待办）：pending_approval = 待办次数，不是失败 -->
+          <div class="ds-list">
+            <div class="ds-list-title">{{ t('callOutcome.handoverTodo') }}</div>
+            <div class="ds-row two-col">
+              <span class="ds-name">{{ pendingItem.label }}</span>
+              <span class="ds-num pending-num">{{ fmt(pendingItem.value) }}</span>
             </div>
           </div>
           <div class="ds-list">
@@ -166,10 +179,17 @@
           </div>
           <div class="ds-list">
             <div class="ds-list-title">{{ t('screen.callTrendTitle') }}</div>
-            <div v-for="(row, index) in callTrend" :key="`c-${index}`" class="ds-row three-col">
+            <div class="ds-row four-col ds-row-head">
+              <span class="ds-name">{{ t('screen.colDate') }}</span>
+              <span class="ds-num">{{ t('screen.totalCalls') }}</span>
+              <span class="ds-num">{{ t('screen.successCalls') }}</span>
+              <span class="ds-num">{{ t('screen.successRate') }}</span>
+            </div>
+            <div v-for="(row, index) in callTrend" :key="`c-${index}`" class="ds-row four-col">
               <span class="ds-name">{{ row.date }}</span>
               <span class="ds-num">{{ fmt(row.calls) }}</span>
               <span class="ds-num strong">{{ fmt(row.success) }}</span>
+              <span class="ds-num strong">{{ trendRate(row) }}</span>
             </div>
             <div v-if="!callTrend.length" class="ds-empty left">{{ t('screen.noData') }}</div>
           </div>
@@ -227,8 +247,10 @@ import { useI18n } from 'vue-i18n'
 import { getScreenReport } from '@/api/modules/gisScreen'
 import { useScreenPolling, buildScreenQuery, screenPeriodLabel, screenUpdatedTime } from '@/composables/screen'
 import { formatThousands, formatPercent } from '@/utils/format'
+import { useFailCategoryDict } from '@/constants/failCategory'
 
 const { t } = useI18n()
+const { failCategoryOptions } = useFailCategoryDict()
 const route = useRoute()
 
 const data = ref(null)
@@ -271,12 +293,28 @@ const dataBoundaryText = computed(() => {
 
 const errorItems = computed(() => {
   const breakdown = quality.value.error_breakdown || {}
-  return [
-    { key: 'param_error', label: t('screen.errorParam'), value: breakdown.param_error },
-    { key: 'perm_denied', label: t('screen.errorPerm'), value: breakdown.perm_denied },
-    { key: 'system_error', label: t('screen.errorSystem'), value: breakdown.system_error }
-  ]
+  return failCategoryOptions.value.map(item => ({
+    key: item.value,
+    label: item.label,
+    value: breakdown[item.value]
+  }))
 })
+
+// error_breakdown 的 8 个 key 里，pending_approval 是「待办次数」而不是失败：
+// 从失败分类里摘出，归到「人工环节（待办）」（其余 7 个 key 才是失败类）
+const failureItems = computed(() => errorItems.value.filter(item => item.key !== 'pending_approval'))
+const pendingItem = computed(
+  () => errorItems.value.find(item => item.key === 'pending_approval') || { key: 'pending_approval', label: '', value: 0 }
+)
+
+// 趋势成功率 = success ÷ evaluated（evaluated = 已评估，剔除人工接管行；
+// 不能用 calls 当分母 —— calls 是真实调用总量，含人工接管行），与指标 3/7 同口径
+function trendRate(row) {
+  const evaluated = Number(row?.evaluated)
+  if (!Number.isFinite(evaluated) || evaluated <= 0) return '-'
+  const success = Number(row?.success) || 0
+  return formatPercent((success / evaluated) * 100)
+}
 
 function fmt(value) {
   return formatThousands(value)
@@ -304,6 +342,63 @@ function fmtDecimal(value) {
 
 .ds-row.three-col {
   grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+// 调用趋势：日期 / 调用总数 / 成功调用 / 成功率
+.ds-row.four-col {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+// 趋势表头：弱化，只做列名提示
+.ds-row-head {
+  padding-bottom: calc(2px * var(--s));
+  font-size: calc(12px * var(--s));
+  color: tech.$t3;
+
+  .ds-num {
+    color: tech.$t3;
+  }
+}
+
+// pending（待审批/待办）既不是成功也不是失败 → 灰蓝，不用失败的琥珀色
+.pending-num {
+  color: tech.$t2;
+}
+
+// 失败分类 7 项（pending_approval 已归到人工环节）：2 列紧凑行式，避免挤占下方列表高度
+.err-breakdown {
+  flex-shrink: 0;
+}
+
+.err-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 calc(16px * var(--s));
+
+  .err-cell {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: calc(8px * var(--s));
+    padding: calc(4px * var(--s)) 0;
+    font-size: calc(14px * var(--s));
+  }
+
+  .err-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: tech.$t3;
+  }
+
+  .err-num {
+    flex-shrink: 0;
+    color: tech.$c-amber;
+    font-family: tech.$num-font;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .ds-stat-value.strong {

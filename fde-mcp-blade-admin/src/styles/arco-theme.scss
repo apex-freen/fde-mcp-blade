@@ -253,6 +253,10 @@ body {
 }
 
 // ---------------------------------------------------------------- 6. 表格
+// 内边距说明：Arco 真正承载单元格内边距的是 `.arco-table-cell`（见 arco table 的
+//   .table-size()），这里曾给 `.arco-table-th/td` 又加了一层，两层叠加后每列左右
+//   各 30px，列间距明显偏大、内容可用宽度被挤占。现在 th/td 那层归零，只保留
+//   cell 这一层，并把左右收紧到 10px，全站表格统一紧凑（上下沿用 Arco 的 size 档位）。
 .arco-table-container {
   border-color: var(--line);
   border-radius: var(--r-md);
@@ -260,7 +264,7 @@ body {
 
 .arco-table-th {
   height: auto;
-  padding: 11px 14px;
+  padding: 0;
   background-color: var(--panel-2);
   font-size: 12.5px;
   font-weight: 600;
@@ -269,9 +273,19 @@ body {
 }
 
 .arco-table-td {
-  padding: 12px 14px;
+  padding: 0;
   font-size: 13px;
   border-color: var(--line);
+}
+
+// 只收紧左右内边距（列间距过大的主因）；上下沿用 Arco 按 size 档位给的值。
+// 用 `.arco-table .arco-table-cell` 是为了与 Arco 的 `.arco-table-size-* .arco-table-cell`
+// 同权重、靠引入顺序后来居上；勾选/展开列的 padding:0 权重更高，不受影响。
+// word-break：让 xxx_yyy_zzz 这类无断点长串能在格内断开，避免顶破列宽。
+.arco-table .arco-table-cell {
+  padding-left: 10px;
+  padding-right: 10px;
+  word-break: break-word;
 }
 
 .arco-table-tr:hover .arco-table-td {
@@ -300,6 +314,55 @@ body {
 
 .arco-table-pagination {
   margin-top: 14px;
+}
+
+// ---- 6.1 表格宽度与横向滚动条 ----
+// 表格宽度 = max(各列 :width 之和, 容器宽度)。列宽之和大于容器时，表格底部就会
+// 出现横向滚动条——这是列宽配置的事，样式层消除不了（`:scroll="{ x: '100%' }"`
+// 只能让容器更宽时铺满，不能突破列宽之和的下限）。
+// 所以列多的宽表要保持无滚动条，只有两条路：收紧列宽，或改用
+// 「主行收敛 + 展开行」（见 workspace/approval/index.vue）。
+
+// ---- 6.2 紧凑型表格格式（命名复用）----
+// 表格内边距的紧凑规则见上面的第 6 节，已全站默认生效；这里把同一套规则收敛成
+// 一个具名格式类，让「紧凑型格式」这个约定有唯一入口：单表需要显式声明、或在
+// 局部样式把它覆盖掉之后想还原时，加 class="table-compact" 即可。
+.table-compact {
+  .arco-table-th,
+  .arco-table-td {
+    padding: 0;
+  }
+
+  .arco-table-cell {
+    padding-left: 10px;
+    padding-right: 10px;
+    word-break: break-word;
+  }
+}
+
+// 紧凑型表格的「展开行」内容块：给 a-table 的 #expand-row 插槽内容套一层
+// <div class="table-expand">，即可获得统一的键值对区块格式（浅底 + 内边距）。
+// 标准写法（列多、单行放不下时）：
+//   <a-table :scroll="{ x: '100%' }" :expandable="{ width: 40 }">
+//     <template #expand-row="{ record }">
+//       <div class="table-expand"> <a-descriptions ...> ... </a-descriptions> </div>
+//     </template>
+//   </a-table>
+.table-expand {
+  padding: 12px 16px;
+  background: var(--panel-2);
+}
+
+// 展开行里的嵌套子表：Arco 会用 size 档位的负边距去抵消单元格内边距，让子表
+// 「全出血」贴边。但第 6 节已把 `.arco-table-td` 的内边距归零，这个补偿量就变成
+// 纯外溢——子表向上、向左右各顶出半格，和父表边框错位（档位由 small 换到 large
+// 时垂直外溢还会从 5px 变 9px）。这里把负边距还原为 0，让子表按正常位置铺在
+// 展开行里；需要留白时用 .table-expand 内容块包裹即可。
+// 选择器与 Arco 的
+//   `.arco-table-size-* .arco-table-tr-expand .arco-table-td .arco-table`
+// 同权重，靠引入顺序后来居上。
+.arco-table .arco-table-tr-expand .arco-table-td .arco-table {
+  margin: 0;
 }
 
 // ---------------------------------------------------------------- 7. 导航类
@@ -387,6 +450,17 @@ body {
 
 .arco-modal-footer {
   border-top: 1px solid var(--line);
+}
+
+// 长内容模态框（长表单 / 富文本 / 预览面板）默认会顶出视口，底部按钮要滚下去才看得到。
+// 给内容区设高度上限并让它自己滚：头部与底部按钮始终留在视口内。
+// 80vh 是「内容区 + 头部 + 底部 + 上下外边距」仍能装进 100vh 的上限；表单页应把
+// 内部控件（如多行文本）的行数上限一并收住，让长内容由控件自身滚动，而不是由
+// 内容区整体滚动。
+// 注意：Arco 的下拉浮层默认挂到 body 上，不会被这条规则裁切。
+.arco-modal-body {
+  max-height: 80vh;
+  overflow: auto;
 }
 
 .arco-drawer {

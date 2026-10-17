@@ -101,7 +101,7 @@
             donut
             :center-title="successRatePercent + '%'"
             :center-sub-title="$t('auditStats.successRateSub')"
-            :colors="['#00b42a', '#f53f3f']"
+            :colors="successRateColors"
             height="260px"
           />
         </a-card>
@@ -126,6 +126,8 @@ import { Message } from '@arco-design/web-vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api'
 import { LineChart, BarChart, PieChart } from '@/components/charts'
+import { brandColors } from '@/components/charts/theme'
+import { CALL_OUTCOME, resolveCallOutcome } from '@/constants/callOutcome'
 
 const { t } = useI18n()
 
@@ -194,7 +196,8 @@ const kpiCards = computed(() => [
 ])
 
 function countFailures() {
-  const cmdFails = cmdLogData.value.filter(r => r.success === false).length
+  // pending（待审批/受理中）不是失败，不计入失败数
+  const cmdFails = cmdLogData.value.filter(r => resolveCallOutcome(r) === CALL_OUTCOME.failed).length
   const grantFails = grantLogData.value.filter(r => r.success === false).length
   return cmdFails + grantFails
 }
@@ -294,22 +297,46 @@ function computeTopTools() {
   topToolData.value = sorted.map(item => item[1])
 }
 
-// 成功率
+// 成功率：先按三态拆行，pending（待审批/受理中）既不算成功也不算失败，且不进分母
+const outcomeStats = computed(() => {
+  const rows = cmdLogData.value
+  let success = 0
+  let pending = 0
+  rows.forEach((r) => {
+    const value = resolveCallOutcome(r)
+    if (value === CALL_OUTCOME.succeeded) success++
+    else if (value === CALL_OUTCOME.pending) pending++
+  })
+  const evaluated = rows.length - pending
+  return { success, pending, evaluated, failed: evaluated - success }
+})
+
 const successRateData = computed(() => {
-  const total = cmdLogData.value.length
-  const success = cmdLogData.value.filter(r => r.success === true).length
-  const fail = total - success
+  const s = outcomeStats.value
   return [
-    { name: t('commonTable.success'), value: success },
-    { name: t('commonTable.failure'), value: fail }
+    { key: CALL_OUTCOME.succeeded, name: t('callOutcome.succeeded'), value: s.success },
+    { key: CALL_OUTCOME.failed, name: t('callOutcome.failed'), value: s.failed },
+    { key: CALL_OUTCOME.pending, name: t('callOutcome.pending'), value: s.pending }
   ].filter(item => item.value > 0)
 })
 
+// 饼图取色按 data 顺序对齐（主题令牌，不在 .vue 里写字面量）
+const successRateColors = computed(() => {
+  const c = brandColors()
+  const colorOf = {
+    [CALL_OUTCOME.succeeded]: c.success,
+    // pending 灰：待办未决，既不是成功也不是失败
+    [CALL_OUTCOME.pending]: c.info,
+    [CALL_OUTCOME.failed]: c.danger
+  }
+  return successRateData.value.map(item => colorOf[item.key])
+})
+
+// 成功率 = 成功 ÷ 已评估（分母剔除待审批行，与报表 success ÷ evaluated 同口径）
 const successRatePercent = computed(() => {
-  const total = cmdLogData.value.length
-  if (total === 0) return 0
-  const success = cmdLogData.value.filter(r => r.success === true).length
-  return Math.round((success / total) * 100)
+  const { success, evaluated } = outcomeStats.value
+  if (evaluated === 0) return 0
+  return Math.round((success / evaluated) * 100)
 })
 
 // 指令类型分布

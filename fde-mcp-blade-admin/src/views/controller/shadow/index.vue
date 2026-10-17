@@ -96,14 +96,14 @@
         :data="records"
         :loading="loading"
         :pagination="false"
-        :scroll="{ x: 1600 }"
+        :scroll="{ x: '100%' }"
         row-key="record_id"
         size="small"
       >
         <template #columns>
-          <a-table-column :title="$t('pluginShadow.recordId')" data-index="record_id" :width="150" />
-          <a-table-column :title="$t('pluginShadow.pluginFilter')" data-index="plugin_name" :width="180" />
-          <a-table-column :title="$t('pluginShadow.sourceMethod')" data-index="source_method" :width="200" />
+          <a-table-column :title="$t('pluginShadow.recordId')" data-index="record_id" :width="80" :ellipsis="true" />
+          <a-table-column :title="$t('pluginShadow.pluginFilter')" data-index="plugin_name" :width="80" :ellipsis="true" />
+          <a-table-column :title="$t('pluginShadow.sourceMethod')" data-index="source_method" :width="80" :ellipsis="true" />
           <a-table-column :title="$t('pluginShadow.site')" :width="90">
             <template #cell="{ record }">{{ record.site || '-' }}</template>
           </a-table-column>
@@ -117,23 +117,23 @@
           <a-table-column
             :title="$t('pluginShadow.paramsMasked')"
             data-index="params_masked"
-            :width="240"
+            :width="80"
             :ellipsis="true"
           />
           <a-table-column :title="$t('pluginShadow.approver')" :width="100">
             <template #cell="{ record }">{{ record.approver || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="$t('pluginShadow.approvedAt')" :width="160">
+          <a-table-column :title="$t('pluginShadow.approvedAt')" :width="145">
             <template #cell="{ record }">{{ formatTime(record.approved_at) }}</template>
           </a-table-column>
-          <a-table-column :title="$t('pluginShadow.note')" data-index="note" :width="150" :ellipsis="true" />
-          <a-table-column :title="$t('pluginShadow.result')" :width="180" :ellipsis="true">
+          <a-table-column :title="$t('pluginShadow.note')" data-index="note" :width="80" :ellipsis="true" />
+          <a-table-column :title="$t('pluginShadow.result')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ shortText(record.result) }}</template>
           </a-table-column>
-          <a-table-column :title="$t('pluginShadow.recordTime')" :width="160">
+          <a-table-column :title="$t('pluginShadow.recordTime')" :width="145">
             <template #cell="{ record }">{{ formatTime(record.record_ts) }}</template>
           </a-table-column>
-          <a-table-column :title="$t('commonTable.operation')" :width="180" fixed="right">
+          <a-table-column :title="$t('commonTable.operation')" :width="130" fixed="right">
             <template #cell="{ record }">
               <a-space size="mini">
                 <a-button type="text" size="small" @click="handleViewParams(record)">

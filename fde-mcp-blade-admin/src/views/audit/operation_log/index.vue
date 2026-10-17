@@ -115,11 +115,14 @@
               <span :class="record.elapsed_ms > 1000 ? 'slow-warn' : ''">{{ record.elapsed_ms }}ms</span>
             </template>
           </a-table-column>
-          <a-table-column v-if="!isColHidden('success')" :title="$t('commonTable.status')" :width="80">
+          <a-table-column v-if="!isColHidden('success')" :title="$t('commonTable.status')" :width="140">
             <template #cell="{ record }">
-              <a-tag :color="record.success ? 'green' : 'red'" size="small">
-                {{ record.success ? $t('commonTable.success') : $t('commonTable.failure') }}
-              </a-tag>
+              <!-- 三态：pending（待审批/受理中）不是失败，不要用 success 布尔直接判 -->
+              <a-tooltip :content="callOutcome(record).tip" :disabled="!callOutcome(record).tip">
+                <a-tag :color="callOutcome(record).color" size="small">
+                  {{ callOutcome(record).label }}
+                </a-tag>
+              </a-tooltip>
             </template>
           </a-table-column>
           <a-table-column v-if="!isColHidden('created_time')" :title="$t('auditLog.time')" data-index="created_time" :width="180" />
@@ -159,11 +162,13 @@ import { useI18n } from 'vue-i18n'
 import { Message } from '@arco-design/web-vue'
 import { api } from '@/api'
 import { useAuditLogDict } from '@/constants/auditDict'
+import { useCallOutcomeDict } from '@/constants/callOutcome'
 import { downloadBlob, getFilenameFromHeaders } from '@/utils/download'
 import { useTableSettings } from '@/hooks/useTableSettings'
 
 const { t } = useI18n()
 const { riskLevelOptions, riskLevelMap, cmdTypeOptions } = useAuditLogDict()
+const { callOutcome } = useCallOutcomeDict()
 
 // ==================== 搜索 ====================
 const searchForm = reactive({
@@ -337,7 +342,7 @@ function showDetail(record) {
     { label: t('auditLog.funKey'), value: record.fun_key || '-' },
     { label: t('auditLog.deviceClientIdShort'), value: record.eqp_id || '-' },
     { label: t('auditLog.deviceClientId'), value: record.eqp_client_id || '-' },
-    { label: t('auditLog.execStatus'), value: record.success ? t('commonTable.success') : t('commonTable.failure') },
+    { label: t('auditLog.execStatus'), value: callOutcome(record).label },
     { label: t('auditLog.elapsed'), value: record.elapsed_ms },
     { label: t('commonTable.createTime'), value: record.created_time }
   ]

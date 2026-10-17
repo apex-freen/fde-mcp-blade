@@ -118,7 +118,7 @@
       >
         <template #columns>
           <a-table-column :title="$t('operlog.operId')" data-index="operId" :width="90" />
-          <a-table-column :title="$t('operlog.title')" data-index="title" :width="160" :ellipsis="true" />
+          <a-table-column :title="$t('operlog.title')" data-index="title" :width="86" :ellipsis="true" />
           <a-table-column :title="$t('operlog.businessType')" :width="110">
             <template #cell="{ record }">
               <a-tag :color="businessTypeColor(record.businessType)" size="small">
@@ -128,7 +128,7 @@
           </a-table-column>
           <a-table-column :title="$t('operlog.requestMethod')" data-index="requestMethod" :width="110" />
           <a-table-column :title="$t('operlog.operName')" data-index="operName" :width="120" />
-          <a-table-column :title="$t('operlog.operUrl')" data-index="operUrl" :width="220" :ellipsis="true" />
+          <a-table-column :title="$t('operlog.operUrl')" data-index="operUrl" :width="119" :ellipsis="true" />
           <a-table-column :title="$t('operlog.operIp')" data-index="operIp" :width="140" />
           <a-table-column :title="$t('operlog.status')" :width="90">
             <template #cell="{ record }">
@@ -137,7 +137,7 @@
               </a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('operlog.operTime')" :width="180">
+          <a-table-column :title="$t('operlog.operTime')" :width="145">
             <template #cell="{ record }">
               {{ formatDateTime(record.operTime) }}
             </template>

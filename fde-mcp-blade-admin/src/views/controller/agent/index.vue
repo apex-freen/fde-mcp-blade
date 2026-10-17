@@ -46,14 +46,14 @@
       >
         <template #columns>
           <a-table-column :title="'ID'" data-index="gisAgentId" :width="70" />
-          <a-table-column :title="$t('agentManage.agentName')" data-index="agentName" :width="160" />
+          <a-table-column :title="$t('agentManage.agentName')" data-index="agentName" :width="90" ellipsis tooltip />
           <a-table-column :title="$t('agentManage.bindUser')" :width="140">
             <template #cell="{ record }">
               {{ getUserName(record.userId) }}
             </template>
           </a-table-column>
-          <a-table-column :title="$t('agentManage.description')" data-index="agentDescription" :width="200" ellipsis tooltip />
-          <a-table-column :title="$t('agentManage.mcpTools')" :width="220">
+          <a-table-column :title="$t('agentManage.description')" data-index="agentDescription" :width="80" ellipsis tooltip />
+          <a-table-column :title="$t('agentManage.mcpTools')" :width="130">
             <template #cell="{ record }">
               <a-space v-if="(agentPluginsMap[record.gisAgentId] || []).length" wrap size="mini">
                 <a-tag v-for="name in agentPluginsMap[record.gisAgentId]" :key="name" color="arcoblue">{{ name }}</a-tag>
@@ -66,19 +66,19 @@
               {{ getProviderDisplay(record.modelProvider) }}
             </template>
           </a-table-column>
-          <a-table-column :title="$t('agentManage.modelName')" :width="160">
+          <a-table-column :title="$t('agentManage.modelName')" :width="90">
             <template #cell="{ record }">
               {{ getModelDisplay(record.modelName) }}
             </template>
           </a-table-column>
           <a-table-column :title="$t('agentManage.temperature')" data-index="temperature" :width="80" />
           <a-table-column :title="$t('agentManage.maxTokens')" data-index="maxTokens" :width="100" />
-          <a-table-column :title="$t('agentManage.createdTime')" :width="170">
+          <a-table-column :title="$t('agentManage.createdTime')" :width="145">
             <template #cell="{ record }">
               {{ record.createdTime ? formatDateTime(record.createdTime) : '-' }}
             </template>
           </a-table-column>
-          <a-table-column :title="$t('commonTable.operation')" :width="240" fixed="right">
+          <a-table-column :title="$t('commonTable.operation')" :width="130" fixed="right">
             <template #cell="{ record }">
               <a-space size="mini">
                 <a-button type="text" size="small" @click="handleEdit(record)">

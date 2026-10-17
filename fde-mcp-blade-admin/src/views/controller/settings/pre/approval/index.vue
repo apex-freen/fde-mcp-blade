@@ -123,7 +123,7 @@
         :data="tableData"
         :loading="loading"
         :pagination="pagination"
-        :scroll="{ x: 1820 }"
+        :scroll="{ x: '100%' }"
         row-key="grant_id"
         @page-change="handlePageChange"
         @page-size-change="handlePageSizeChange"
@@ -131,7 +131,7 @@
         <template #columns>
           <!-- 被授权人直接取列表出参 gis_user_name，不要靠 gis_user_id 反查（41 §12.2）：
                用户下拉走 /biz/gis_user/all 且受数据权限过滤，反查会漏人 -->
-          <a-table-column :title="$t('preApproval.grantedUser')" :width="190">
+          <a-table-column :title="$t('preApproval.grantedUser')" :width="110">
             <template #cell="{ record }">
               <div class="cell-main">{{ record.gis_user_name || record.gis_user_id || '-' }}</div>
               <div v-if="contactLine(record)" class="cell-sub">{{ contactLine(record) }}</div>
@@ -145,13 +145,13 @@
             </template>
           </a-table-column>
           <!-- 对象名：service 行取 target_name（插件名），device 行 target_name 为空则回落 eqp_name（设备名） -->
-          <a-table-column :title="$t('preApproval.eqpName')" :width="180" :ellipsis="true">
+          <a-table-column :title="$t('preApproval.eqpName')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ record.target_name || record.eqp_name || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="$t('preApproval.eqpClientId')" :width="180" :ellipsis="true">
+          <a-table-column :title="$t('preApproval.eqpClientId')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ record.eqp_client_id || '-' }}</template>
           </a-table-column>
-          <a-table-column :title="$t('preApproval.funKey')" :width="180" :ellipsis="true">
+          <a-table-column :title="$t('preApproval.funKey')" :width="80" :ellipsis="true">
             <template #cell="{ record }">{{ record.fun_key || '-' }}</template>
           </a-table-column>
           <a-table-column :title="$t('preApproval.grantSta')" :width="110">
@@ -173,13 +173,13 @@
           <a-table-column :title="$t('preApproval.grantUserName')" :width="130" :ellipsis="true">
             <template #cell="{ record }">{{ userLabelById(record.grant_user_id) }}</template>
           </a-table-column>
-          <a-table-column :title="$t('preApproval.startedTime')" :width="170">
+          <a-table-column :title="$t('preApproval.startedTime')" :width="145">
             <template #cell="{ record }">{{ record.grant_started_time || $t('preApproval.immediate') }}</template>
           </a-table-column>
-          <a-table-column :title="$t('preApproval.expiredTime')" :width="170">
+          <a-table-column :title="$t('preApproval.expiredTime')" :width="145">
             <template #cell="{ record }">{{ record.grant_expired_time || $t('preApproval.neverExpire') }}</template>
           </a-table-column>
-          <a-table-column :title="$t('preApproval.createdAt')" data-index="created_time" :width="170" />
+          <a-table-column :title="$t('preApproval.createdAt')" data-index="created_time" :width="145" />
           <a-table-column :title="$t('preApproval.operation')" :width="100" fixed="right">
             <template #cell="{ record }">
               <a-button

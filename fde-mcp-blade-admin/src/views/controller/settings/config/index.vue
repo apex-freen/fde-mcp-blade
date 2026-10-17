@@ -97,16 +97,16 @@
       >
         <template #columns>
           <a-table-column :title="$t('sysConfig.gisSysConfigId')" data-index="gisSysConfigId" :width="90" />
-          <a-table-column :title="$t('sysConfig.configKey')" data-index="configKey" :width="200" :ellipsis="true" />
-          <a-table-column :title="$t('sysConfig.configValue')" :width="220" :ellipsis="true">
+          <a-table-column :title="$t('sysConfig.configKey')" data-index="configKey" :width="135" :ellipsis="true" />
+          <a-table-column :title="$t('sysConfig.configValue')" :width="150" :ellipsis="true">
             <template #cell="{ record }">
               <span class="mono">{{ record.configValue || '-' }}</span>
             </template>
           </a-table-column>
           <a-table-column :title="$t('sysConfig.configType')" data-index="configType" :width="100" />
           <a-table-column :title="$t('sysConfig.category')" data-index="category" :width="130" />
-          <a-table-column :title="$t('sysConfig.scope')" data-index="scope" :width="160" :ellipsis="true" />
-          <a-table-column :title="$t('sysConfig.description')" data-index="description" :width="180" :ellipsis="true" />
+          <a-table-column :title="$t('sysConfig.scope')" data-index="scope" :width="108" :ellipsis="true" />
+          <a-table-column :title="$t('sysConfig.description')" data-index="description" :width="122" :ellipsis="true" />
           <a-table-column :title="$t('sysConfig.status')" :width="90">
             <template #cell="{ record }">
               <a-tag :color="record.status === '1' ? 'green' : 'red'">
@@ -114,8 +114,8 @@
               </a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="$t('sysConfig.updatedTime')" data-index="updatedTime" :width="170" />
-          <a-table-column :title="$t('commonTable.operation')" :width="150" fixed="right">
+          <a-table-column :title="$t('sysConfig.updatedTime')" data-index="updatedTime" :width="145" />
+          <a-table-column :title="$t('commonTable.operation')" :width="130" fixed="right">
             <template #cell="{ record }">
               <span v-if="record.readonly" class="readonly-text">
                 <a-tag size="small">{{ $t('sysConfig.readonly') }}</a-tag>

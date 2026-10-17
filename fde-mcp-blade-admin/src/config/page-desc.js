@@ -51,6 +51,10 @@ export const pageDescMap = {
     description: '影子演练：演练期只记录不执行，管理员批准后才真实发送'
   },
   '/controller/capability/milestone/index': { description: '管理项目里程碑与计划节点' },
+  // 1060：工作流建模（menu_id=1093，落平台能力下，component=controller/workflow/index）
+  '/controller/capability/workflow/index': {
+    description: '工作流建模：配置节点顺序、人工基线与方法映射，发布后对智能体生效'
+  },
   // 内容管理
   '/controller/content/file/index': { description: '浏览和管理本地文件资源' },
   '/controller/content/recycle/index': { description: '查看和恢复已删除的资源' },
