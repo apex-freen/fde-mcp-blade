@@ -1,6 +1,6 @@
 # FDE MCP Blade Admin
 
-FDE MCP Blade —— 边缘 MCP 双向中控中枢的管理控制台（Web 端）。
+FDE MCP Blade —— 智能体接入开发与治理底座的管理控制台（Web 端）。
 
 > 向上为 Agent 提供工具，向下调度企业系统插件；内置插件引擎、五层安全、RBAC 与全链路审计，纯本地交付。
 

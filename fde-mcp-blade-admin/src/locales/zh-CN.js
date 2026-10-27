@@ -190,8 +190,8 @@ export default {
     ssoLogin: '企业单点登录（SSO）',
     // 登录页 v1 分栏版式（左品牌面板 / 右表单面板）
     eyebrow: 'Edge MCP Control Plane',
-    heroLine1: '边缘 MCP',
-    heroLine2: '双向中控中枢',
+    heroLine1: '智能体接入',
+    heroLine2: '开发与治理底座',
     capPlugin: '插件引擎',
     capSecurity: '5 层安全',
     capAudit: '全链路审计',

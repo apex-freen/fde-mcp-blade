@@ -2,7 +2,7 @@
 
 # FDE MCP Blade
 
-**The AI toolbox you deploy inside your customer's data center — an intranet AI tool-access & governance hub for FDEs and system integrators**
+**The agent access development & governance foundation you deploy inside your customer's data center — an intranet AI tool-access & governance hub for FDEs and system integrators**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-amd64-2496ED?logo=docker&logoColor=white)](./fde-mcp-blade)

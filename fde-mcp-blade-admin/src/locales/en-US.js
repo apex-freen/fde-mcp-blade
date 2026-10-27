@@ -190,8 +190,8 @@ export default {
     ssoLogin: 'Single Sign-On (SSO)',
     // Login page v1 split layout (brand panel / form panel)
     eyebrow: 'Edge MCP Control Plane',
-    heroLine1: 'Edge MCP',
-    heroLine2: 'Bi-Directional Control Plane',
+    heroLine1: 'Agent Access',
+    heroLine2: 'Development & Governance Foundation',
     capPlugin: 'Plugin engine',
     capSecurity: 'Five-layer security',
     capAudit: 'Full audit trail',

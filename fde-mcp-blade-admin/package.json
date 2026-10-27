@@ -2,7 +2,7 @@
   "name": "fde-mcp-blade-admin",
   "version": "1.0.0",
   "private": true,
-  "description": "FDE MCP Blade —— 边缘 MCP 双向中控中枢（Web 管理控制台）",
+  "description": "FDE MCP Blade —— 智能体接入开发与治理底座（Web 管理控制台）",
   "type": "module",
   "scripts": {
     "dev": "vite",

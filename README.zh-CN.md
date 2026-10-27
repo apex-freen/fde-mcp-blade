@@ -2,7 +2,7 @@
 
 # FDE MCP Blade
 
-**部署在你客户机房里的 AI 工具箱 —— 面向 FDE 与集成商的企业内网 AI 工具接入与治理中台**
+**部署在你客户机房里的智能体接入开发与治理底座 —— 面向 FDE 与集成商的企业内网 AI 工具接入与治理中台**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-amd64-2496ED?logo=docker&logoColor=white)](./fde-mcp-blade)
