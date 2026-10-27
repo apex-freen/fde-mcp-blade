@@ -189,7 +189,7 @@ export default {
     orUse: '或使用',
     ssoLogin: '企业单点登录（SSO）',
     // 登录页 v1 分栏版式（左品牌面板 / 右表单面板）
-    eyebrow: 'Edge MCP Control Plane',
+    eyebrow: '智能体接入开发与治理底座',
     heroLine1: '智能体接入',
     heroLine2: '开发与治理底座',
     capPlugin: '插件引擎',

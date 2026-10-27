@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="FDE MCP Blade">
   <title>FDE MCP Blade</title>
-  <desc>圆角方形底 + 双向箭头，表示边缘 MCP 双向中控。</desc>
+  <desc>圆角方形底 + 双向箭头，表示智能体接入开发与治理底座。</desc>
   <defs>
     <linearGradient id="fde-mark" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#5B8CFF"/>
