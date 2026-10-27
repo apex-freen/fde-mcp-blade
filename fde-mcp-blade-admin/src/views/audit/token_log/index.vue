@@ -122,11 +122,18 @@
     <a-drawer
       v-model:visible="detailVisible"
       :title="$t('auditStats.tokenLog')"
-      width="600px"
+      width="680px"
       :footer="false"
       unmount-on-close
     >
-      <a-descriptions :data="detailData" :column="1" bordered layout="inline-horizontal" />
+      <!-- 字段较多时用两列排布，避免抽屉内容过高、必须滚动才能看全 -->
+      <a-descriptions
+        :data="detailData"
+        :column="{ xs: 1, md: 2 }"
+        bordered
+        table-layout="fixed"
+        :label-style="{ width: '108px' }"
+      />
     </a-drawer>
   </div>
 </template>

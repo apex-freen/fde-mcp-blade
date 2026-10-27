@@ -20,6 +20,70 @@ export function formatDate(value, format = 'YYYY-MM-DD') {
 }
 
 /**
+ * 把 JSON 字符串 / 对象拍平成 [{ path, value }]，用于表格 / 表单式展示
+ * - 嵌套对象用 a.b 展开，数组用 [0] 展开
+ * - 非 JSON 文本返回 null，由调用方按纯文本处理
+ */
+export function toJsonRows(value) {
+  if (value === null || value === undefined || value === '') return []
+  const { ok, data } = parseJsonValue(value)
+  if (!ok) return null
+  if (typeof data !== 'object' || data === null) return null
+  const rows = []
+  flattenToRows(data, '', rows)
+  return rows
+}
+
+/**
+ * 把 JSON 字符串 / 对象转成逐行的「字段: 值」纯文本
+ * - 嵌套对象用 a.b 展开，数组用 [0] 展开
+ * - 非 JSON 文本原样返回，避免日志片段被吞掉
+ */
+export function formatJsonAsText(value) {
+  if (value === null || value === undefined || value === '') return '-'
+  const { ok, data } = parseJsonValue(value)
+  if (!ok) return typeof value === 'string' ? value : String(value)
+  if (typeof data !== 'object' || data === null) return String(data)
+  const rows = []
+  flattenToRows(data, '', rows)
+  return rows.length ? rows.map((row) => `${row.path}: ${row.value}`).join('\n') : '-'
+}
+
+function parseJsonValue(value) {
+  if (typeof value !== 'string') return { ok: true, data: value }
+  try {
+    return { ok: true, data: JSON.parse(value) }
+  } catch {
+    return { ok: false, data: value }
+  }
+}
+
+function flattenToRows(node, prefix, rows) {
+  if (node === null || node === undefined) {
+    rows.push({ path: prefix || '-', value: '-' })
+    return
+  }
+  if (Array.isArray(node)) {
+    if (!node.length) {
+      rows.push({ path: prefix || '-', value: '[]' })
+      return
+    }
+    node.forEach((item, index) => flattenToRows(item, `${prefix}[${index}]`, rows))
+    return
+  }
+  if (typeof node === 'object') {
+    const keys = Object.keys(node)
+    if (!keys.length) {
+      rows.push({ path: prefix || '-', value: '{}' })
+      return
+    }
+    keys.forEach((key) => flattenToRows(node[key], prefix ? `${prefix}.${key}` : key, rows))
+    return
+  }
+  rows.push({ path: prefix, value: node === '' ? '-' : String(node) })
+}
+
+/**
  * 格式化文件大小
  */
 export function formatFileSize(bytes) {

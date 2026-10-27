@@ -24,6 +24,7 @@ export const pageDescMap = {
   '/workspace/approval/index': { description: '处理待审批的授权请求' },
   '/workspace/biz/index': { description: '单据生命周期看板：场景维度单据数、停摆与周期压缩率' },
   '/workspace/biz/detail/:biz_object_id': { description: '单据端到端时间线：节点计划与每次调用' },
+  '/workspace/dept_workflow/index': { description: '部门负责人维护本部门工作流：草稿编辑、发布与停用' },
   '/workspace/profile/index': { description: '管理个人信息和账户安全' },
 
   // 管理后台（2026-09-14 结构调整：32 个页面归入 9 个目录，路径前缀随之变化）

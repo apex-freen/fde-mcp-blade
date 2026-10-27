@@ -141,16 +141,23 @@
     <a-drawer
       v-model:visible="detailVisible"
       :title="$t('auditLog.detail')"
-      width="640px"
+      width="720px"
       :footer="false"
       unmount-on-close
     >
-      <a-descriptions :data="detailData" :column="1" bordered layout="inline-horizontal" />
+      <!-- 字段较多时用两列排布，避免抽屉内容过高、必须滚动才能看到下方参数 -->
+      <a-descriptions
+        :data="detailData"
+        :column="{ xs: 1, md: 2 }"
+        bordered
+        table-layout="fixed"
+        :label-style="{ width: '108px' }"
+      />
       <div v-if="detailRecord" class="json-section">
         <div class="json-label">{{ $t('auditLog.requestParams') }}</div>
-        <pre class="json-block">{{ formatJson(detailRecord.request_params) }}</pre>
+        <pre class="text-block">{{ formatJsonAsText(detailRecord.request_params) }}</pre>
         <div class="json-label">{{ $t('auditLog.responseBody') }}</div>
-        <pre class="json-block">{{ formatJson(detailRecord.response_body) }}</pre>
+        <pre class="text-block">{{ formatJsonAsText(detailRecord.response_body) }}</pre>
       </div>
     </a-drawer>
   </div>
@@ -164,6 +171,7 @@ import { api } from '@/api'
 import { useAuditLogDict } from '@/constants/auditDict'
 import { useCallOutcomeDict } from '@/constants/callOutcome'
 import { downloadBlob, getFilenameFromHeaders } from '@/utils/download'
+import { formatJsonAsText } from '@/utils/format'
 import { useTableSettings } from '@/hooks/useTableSettings'
 
 const { t } = useI18n()
@@ -349,15 +357,6 @@ function showDetail(record) {
   detailVisible.value = true
 }
 
-function formatJson(str) {
-  if (!str) return '-'
-  try {
-    return JSON.stringify(JSON.parse(str), null, 2)
-  } catch {
-    return str
-  }
-}
-
 // ==================== 初始化 ====================
 onMounted(() => {
   fetchList()
@@ -384,14 +383,13 @@ onMounted(() => {
     margin-top: 16px;
     color: var(--color-text-1);
   }
-  .json-block {
+  .text-block {
     background: var(--color-fill-2);
     border-radius: 4px;
     padding: 12px;
     font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 12px;
     line-height: 1.6;
-    overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-all;
     max-height: 300px;

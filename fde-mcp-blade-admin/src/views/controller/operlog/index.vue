@@ -162,19 +162,26 @@
     <a-drawer
       v-model:visible="detailVisible"
       :title="$t('operlog.detail')"
-      width="680px"
+      width="760px"
       :footer="false"
       unmount-on-close
     >
-      <a-descriptions :data="detailData" :column="1" bordered layout="inline-horizontal" />
+      <!-- 字段较多时用两列排布，避免抽屉内容过高、必须滚动才能看到下方参数 -->
+      <a-descriptions
+        :data="detailData"
+        :column="{ xs: 1, md: 2 }"
+        bordered
+        table-layout="fixed"
+        :label-style="{ width: '108px' }"
+      />
       <div v-if="detailRecord" class="json-section">
         <div class="json-label">{{ $t('operlog.operParam') }}</div>
-        <pre class="json-block">{{ formatJson(detailRecord.operParam) }}</pre>
+        <pre class="text-block">{{ formatJsonAsText(detailRecord.operParam) }}</pre>
         <div class="json-label">{{ $t('operlog.jsonResult') }}</div>
-        <pre class="json-block">{{ formatJson(detailRecord.jsonResult) }}</pre>
+        <pre class="text-block">{{ formatJsonAsText(detailRecord.jsonResult) }}</pre>
         <template v-if="detailRecord.errorMsg">
           <div class="json-label">{{ $t('operlog.errorMsg') }}</div>
-          <pre class="json-block error-block">{{ detailRecord.errorMsg }}</pre>
+          <pre class="text-block error-block">{{ detailRecord.errorMsg }}</pre>
         </template>
       </div>
     </a-drawer>
@@ -188,6 +195,7 @@ import { Message } from '@arco-design/web-vue'
 import { api } from '@/api'
 import { hasPermission } from '@/utils/permission'
 import { downloadBlob, getFilenameFromHeaders } from '@/utils/download'
+import { formatJsonAsText } from '@/utils/format'
 
 const { t } = useI18n()
 
@@ -388,15 +396,6 @@ function showDetail(record) {
   detailVisible.value = true
 }
 
-function formatJson(str) {
-  if (!str) return '-'
-  try {
-    return JSON.stringify(JSON.parse(str), null, 2)
-  } catch {
-    return str
-  }
-}
-
 onMounted(() => {
   fetchList()
 })
@@ -423,14 +422,13 @@ onMounted(() => {
     margin-top: 16px;
     color: var(--color-text-1);
   }
-  .json-block {
+  .text-block {
     background: var(--color-fill-2);
     border-radius: 4px;
     padding: 12px;
     font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
     font-size: 12px;
     line-height: 1.6;
-    overflow-x: auto;
     white-space: pre-wrap;
     word-break: break-all;
     max-height: 300px;

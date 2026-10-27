@@ -1,12 +1,12 @@
 // ==========================================
-// 技能库接口（gis_skill 模块，1042 文档）
+// 技能库接口（gis_skill 模块，1042 / 1075 文档）
 // 接口前缀：/biz/gis_skill/*
-// 口径（1042 §一）：
-//   · 可见域三档：system（全局）/ org（组织级，org_name 标识）/ dept（部门级，dept_id 标识）
+// 口径（1075）：
+//   · system 已下线：只剩 org（组织级，org_name 标识）/ dept（部门级，dept_id 标识）
 //   · 目录是唯一真相源：页面写入与手工放文件完全等价，实时生效
 //   · 写权限：管理员（全部域）+ 本部门负责人（本部门）；前端以接口返回的
 //     can_manage 为准，不按 scope 猜，后端一律兜底 403
-//   · 不做上传 zip、不做真删（一律移入停用区，可恢复）、不做版本回滚
+//   · 草稿区只放未发布内容；停用区只放已下架技能；彻底删除仅管理员
 // 行标识：跨部门/跨库可能同名 → 用 (scope, org_name, dept_id, name) 组合做 key
 // ==========================================
 
@@ -15,14 +15,16 @@ import { get, post, put } from '@/utils/request'
 /**
  * 技能列表
  * @param {Object} [params]
- * @param {string} [params.scope] - system / org / dept；不传=当前用户可见全部
+ * @param {string} [params.scope] - org / dept；不传=当前用户可见全部
  * @param {boolean} [params.disabled] - 默认 false（活技能）；true=只看停用区
+ * @param {boolean} [params.with_stats] - 默认 false；true=附带近 30 天使用统计
  * @returns {Promise<{data: Array<SkillListItem>}>}
  * SkillListItem 字段：name / description / scope / dept_id? / org_name? / can_manage /
+ *   shadowed_by? / load_count? / deny_count? / last_loaded_time? /
  *   dir_path / disabled / version? / author? / risk? / category? / license? /
  *   compatibility? / manual_avg_minutes?（字符串）/ owner? / status? /
  *   review_date? / confidentiality? / tags? / allowed_tools[]
- * ⚠️ dept_id / org_name 为 skip_serializing_if None：不适用时该字段不出现
+ * ⚠️ dept_id / org_name / shadowed_by / 统计字段为 skip_serializing_if None：无值时字段不出现
  */
 export function getSkillList(params) {
   return get('/biz/gis_skill/list', params)
@@ -31,7 +33,7 @@ export function getSkillList(params) {
 /**
  * 读取技能源码（编辑前加载）
  * @param {Object} data
- * @param {string} data.scope - system / org / dept
+ * @param {string} data.scope - org / dept（system 已下线，传 system 会 400）
  * @param {string} [data.org_name] - scope=org 时必填
  * @param {number} [data.dept_id] - scope=dept 时必填
  * @param {string} data.name - 技能名
@@ -87,4 +89,79 @@ export function enableSkill(data) {
  */
 export function renameSkill(data) {
   return post('/biz/gis_skill/rename', data)
+}
+
+/**
+ * 彻底删除（仅管理员 / 仅停用区技能）
+ * @param {Object} data - { scope, org_name?, dept_id?, name, confirm_name }
+ * @returns {Promise<{data: {skill, purged, deleted_drafts}}>}
+ * confirm_name 必须与 name 完全一致，否则 400
+ */
+export function purgeSkill(data) {
+  return post('/biz/gis_skill/purge', data)
+}
+
+// ---------- 1075 §四：技能草稿区 ----------
+
+/**
+ * 草稿列表（按 draft_id 倒序）
+ * @param {Object} params - { scope, org_name?, dept_id?, name }
+ * @returns {Promise<{data: {skill, scope, dept_id?, org_name?, audience_count, drafts[]}}>}
+ * drafts[]：draft_id / note / base_exists / base_hash / base_changed /
+ *   content_hash / created_by / updated_by / created_time / updated_time
+ */
+export function getSkillDraftList(params) {
+  return get('/biz/gis_skill/draft/list', params)
+}
+
+/**
+ * 读取草稿正文
+ * @param {Object} data - { scope, org_name?, dept_id?, name, draft_id }
+ */
+export function getSkillDraftSource(data) {
+  return post('/biz/gis_skill/draft/source', data)
+}
+
+/**
+ * 新建 / 修订草稿（不改线上技能）
+ * 新建不传 draft_id；修订必须传 draft_id + content_hash
+ * @param {Object} data - { scope, org_name?, dept_id?, name, draft_id?, content, content_hash?, note? }
+ */
+export function saveSkillDraft(data) {
+  return post('/biz/gis_skill/draft/save', data)
+}
+
+/**
+ * 发布草稿（会更新线上技能并删除草稿）
+ * @param {Object} data - { scope, org_name?, dept_id?, name, draft_id }
+ */
+export function publishSkillDraft(data) {
+  return post('/biz/gis_skill/draft/publish', data)
+}
+
+/**
+ * 丢弃草稿（不可恢复，线上技能不受影响）
+ * @param {Object} data - { scope, org_name?, dept_id?, name, draft_id }
+ */
+export function discardSkillDraft(data) {
+  return post('/biz/gis_skill/draft/discard', data)
+}
+
+// ---------- 1075 §六：技能反馈 ----------
+
+/**
+ * 反馈列表（分页）
+ * @param {Object} params - { family?, scope?, skill_name?, status?, page?, page_size? }
+ * @returns {Promise<{data: {total, rows: GisSkillFeedback[]}}>}
+ */
+export function getSkillFeedbackList(params) {
+  return get('/biz/gis_skill/feedback/list', params)
+}
+
+/**
+ * 处理反馈
+ * @param {Object} data - { feedback_id, status: 'handled'|'ignored', handle_note? }
+ */
+export function handleSkillFeedback(data) {
+  return post('/biz/gis_skill/feedback/handle', data)
 }

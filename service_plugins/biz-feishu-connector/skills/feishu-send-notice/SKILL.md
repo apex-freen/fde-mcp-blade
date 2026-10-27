@@ -10,7 +10,7 @@ allowed-tools: feishu.im.send_text feishu.im.send_card feishu.contact.search_use
 
 # 飞书消息发送指南（企业飞书连接服务）
 
-> **调用方式（必读）**：本插件的方法统一通过 `local_service_call` 调用，参数里**必须带** `service_name: "biz-feishu-connector"`（即本技能的 `author`，也就是插件名）与 `method_name`（如 `feishu.im.send_text`），再加上各方法自己的参数（见下文）。缺 `service_name` 会被宿主直接拒绝。
+> **调用方式（必读）**：本插件的方法统一通过 `fde_plugin`（`action="call"`）调用。`params` 里必须带 `service_name: "biz-feishu-connector"`（即本技能的 `author`，也就是插件名）与 `method_name`（如 `feishu.im.send_text`），各方法自己的业务参数放进 `params.arguments` 对象（见下文）。缺 `service_name` 会被宿主直接拒绝。
 
 ## 0. 出发前必查（先分流，别直接发）
 

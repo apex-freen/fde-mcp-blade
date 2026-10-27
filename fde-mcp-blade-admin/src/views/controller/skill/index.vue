@@ -1,5 +1,14 @@
 <template>
   <div class="skill-page">
+    <!-- 1075：不新增菜单，技能列表与技能反馈共用本页 -->
+    <div class="section-switch">
+      <a-radio-group v-model="section" type="button">
+        <a-radio value="skills">{{ t('skillLib.sectionSkills') }}</a-radio>
+        <a-radio value="feedback">{{ t('skillLib.sectionFeedback') }}</a-radio>
+      </a-radio-group>
+    </div>
+
+    <div v-show="section === 'skills'">
     <!-- 说明区块（可折叠） -->
     <a-card :bordered="false" style="margin-top: 16px">
       <div class="help-head" @click="helpOpen = !helpOpen">
@@ -20,7 +29,7 @@
     <a-card :bordered="false" style="margin-top: 16px">
       <div class="table-toolbar">
         <a-space size="small" wrap>
-          <!-- 1042 §5.1：多域切换 system/org/dept；本部门技能页（mode=dept）固定 dept -->
+          <!-- 1075 §2.4：system 已下线，范围只剩 org / dept -->
           <a-select
             v-if="!isDeptMode"
             v-model="filter.scope"
@@ -28,7 +37,6 @@
             @change="onScopeChange"
           >
             <a-option value="">{{ t('skillLib.scopeAll') }}</a-option>
-            <a-option value="system">{{ t('skillLib.scopeSystem') }}</a-option>
             <a-option value="org">{{ t('skillLib.scopeOrg') }}</a-option>
             <a-option value="dept">{{ t('skillLib.scopeDept') }}</a-option>
           </a-select>
@@ -84,13 +92,33 @@
         size="small"
       >
         <template #columns>
-          <a-table-column :title="t('skillLib.colName')" data-index="name" :width="80" fixed="left" ellipsis />
+          <a-table-column :title="t('skillLib.colName')" :width="160" fixed="left">
+            <template #cell="{ record }">
+              <span class="skill-name">{{ record.name }}</span>
+              <a-tooltip
+                v-if="record.shadowed_by"
+                :content="t('skillLib.shadowedTip', { by: record.shadowed_by })"
+              >
+                <a-tag color="orange" size="small" class="shadow-tag">{{ t('skillLib.shadowed') }}</a-tag>
+              </a-tooltip>
+            </template>
+          </a-table-column>
           <a-table-column :title="t('skillLib.colDesc')" data-index="description" :width="80" ellipsis />
           <a-table-column :title="t('skillLib.colScope')" :width="130">
             <template #cell="{ record }">
               <a-tag :color="scopeColor(record.scope)" size="small">{{ scopeText(record.scope) }}</a-tag>
               <span class="sub-hint">{{ belongsText(record) }}</span>
             </template>
+          </a-table-column>
+          <!-- 1075 §3.3：近 30 天使用统计（with_stats=true），无值显示 - -->
+          <a-table-column :title="t('skillLib.colLoadCount')" :width="110">
+            <template #cell="{ record }">{{ record.load_count ?? '-' }}</template>
+          </a-table-column>
+          <a-table-column :title="t('skillLib.colDenyCount')" :width="110">
+            <template #cell="{ record }">{{ record.deny_count ?? '-' }}</template>
+          </a-table-column>
+          <a-table-column :title="t('skillLib.colLastLoaded')" :width="170">
+            <template #cell="{ record }">{{ record.last_loaded_time || '-' }}</template>
           </a-table-column>
           <a-table-column :title="t('skillLib.colStatus')" :width="100">
             <template #cell="{ record }">
@@ -133,7 +161,7 @@
             <template #cell="{ record }">{{ (record.allowed_tools || []).length }}</template>
           </a-table-column>
           <a-table-column :title="t('skillLib.colPath')" data-index="dir_path" :width="80" ellipsis />
-          <a-table-column :title="t('commonTable.operation')" :width="130" fixed="right">
+          <a-table-column :title="t('commonTable.operation')" :width="220" fixed="right">
             <template #cell="{ record }">
               <a-button type="text" size="mini" @click="openView(record)">
                 {{ t('skillLib.view') }}
@@ -142,6 +170,9 @@
               <template v-if="record.can_manage && !record.disabled">
                 <a-button type="text" size="mini" @click="openEdit(record)">
                   {{ t('skillLib.edit') }}
+                </a-button>
+                <a-button type="text" size="mini" @click="openDrafts(record)">
+                  {{ t('skillLib.draft') }}
                 </a-button>
                 <a-button type="text" size="mini" @click="openRename(record)">
                   {{ t('skillLib.rename') }}
@@ -159,16 +190,28 @@
               <span v-else-if="!record.can_manage && !record.disabled" class="readonly-hint">
                 {{ t('skillLib.readonlyHint') }}
               </span>
-              <a-popconfirm
-                v-if="record.can_manage && record.disabled"
-                :content="t('skillLib.enableConfirm')"
-                position="br"
-                @ok="handleEnable(record)"
-              >
-                <a-button type="text" size="mini" status="success" @click.stop>
-                  {{ t('skillLib.enable') }}
+              <template v-if="record.disabled && (record.can_manage || isAdmin)">
+                <a-popconfirm
+                  v-if="record.can_manage"
+                  :content="t('skillLib.enableConfirm')"
+                  position="br"
+                  @ok="handleEnable(record)"
+                >
+                  <a-button type="text" size="mini" status="success" @click.stop>
+                    {{ t('skillLib.enable') }}
+                  </a-button>
+                </a-popconfirm>
+                <!-- 1075 §5.2：彻底删除仅管理员 -->
+                <a-button
+                  v-if="isAdmin"
+                  type="text"
+                  size="mini"
+                  status="danger"
+                  @click="openPurge(record)"
+                >
+                  {{ t('skillLib.purge') }}
                 </a-button>
-              </a-popconfirm>
+              </template>
             </template>
           </a-table-column>
         </template>
@@ -177,6 +220,10 @@
         </template>
       </a-table>
     </a-card>
+    </div>
+
+    <!-- 1075 §六：技能反馈（不新增菜单，与技能列表同页切换） -->
+    <FeedbackPanel v-if="section === 'feedback'" class="feedback-panel" />
 
     <!-- 查看（只读）弹窗 -->
     <a-modal v-model:visible="viewVisible" :title="t('skillLib.viewTitle')" width="720px" :footer="false">
@@ -229,7 +276,6 @@
         <a-space size="large" class="create-row">
           <a-form-item :label="t('skillLib.formScope')" required>
             <a-radio-group v-model="createForm.scope" :disabled="isDeptMode" @change="syncTemplate">
-              <a-radio value="system">{{ t('skillLib.scopeSystem') }}</a-radio>
               <a-radio value="org">{{ t('skillLib.scopeOrg') }}</a-radio>
               <a-radio value="dept">{{ t('skillLib.scopeDept') }}</a-radio>
             </a-radio-group>
@@ -304,6 +350,32 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 1075 §四：草稿区抽屉 -->
+    <DraftDrawer
+      v-model:visible="draftVisible"
+      :skill="draftSkill"
+      @published="loadList"
+    />
+
+    <!-- 1075 §5.2：彻底删除（仅管理员，需手输技能名确认） -->
+    <a-modal
+      v-model:visible="purgeVisible"
+      :title="t('skillLib.purgeTitle')"
+      :ok-loading="purging"
+      :ok-text="t('skillLib.purge')"
+      @before-ok="handlePurge"
+    >
+      <a-alert type="error" class="editor-alert">{{ t('skillLib.purgeWarning') }}</a-alert>
+      <a-form layout="vertical">
+        <a-form-item
+          :label="t('skillLib.purgeInputLabel', { name: purgeTarget?.name || '' })"
+          required
+        >
+          <a-input v-model="purgeConfirmName" allow-clear :placeholder="purgeTarget?.name || ''" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -320,8 +392,11 @@ import {
   createSkill,
   disableSkill,
   enableSkill,
-  renameSkill
+  renameSkill,
+  purgeSkill
 } from '@/api/modules/gisSkill'
+import DraftDrawer from './components/DraftDrawer.vue'
+import FeedbackPanel from './components/FeedbackPanel.vue'
 
 // 1042 §五：两个入口共用同一组件，靠 mode 收敛差异
 //   mode='admin' → 管理后台 › 技能库（全部可见域）
@@ -334,6 +409,9 @@ const isAdminMode = computed(() => !isDeptMode.value)
 
 const { t } = useI18n()
 const userStore = useUserStore()
+
+// 1075：不新增菜单，技能列表 / 技能反馈同页切换
+const section = ref('skills')
 
 // 说明区块折叠
 const helpOpen = ref(false)
@@ -427,7 +505,8 @@ async function loadList() {
   loading.value = true
   try {
     // scope 走服务端过滤；本部门技能页固定 dept
-    const params = { disabled: filter.disabled }
+    // with_stats=true：附带近 30 天加载/拒绝统计（1075 §3.1）
+    const params = { disabled: filter.disabled, with_stats: true }
     const scope = isDeptMode.value ? 'dept' : filter.scope
     if (scope) params.scope = scope
     const res = await getSkillList(params)
@@ -658,7 +737,7 @@ async function handleSave(done) {
 const createVisible = ref(false)
 const creating = ref(false)
 const createForm = reactive({
-  scope: 'system',
+  scope: 'org',
   org_name: '',
   dept_id: undefined,
   name: '',
@@ -699,7 +778,7 @@ function buildTemplate() {
 
 function openCreate() {
   Object.assign(createForm, {
-    scope: isDeptMode.value ? 'dept' : 'system',
+    scope: isDeptMode.value ? 'dept' : 'org',
     org_name: '',
     dept_id: undefined,
     name: '',
@@ -800,6 +879,48 @@ async function handleRename(done) {
   finally { renaming.value = false }
 }
 
+// ---------- 草稿区 ----------
+const draftVisible = ref(false)
+const draftSkill = ref(null)
+
+function openDrafts(record) {
+  draftSkill.value = record
+  draftVisible.value = true
+}
+
+// ---------- 彻底删除（仅管理员，仅停用区技能） ----------
+const purgeVisible = ref(false)
+const purging = ref(false)
+const purgeTarget = ref(null)
+const purgeConfirmName = ref('')
+
+function openPurge(record) {
+  purgeTarget.value = record
+  purgeConfirmName.value = ''
+  purgeVisible.value = true
+}
+
+async function handlePurge(done) {
+  if (!purgeTarget.value) { done(false); return }
+  // 1075 §5.2：confirm_name 必须与 name 完全一致
+  if (purgeConfirmName.value !== purgeTarget.value.name) {
+    Message.warning(t('skillLib.purgeInputMismatch'))
+    done(false)
+    return
+  }
+  purging.value = true
+  try {
+    const res = await purgeSkill(
+      scopePayload(purgeTarget.value, { confirm_name: purgeConfirmName.value })
+    )
+    const data = res?.data || res
+    Message.success(t('skillLib.purgeOk', { count: data?.deleted_drafts ?? 0 }))
+    done(true)
+    await loadList()
+  } catch (_) { done(false) }
+  finally { purging.value = false }
+}
+
 onMounted(() => {
   loadList()
   loadDepts()
@@ -807,6 +928,25 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.section-switch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: $space-2;
+}
+
+.feedback-panel {
+  margin-top: 16px;
+}
+
+.skill-name {
+  word-break: break-all;
+}
+
+.shadow-tag {
+  margin-left: 6px;
+}
+
 .help-head {
   display: flex;
   align-items: center;

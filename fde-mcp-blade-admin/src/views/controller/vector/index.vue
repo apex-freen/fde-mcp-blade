@@ -36,6 +36,9 @@
         </a-select>
         <template v-if="selectedIndex">
           <a-tag :color="scopeColor(selectedIndex.scope)">{{ scopeText(selectedIndex.scope) }}</a-tag>
+          <a-tag :color="indexStatusColor(selectedIndex.status)" size="small">
+            {{ indexStatusText(selectedIndex.status) }}
+          </a-tag>
           <span class="selected-hint">
             {{
               t('vectorKb.kbStat', {
@@ -71,6 +74,17 @@
       <div v-if="selectedIndex && !canManage" class="section-tip readonly-tip">
         {{ t('vectorKb.readonlyTip') }}
       </div>
+      <!-- 1085 §2.1：库状态提示；stale 必须重建，disabled 不参与检索 -->
+      <div v-if="selectedIndex && selectedIndex.status === 'stale'" class="section-tip stale-tip">
+        {{ t('vectorKb.indexStaleTip') }}
+      </div>
+      <div v-else-if="selectedIndex && selectedIndex.status === 'disabled'" class="section-tip stale-tip">
+        {{ t('vectorKb.indexDisabledTip') }}
+      </div>
+      <!-- 1085 §2.1：system 库可编辑，但升级 seed 可能覆盖 -->
+      <div v-if="selectedIndex && selectedIndex.scope === 'system' && canManage" class="section-tip">
+        {{ t('vectorKb.systemOverwriteTip') }}
+      </div>
 
       <!-- 库级操作（原先在「知识库列表」工具栏里）：提到顶部后与所选库同处一屏，
            且不再受下方分区切换影响，任何分区下都能点 -->
@@ -92,6 +106,27 @@
           <template #icon><icon-plus /></template>
           {{ t('vectorKb.createOrgKb') }}
         </a-button>
+        <!-- 1085 §3.8：库停用 / 恢复；停用后不参与检索、不出现在 MCP kb_list -->
+        <a-popconfirm
+          v-if="canManage && selectedIndex && selectedIndex.status !== 'disabled'"
+          :content="t('vectorKb.confirmDisableIndex')"
+          position="br"
+          @ok="handleDisableIndex"
+        >
+          <a-button status="danger" :loading="indexStatusSaving">
+            {{ t('vectorKb.disableIndex') }}
+          </a-button>
+        </a-popconfirm>
+        <a-popconfirm
+          v-else-if="canManage && selectedIndex && selectedIndex.status === 'disabled'"
+          :content="t('vectorKb.confirmEnableIndex')"
+          position="br"
+          @ok="handleEnableIndex"
+        >
+          <a-button type="primary" :loading="indexStatusSaving">
+            {{ t('vectorKb.enableIndex') }}
+          </a-button>
+        </a-popconfirm>
         <!-- 重建 / 强制重建：作用于当前选中的那一个库；1041 §3.5 需 can_manage -->
         <a-popconfirm
           v-if="canManage"
@@ -133,6 +168,7 @@
           <a-radio value="docs">{{ t('vectorKb.tabDocs') }}</a-radio>
           <a-radio value="search">{{ t('vectorKb.tabSearch') }}</a-radio>
           <a-radio value="selfcheck">{{ t('vectorKb.tabSelfCheck') }}</a-radio>
+          <a-radio value="feedback">{{ t('vectorKb.tabFeedback') }}</a-radio>
           <a-radio v-if="isAdminMode && isAdmin" value="settings">{{ t('vectorKb.tabSettings') }}</a-radio>
           <a-radio v-if="isAdminMode && isAdmin" value="insight">{{ t('vectorKb.tabInsight') }}</a-radio>
         </a-radio-group>
@@ -317,6 +353,17 @@
       >
         {{ t('vectorKb.expandedHint', { query: searchExpanded }) }}
       </div>
+      <!-- 1085 §4.1：本次不可检索的库（如需重建 / 已停用），不要伪装成「没有内容」 -->
+      <a-alert
+        v-if="searched && !searching && searchUnavailable.length"
+        type="warning"
+        class="block-gap"
+      >
+        <div>{{ t('vectorKb.searchUnavailableTitle') }}</div>
+        <div v-for="u in searchUnavailable" :key="u.index_id" class="unrecall-line">
+          {{ u.index_name || `#${u.index_id}` }}：{{ u.reason || t('vectorKb.searchUnavailableReason') }}
+        </div>
+      </a-alert>
 
       <div v-if="searchResults.length" class="search-results">
         <div v-for="hit in searchResults" :key="hit.chunk_id" class="hit-item">
@@ -361,7 +408,7 @@
           <div class="hit-source">{{ hit.source_uri }}</div>
         </div>
       </div>
-      <a-empty v-else-if="searched && !searching" :description="t('vectorKb.searchEmpty')" />
+      <a-empty v-else-if="searched && !searching" :description="searchEmptyText" />
     </a-card>
 
     <!-- 知识库列表（index_list：当前身份可见的全部库，点行即切换上方选择器）
@@ -396,9 +443,9 @@
           <a-table-column :title="t('vectorKb.sourceType')" data-index="source_type" :width="120" />
           <a-table-column :title="t('vectorKb.docCount')" data-index="doc_count" :width="90" />
           <a-table-column :title="t('vectorKb.chunkCount')" data-index="chunk_count" :width="90" />
-          <a-table-column :title="t('vectorKb.status')" :width="100">
+          <a-table-column :title="t('vectorKb.status')" :width="110">
             <template #cell="{ record }">
-              <a-tag :color="record.status === 'ready' ? 'green' : 'orange'">{{ record.status }}</a-tag>
+              <a-tag :color="indexStatusColor(record.status)">{{ indexStatusText(record.status) }}</a-tag>
             </template>
           </a-table-column>
           <a-table-column :title="t('commonTable.operation')" :width="120" fixed="right">
@@ -412,7 +459,7 @@
       </a-table>
     </a-card>
 
-    <!-- 文档列表（1041 §3.2 元数据列 + §3.6 写入通道） -->
+    <!-- 文档列表（1085：编辑不再「保存即上线」，必须先存草稿，再在草稿区发布） -->
     <a-card
       v-show="activeTab === 'docs'"
       :bordered="false"
@@ -420,8 +467,8 @@
       :title="t('vectorKb.docTitle')"
     >
       <template #extra>
-        <!-- 仅 can_manage=true 的库可写文档（1041 §3.1 / §3.3） -->
-        <a-space v-if="selectedIndex && canManage">
+        <!-- 仅 can_manage=true 且库未停用时可写文档（1085 §2.1） -->
+        <a-space v-if="selectedIndex && canManage && !indexDisabled">
           <a-button size="small" type="primary" @click="openCreateDoc()">
             <template #icon><icon-plus /></template>
             {{ t('vectorKb.newDoc') }}
@@ -430,7 +477,7 @@
             <template #icon><icon-upload /></template>
             {{ t('vectorKb.uploadDoc') }}
           </a-button>
-          <!-- 上传 .md：本地读成文本后逐个调 doc/save（1041 §4.5） -->
+          <!-- 上传 .md：本地读成文本后逐个调 draft/save（只产生草稿，不直接上线） -->
           <input
             ref="uploadInput"
             type="file"
@@ -443,6 +490,22 @@
       </template>
 
       <template v-if="selectedIndex">
+        <!-- 1085 §2.2：已发布 / 草稿 / 已归档 三种状态分开筛选 -->
+        <div class="doc-filter">
+          <a-radio-group
+            v-model="docStatusFilter"
+            type="button"
+            size="small"
+            @change="handleDocStatusFilter"
+          >
+            <a-radio value="">{{ t('vectorKb.docFilterAll') }}</a-radio>
+            <a-radio value="published">{{ t('vectorKb.docStatusPublished') }}</a-radio>
+            <a-radio value="draft">{{ t('vectorKb.docStatusDraft') }}</a-radio>
+            <a-radio value="archived">{{ t('vectorKb.docStatusArchived') }}</a-radio>
+          </a-radio-group>
+          <span class="section-tip">{{ t('vectorKb.docFilterTip') }}</span>
+        </div>
+
         <a-table
           :data="docList"
           :loading="docLoading"
@@ -453,7 +516,13 @@
         >
           <template #columns>
             <a-table-column :title="t('vectorKb.docId')" data-index="doc_id" :width="90" />
-            <a-table-column :title="t('vectorKb.docTitle2')" data-index="title" :width="320" :ellipsis="true" :tooltip="true" />
+            <a-table-column :title="t('vectorKb.docTitle2')" data-index="title" :width="300" :ellipsis="true" :tooltip="true" />
+            <!-- 1085 §2.2：展示相对库目录的路径 -->
+            <a-table-column :title="t('vectorKb.docPath')" :width="240" :ellipsis="true" :tooltip="true">
+              <template #cell="{ record }">
+                {{ pathFromSourceUri(record.source_uri) || t('vectorKb.emptyCell') }}
+              </template>
+            </a-table-column>
             <a-table-column :title="t('vectorKb.docStatus')" :width="110">
               <template #cell="{ record }">
                 <a-tag v-if="record.doc_status" :color="docStatusColor(record.doc_status)" size="small">
@@ -470,23 +539,46 @@
                 <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
               </template>
             </a-table-column>
-            <a-table-column :title="t('vectorKb.createdTime')" data-index="created_time" :width="160" />
-            <a-table-column :title="t('commonTable.operation')" :width="130" fixed="right">
+            <a-table-column :title="t('vectorKb.updatedTime')" data-index="updated_time" :width="160" />
+            <a-table-column :title="t('commonTable.operation')" :width="240" fixed="right">
               <template #cell="{ record }">
                 <template v-if="canManage">
-                  <a-button type="text" size="mini" @click="openEditDoc(record)">
+                  <!-- 已归档文档也可以编辑：只会产生草稿，发布前必须先恢复 -->
+                  <a-button
+                    v-if="!indexDisabled || record.doc_status === 'archived'"
+                    type="text"
+                    size="mini"
+                    @click="openEditDoc(record)"
+                  >
                     {{ t('commonTable.edit') }}
                   </a-button>
-                  <!-- 1041 §5.3.1：删除需二次确认 + 「先备份」提示 -->
+                  <!-- 1085 §3.6：published / draft 可归档，归档后从检索中消失 -->
                   <a-popconfirm
-                    :content="t('vectorKb.docDeleteConfirm')"
+                    v-if="record.doc_status !== 'archived'"
+                    :content="t('vectorKb.docArchiveConfirm')"
                     position="br"
-                    @ok="handleDeleteDoc(record)"
+                    @ok="handleArchiveDoc(record)"
                   >
-                    <a-button type="text" size="mini" status="danger">
-                      {{ t('commonTable.delete') }}
-                    </a-button>
+                    <a-button type="text" size="mini">{{ t('vectorKb.docArchive') }}</a-button>
                   </a-popconfirm>
+                  <a-popconfirm
+                    v-else
+                    :content="t('vectorKb.docUnarchiveConfirm')"
+                    position="br"
+                    @ok="handleUnarchiveDoc(record)"
+                  >
+                    <a-button type="text" size="mini">{{ t('vectorKb.docUnarchive') }}</a-button>
+                  </a-popconfirm>
+                  <!-- 1085 §3.7：彻底删除仅管理员、仅已归档，且需手输完整路径 -->
+                  <a-button
+                    v-if="record.doc_status === 'archived' && isAdminMode && isAdmin"
+                    type="text"
+                    size="mini"
+                    status="danger"
+                    @click="openPurgeDoc(record)"
+                  >
+                    {{ t('vectorKb.docPurge') }}
+                  </a-button>
                 </template>
               </template>
             </a-table-column>
@@ -525,6 +617,7 @@
                 <a-descriptions-item :label="t('vectorKb.sourceUri')">
                   {{ record.source_uri || t('vectorKb.emptyCell') }}
                 </a-descriptions-item>
+                <!-- 1085 §2.2：列表里的 content_hash 是上次入库值，不能当草稿基线 -->
                 <a-descriptions-item :label="t('vectorKb.contentHash')">
                   <span class="mono">{{ shortHash(record.content_hash) }}</span>
                 </a-descriptions-item>
@@ -555,6 +648,84 @@
         v-else
         :description="isAdminMode ? t('vectorKb.noIndexSelected') : t('vectorKb.kbEmptyTitleDept')"
       />
+    </a-card>
+
+    <!-- 草稿区（1085 §2.3 / §8.3）：只放未发布内容，发布后才影响线上与检索 -->
+    <a-card
+      v-if="selectedIndex"
+      v-show="activeTab === 'docs'"
+      :bordered="false"
+      style="margin-top: 16px"
+      :title="t('vectorKb.draftTitle')"
+    >
+      <template #extra>
+        <a-space>
+          <span class="section-tip">{{ t('vectorKb.draftAudience', { count: draftAudienceCount }) }}</span>
+          <a-button size="small" :loading="draftLoading" @click="loadDrafts">
+            <template #icon><icon-refresh /></template>
+          </a-button>
+        </a-space>
+      </template>
+      <div class="section-tip">{{ t('vectorKb.draftTip') }}</div>
+
+      <a-table
+        :data="draftList"
+        :loading="draftLoading"
+        :pagination="false"
+        row-key="path"
+        class="block-gap"
+        :scroll="{ x: '100%' }"
+      >
+        <template #columns>
+          <a-table-column :title="t('vectorKb.draftPath')" data-index="path" :width="280" :ellipsis="true" :tooltip="true" />
+          <a-table-column :title="t('vectorKb.draftNote')" data-index="note" :width="220" :ellipsis="true" :tooltip="true" />
+          <a-table-column :title="t('vectorKb.draftBase')" :width="150">
+            <template #cell="{ record }">
+              <a-tag v-if="record.base_changed" color="red" size="small">
+                {{ t('vectorKb.draftBaseChanged') }}
+              </a-tag>
+              <a-tag v-else-if="!record.base_exists" color="orange" size="small">
+                {{ t('vectorKb.draftNewDoc') }}
+              </a-tag>
+              <a-tag v-else color="green" size="small">{{ t('vectorKb.draftBaseOk') }}</a-tag>
+              <a-tag :color="targetStatusColor(record.target_status)" size="small">
+                {{ targetStatusText(record.target_status) }}
+              </a-tag>
+            </template>
+          </a-table-column>
+          <a-table-column :title="t('vectorKb.draftAudienceCol')" :width="110">
+            <template #cell="{ record }">{{ record.audience_count ?? '-' }}</template>
+          </a-table-column>
+          <a-table-column :title="t('vectorKb.draftUpdated')" :width="190">
+            <template #cell="{ record }">
+              {{ record.updated_by_name || record.updated_by || '-' }} · {{ record.updated_time || '-' }}
+            </template>
+          </a-table-column>
+          <a-table-column :title="t('commonTable.operation')" :width="230" fixed="right">
+            <template #cell="{ record }">
+              <template v-if="canManage">
+                <a-button type="text" size="mini" @click="openEditDraft(record)">
+                  {{ t('vectorKb.draftContinue') }}
+                </a-button>
+                <a-button
+                  type="text"
+                  size="mini"
+                  :disabled="!canPublishDraft(record)"
+                  @click="openPublishDraft(record)"
+                >
+                  {{ t('vectorKb.draftPublish') }}
+                </a-button>
+                <a-button type="text" size="mini" status="danger" @click="confirmDiscardDraft(record)">
+                  {{ t('vectorKb.draftDiscard') }}
+                </a-button>
+              </template>
+            </template>
+          </a-table-column>
+        </template>
+        <template #empty>
+          <a-empty :description="t('vectorKb.draftEmpty')" />
+        </template>
+      </a-table>
     </a-card>
 
     <!-- ② 问答自检（1040 §四：B 用探针问题验证每篇文档能不能被检索到；1041 §3.6 需 can_manage） -->
@@ -969,10 +1140,9 @@
       />
     </a-card>
 
-    <!-- 1041 §3.10 P2：反馈回路（仅管理员；只查看与处理，不做提交入口） -->
+    <!-- 1041 §3.10 P2 / 1085 §5：反馈回路（独立分区；后端按身份过滤，管理员看全部、部门负责人看本部门库） -->
     <a-card
-      v-if="isAdminMode && isAdmin"
-      v-show="activeTab === 'insight'"
+      v-show="activeTab === 'feedback'"
       :bordered="false"
       style="margin-top: 16px"
       :title="t('vectorKb.feedbackTitle')"
@@ -981,7 +1151,7 @@
         <a-space>
           <a-select
             :model-value="feedbackStatus"
-            style="width: 140px"
+            style="width: 130px"
             size="small"
             @change="handleFeedbackStatusFilter"
           >
@@ -989,6 +1159,35 @@
             <a-option value="">{{ t('vectorKb.feedbackStatusAll') }}</a-option>
             <a-option value="fixed">{{ t('vectorKb.feedbackStatusFixed') }}</a-option>
             <a-option value="ignored">{{ t('vectorKb.feedbackStatusIgnored') }}</a-option>
+          </a-select>
+          <!-- 1085 §5.1：支持按库 / 结论筛选 -->
+          <a-select
+            :model-value="feedbackIndexId"
+            style="width: 160px"
+            size="small"
+            allow-clear
+            :placeholder="t('vectorKb.feedbackFilterIndex')"
+            @change="handleFeedbackIndexFilter"
+          >
+            <a-option
+              v-for="idx in selectableIndexes"
+              :key="idx.index_id"
+              :value="idx.index_id"
+              :label="idx.index_name"
+            />
+          </a-select>
+          <a-select
+            :model-value="feedbackVerdict"
+            style="width: 120px"
+            size="small"
+            allow-clear
+            :placeholder="t('vectorKb.feedbackFilterVerdict')"
+            @change="handleFeedbackVerdictFilter"
+          >
+            <a-option value="useful">{{ t('vectorKb.feedbackVerdictUseful') }}</a-option>
+            <a-option value="irrelevant">{{ t('vectorKb.feedbackVerdictIrrelevant') }}</a-option>
+            <a-option value="wrong">{{ t('vectorKb.feedbackVerdictWrong') }}</a-option>
+            <a-option value="outdated">{{ t('vectorKb.feedbackVerdictOutdated') }}</a-option>
           </a-select>
           <a-button size="small" :loading="feedbackLoading" @click="loadFeedback">
             <template #icon><icon-refresh /></template>
@@ -1023,10 +1222,12 @@
               <a-tag :color="verdictColor(record.verdict)" size="small">{{ verdictText(record.verdict) }}</a-tag>
             </template>
           </a-table-column>
-          <a-table-column :title="t('vectorKb.feedbackColTarget')" :width="150">
+          <a-table-column :title="t('vectorKb.feedbackColTarget')" :width="220">
             <template #cell="{ record }">
-              <span class="muted">#{{ record.index_id ?? '-' }}</span>
-              <span v-if="record.doc_id" class="muted"> / #{{ record.doc_id }}</span>
+              <span class="muted">{{ record.index_name || `#${record.index_id ?? '-'}` }}</span>
+              <span v-if="record.doc_title || record.doc_id" class="muted">
+                / {{ record.doc_title || `#${record.doc_id}` }}
+              </span>
             </template>
           </a-table-column>
           <a-table-column :title="t('vectorKb.feedbackColNote')" data-index="note" :width="180" :ellipsis="true" />
@@ -1046,7 +1247,7 @@
               <span v-else class="muted">{{ t('vectorKb.emptyCell') }}</span>
             </template>
           </a-table-column>
-          <a-table-column :title="t('commonTable.operation')" :width="190" fixed="right">
+          <a-table-column :title="t('commonTable.operation')" :width="260" fixed="right">
             <template #cell="{ record }">
               <template v-if="record.status === 'open'">
                 <a-button type="text" size="mini" @click="handleFeedbackStatus(record, 'fixed')">
@@ -1054,6 +1255,10 @@
                 </a-button>
                 <a-button type="text" size="mini" status="danger" @click="handleFeedbackStatus(record, 'ignored')">
                   {{ t('vectorKb.feedbackMarkIgnored') }}
+                </a-button>
+                <!-- 1085 §5.3：复用草稿接口转草稿，不新增专用接口 -->
+                <a-button type="text" size="mini" @click="handleFeedbackToDraft(record)">
+                  {{ t('vectorKb.feedbackToDraft') }}
                 </a-button>
               </template>
             </template>
@@ -1123,27 +1328,29 @@
       </a-form>
     </a-modal>
 
-    <!-- 1041 §3.6 / §4.5：文档写入通道（新建 / 编辑；上传走 doc/save 逐文件提交）
-         1043：改左右两栏 —— 左边「路径 + 正文」，右边元数据面板；
-         原来把元数据预览挤在编辑器上方一行，字段一多就折行、很难读 -->
+    <!-- 1085 §3.1 / §3.2 / §3.3：文档编辑器
+         保存动作改为「存草稿」：不写线上、不影响检索；发布统一在草稿区完成 -->
     <a-modal
       v-model:visible="docModalVisible"
-      :title="docForm.mode === 'edit' ? t('vectorKb.editDoc') : t('vectorKb.newDocTitle')"
+      :title="docEditorTitle"
       :on-before-ok="handleSaveDoc"
       :mask-closable="false"
-      :ok-text="t('commonTable.confirm')"
+      :ok-text="t('vectorKb.saveDraft')"
       :cancel-text="t('commonTable.cancel')"
       :width="1040"
       unmount-on-close
     >
       <a-form :model="docForm" layout="vertical">
-        <!-- 1041 §5.3.1：编辑保存 = 覆盖，系统不留历史版本 → 必须先提示备份 -->
+        <!-- 1085 §3.1：编辑不再保存即上线，先存草稿 -->
         <a-alert
-          v-if="docForm.mode === 'edit'"
+          v-if="docForm.mode !== 'create'"
           type="warning"
           class="block-gap-sm"
         >
-          {{ t('vectorKb.docOverwriteBackupTip') }}
+          {{ t('vectorKb.draftSaveTip') }}
+        </a-alert>
+        <a-alert v-else type="info" class="block-gap-sm">
+          {{ t('vectorKb.draftCreateTip') }}
         </a-alert>
 
         <a-row :gutter="16">
@@ -1152,12 +1359,20 @@
             <a-form-item
               :label="t('vectorKb.docPath')"
               required
-              :help="docForm.mode === 'edit' ? t('vectorKb.pathEditLocked') : t('vectorKb.docPathTip')"
+              :help="docForm.mode === 'create' ? t('vectorKb.docPathTip') : t('vectorKb.pathEditLocked')"
             >
               <a-input
                 v-model="docForm.path"
-                :disabled="docForm.mode === 'edit'"
+                :disabled="docForm.mode !== 'create'"
                 :placeholder="t('vectorKb.docPathPlaceholder')"
+              />
+            </a-form-item>
+            <a-form-item :label="t('vectorKb.draftNoteLabel')">
+              <a-input
+                v-model="docForm.note"
+                :max-length="200"
+                show-word-limit
+                :placeholder="t('vectorKb.draftNotePlaceholder')"
               />
             </a-form-item>
             <a-form-item :label="t('vectorKb.docContent')">
@@ -1240,6 +1455,85 @@
       </a-form>
     </a-modal>
 
+    <!-- 1085 §3.4：发布确认（影响人数 / 基线变化 / 目标已归档 / 注入告警） -->
+    <a-modal
+      v-model:visible="publishModalVisible"
+      :title="t('vectorKb.draftPublishTitle')"
+      :ok-loading="publishing"
+      :ok-text="t('vectorKb.draftPublish')"
+      :ok-button-props="{ disabled: !canPublishTarget }"
+      :cancel-text="t('commonTable.cancel')"
+      @before-ok="handlePublishDraft"
+    >
+      <a-spin :loading="publishDetailLoading" style="width: 100%">
+        <div class="publish-line">{{ publishTarget?.path }}</div>
+        <div class="publish-line">
+          {{ t('vectorKb.draftPublishAudience', { count: publishDetail?.audience_count ?? publishTarget?.audience_count ?? 0 }) }}
+        </div>
+        <div class="publish-line">
+          {{ t('vectorKb.draftNote') }}: {{ publishTarget?.note || '-' }}
+        </div>
+        <div class="publish-line">
+          {{ t('vectorKb.draftUpdated') }}: {{ publishTarget?.updated_time || '-' }}
+        </div>
+        <a-alert
+          v-if="publishTarget?.base_changed || publishDetail?.base_changed"
+          type="error"
+          class="block-gap-sm"
+        >
+          {{ t('vectorKb.draftBaseChangedTip') }}
+        </a-alert>
+        <a-alert
+          v-if="publishTarget?.target_status === 'archived' || publishDetail?.target_status === 'archived'"
+          type="error"
+          class="block-gap-sm"
+        >
+          {{ t('vectorKb.draftTargetArchivedTip') }}
+        </a-alert>
+        <a-alert v-if="!indexReady" type="error" class="block-gap-sm">
+          {{ t('vectorKb.draftIndexNotReadyTip') }}
+        </a-alert>
+        <a-alert v-if="publishDetail?.injection_warning" type="warning" class="block-gap-sm">
+          {{ t('vectorKb.draftInjectionTip') }}
+        </a-alert>
+        <!-- 1085 §七：注入告警必须二次确认后才能发布 -->
+        <a-checkbox
+          v-if="publishDetail?.injection_warning"
+          v-model="injectionAck"
+          class="block-gap-sm"
+        >
+          {{ t('vectorKb.draftInjectionAck') }}
+        </a-checkbox>
+        <a-alert
+          v-for="(w, i) in publishWarnings"
+          :key="i"
+          type="warning"
+          class="block-gap-sm"
+        >
+          {{ w }}
+        </a-alert>
+      </a-spin>
+    </a-modal>
+
+    <!-- 1085 §3.7：彻底删除（仅已归档 + 管理员，必须手输完整相对路径） -->
+    <a-modal
+      v-model:visible="purgeModalVisible"
+      :title="t('vectorKb.docPurgeTitle')"
+      :ok-loading="purging"
+      :ok-text="t('vectorKb.docPurge')"
+      :ok-button-props="{ disabled: purgeForm.confirm_path !== purgeForm.path }"
+      :cancel-text="t('commonTable.cancel')"
+      @before-ok="handlePurgeDoc"
+    >
+      <a-alert type="error" class="block-gap-sm">{{ t('vectorKb.docPurgeWarn') }}</a-alert>
+      <div class="publish-line">{{ t('vectorKb.docPurgePathLabel') }}：{{ purgeForm.path }}</div>
+      <a-input
+        v-model="purgeForm.confirm_path"
+        :placeholder="t('vectorKb.docPurgePlaceholder')"
+        allow-clear
+      />
+    </a-modal>
+
     <!-- 1041 §3.11：管理员开通部门库时须显式选部门（dept_id 必传） -->
     <a-modal
       v-model:visible="createDeptKbModalVisible"
@@ -1301,7 +1595,7 @@
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Message, Notification } from '@arco-design/web-vue'
+import { Message, Notification, Modal } from '@arco-design/web-vue'
 import { useUserStore } from '@/stores/user'
 import {
   getVectorIndexList,
@@ -1320,9 +1614,17 @@ import {
   runProbes,
   getLastProbeRun,
   getProbeResults,
-  saveVectorDoc,
-  getVectorDocContent,
-  deleteVectorDoc,
+  getVectorDoc,
+  getVectorDraftList,
+  getVectorDraft,
+  saveVectorDraft,
+  deleteVectorDraft,
+  publishVectorDraft,
+  archiveVectorDoc,
+  unarchiveVectorDoc,
+  purgeVectorDoc,
+  disableVectorIndex,
+  enableVectorIndex,
   getInsightGaps,
   getReviewDue,
   getKbFeedbackList,
@@ -1427,12 +1729,71 @@ const canForceRebuild = computed(
   () => canManage.value && ['system', 'org', 'dept'].includes(selectedIndex.value?.scope)
 )
 
+// ---------- 1085 库状态（ready / stale / disabled） ----------
+const INDEX_STATUS_TEXT = {
+  ready: 'vectorKb.indexStatusReady',
+  stale: 'vectorKb.indexStatusStale',
+  disabled: 'vectorKb.indexStatusDisabled'
+}
+const INDEX_STATUS_COLOR = { ready: 'green', stale: 'orange', disabled: 'gray' }
+
+function indexStatusText(status) {
+  return t(INDEX_STATUS_TEXT[status] || 'vectorKb.indexStatusUnknown')
+}
+
+function indexStatusColor(status) {
+  return INDEX_STATUS_COLOR[status] || 'gray'
+}
+
+const indexDisabled = computed(() => selectedIndex.value?.status === 'disabled')
+const indexReady = computed(() => selectedIndex.value?.status === 'ready')
+const indexStatusSaving = ref(false)
+
+/** 1085 §3.8：停用当前库 */
+async function handleDisableIndex() {
+  const idx = selectedIndex.value
+  if (!idx) return
+  indexStatusSaving.value = true
+  try {
+    await disableVectorIndex(idx.index_id)
+    Message.success(t('vectorKb.indexDisabledOk'))
+    await loadIndexes()
+  } catch (_) {
+    // request.js 已弹错
+  } finally { indexStatusSaving.value = false }
+}
+
+/** 1085 §3.8：恢复当前库；模型不一致时后端置 stale，提示先重建 */
+async function handleEnableIndex() {
+  const idx = selectedIndex.value
+  if (!idx) return
+  indexStatusSaving.value = true
+  try {
+    await enableVectorIndex(idx.index_id)
+    Message.success(t('vectorKb.indexEnabledOk'))
+  } catch (e) {
+    const status = e?.response?.status ?? e?.code
+    if (status === 400) Message.warning(t('vectorKb.indexEnableStaleTip'))
+  } finally {
+    indexStatusSaving.value = false
+    await loadIndexes()
+  }
+}
+
 // ---------- 文档 ----------
 const docLoading = ref(false)
 const docList = ref([])
 const docPage = ref(1)
-// 后端 doc_list 未返回 total，用"本页满页"推断是否还有下一页
-const hasNextPage = computed(() => docList.value.length >= DOC_PAGE_SIZE)
+// 1085 §2.2：状态筛选（published / draft / archived，空 = 全部）
+const docStatusFilter = ref('')
+const docTotal = ref(0)
+// 1085 起 doc_list 返回 total：优先用它判断是否还有下一页；老响应没有 total 时退回「满页」推断
+const hasNextPage = computed(() => {
+  if (typeof docTotal.value === 'number') {
+    return docPage.value * DOC_PAGE_SIZE < docTotal.value
+  }
+  return docList.value.length >= DOC_PAGE_SIZE
+})
 
 // ---------- 检索 ----------
 const searching = ref(false)
@@ -1441,9 +1802,19 @@ const searchResults = ref([])
 const searchLowConf = ref(false)
 const searchExpanded = ref('')
 const searchQuery = ref('')
+// 1085 §4.1：本次不可检索的库
+const searchUnavailable = ref([])
 const searchForm = reactive({
   query: '',
   top_k: 5
+})
+
+// 1085 §4.1：hits 为空且不是低置信时，不写「没有找到相关内容」这种绝对话术
+const searchEmptyText = computed(() => {
+  if (!searchResults.value.length && !searchLowConf.value) {
+    return t('vectorKb.searchNoAvailableKb')
+  }
+  return t('vectorKb.searchEmpty')
 })
 
 function formatScore(score) {
@@ -1620,11 +1991,23 @@ async function loadDocs() {
   if (!selectedIndex.value) return
   docLoading.value = true
   try {
-    const res = await getVectorDocList(selectedIndex.value.index_id, docPage.value, DOC_PAGE_SIZE)
+    const res = await getVectorDocList(
+      selectedIndex.value.index_id,
+      docPage.value,
+      DOC_PAGE_SIZE,
+      docStatusFilter.value
+    )
     const data = res.data || res
-    docList.value = Array.isArray(data) ? data : (data?.list || [])
+    docList.value = Array.isArray(data) ? data : (data?.documents || data?.list || [])
+    docTotal.value = typeof data?.total === 'number' ? data.total : undefined
   } catch (e) { markForbidden(e) }
   finally { docLoading.value = false }
+}
+
+/** 1085 §2.2：切换状态筛选后回到第 1 页 */
+function handleDocStatusFilter() {
+  docPage.value = 1
+  loadDocs()
 }
 
 // ---------- 1041 §3.2 文档元数据列的展示口径 ----------
@@ -1682,14 +2065,37 @@ function isOverdue(dateStr) {
   return String(dateStr).slice(0, 10) < todayStr()
 }
 
-// ---------- 1041 §3.6 / §4.5 文档写入通道 ----------
+// ---------- 1085 文档 / 草稿写入通道 ----------
 
 const uploadInput = ref(null)
 const docUploading = ref(false)
 const docModalVisible = ref(false)
-const docForm = reactive({ mode: 'create', index_id: undefined, doc_id: undefined, path: '', content: '' })
+const docForm = reactive({
+  // create 新建 / edit 基于线上文档新建草稿 / draft 修订已有草稿
+  mode: 'create',
+  index_id: undefined,
+  doc_id: undefined,
+  path: '',
+  note: '',
+  content: '',
+  base_hash: '',
+  content_hash: ''
+})
 
 const DOC_NEW_PATH = '制度流程/新文档.md'
+// 1085 §3.3：超过 200KB 提示拆分，超过 300KB 后端直接 400，前端先拦
+const DOC_WARN_BYTES = 200 * 1024
+const DOC_MAX_BYTES = 300 * 1024
+
+function byteLength(str) {
+  return new TextEncoder().encode(String(str || '')).length
+}
+
+const docEditorTitle = computed(() => {
+  if (docForm.mode === 'draft') return t('vectorKb.draftEditTitle')
+  if (docForm.mode === 'edit') return t('vectorKb.editDoc')
+  return t('vectorKb.newDocTitle')
+})
 
 /** 从 source_uri 去掉库前缀（knowledge_lib/<域目录>/）还原出「相对库目录」的 path */
 function pathFromSourceUri(uri) {
@@ -1767,24 +2173,78 @@ function openCreateDoc(title = '') {
   docForm.index_id = selectedIndex.value?.index_id
   docForm.doc_id = undefined
   docForm.path = DOC_NEW_PATH
+  docForm.note = ''
   docForm.content = frontMatterTemplate(title)
+  docForm.base_hash = ''
+  docForm.content_hash = ''
   docModalVisible.value = true
 }
 
-/** 打开「编辑」：先拉 doc/content 回填，path 沿用原路径（否则会变成新增一篇） */
+/** 用草稿详情回填编辑器（1085 §3.1：已有草稿时修订必须带 content_hash） */
+function fillDraftForm(draft) {
+  docForm.mode = 'draft'
+  docForm.index_id = draft.index_id ?? selectedIndex.value?.index_id
+  docForm.doc_id = undefined
+  docForm.path = draft.path || ''
+  docForm.note = draft.note || ''
+  docForm.content = draft.content || ''
+  docForm.base_hash = draft.base_hash || ''
+  docForm.content_hash = draft.content_hash || ''
+  docModalVisible.value = true
+}
+
+/**
+ * 打开「编辑」：先看线上同路径是否已有草稿（有则续编辑），
+ * 否则 doc_get 取正文与实际文件哈希作为 base_hash。
+ */
 async function openEditDoc(record) {
   if (!record?.doc_id) return
+  const indexId = record.index_id ?? selectedIndex.value?.index_id
+  if (!indexId) return
+  const recordPath = pathFromSourceUri(record.source_uri)
   try {
-    const res = await getVectorDocContent(record.doc_id)
-    const d = res.data || res
+    // 草稿已存在 → 直接续编辑，避免用 base_hash 覆盖别人的草稿
+    if (recordPath) {
+      try {
+        const dres = await getVectorDraft(indexId, recordPath, { showError: false })
+        const existing = dres?.data || dres
+        if (existing?.content_hash) {
+          fillDraftForm(existing)
+          return
+        }
+      } catch (_) {
+        // 没有草稿（404/400）时继续走 doc_get
+      }
+    }
+
+    const res = await getVectorDoc(record.doc_id)
+    const d = res?.data || res
     const doc = d?.doc || {}
     docForm.mode = 'edit'
-    docForm.index_id = doc.index_id ?? selectedIndex.value?.index_id
+    docForm.index_id = doc.index_id ?? indexId
     docForm.doc_id = doc.doc_id ?? record.doc_id
-    docForm.path = pathFromSourceUri(doc.source_uri || record.source_uri)
+    // 以 doc_get 返回的 source_uri 为准（复审提醒 / 缺口榜的行可能不带 source_uri）
+    docForm.path = pathFromSourceUri(doc.source_uri) || recordPath
+    docForm.note = ''
     docForm.content = d?.content ?? ''
+    // 1085 §2.2：必须用 doc_get 返回的实际文件哈希，不能用列表里的旧值
+    docForm.base_hash = d?.content_hash || ''
+    docForm.content_hash = ''
+    if (!docForm.path) {
+      Message.warning(t('vectorKb.pathRequired'))
+      return
+    }
     docModalVisible.value = true
   } catch (e) { markForbidden(e) }
+}
+
+/** 草稿区「继续编辑」 */
+async function openEditDraft(record) {
+  if (!selectedIndex.value) return
+  try {
+    const res = await getVectorDraft(selectedIndex.value.index_id, record.path)
+    fillDraftForm(res?.data || res || record)
+  } catch (_) { /* request.js 已弹错 */ }
 }
 
 function insertFrontMatterTemplate() {
@@ -1803,37 +2263,265 @@ async function handleSaveDoc() {
     Message.warning(t('vectorKb.noIndexSelected'))
     return false
   }
-  // 正文为空仍允许保存（会得到一个空文档），只提示一次（1041 §4.5）
+  const bytes = byteLength(docForm.content)
+  if (bytes > DOC_MAX_BYTES) {
+    Message.error(t('vectorKb.draftTooLarge'))
+    return false
+  }
+  if (bytes > DOC_WARN_BYTES) {
+    Message.warning(t('vectorKb.draftSizeWarn'))
+  }
+  // 正文为空仍允许保存（会得到一个空草稿），只提示一次
   if (!String(docForm.content || '').trim()) {
     Message.info(t('vectorKb.docContentEmptyTip'))
   }
+
+  const payload = { index_id: docForm.index_id, path, content: docForm.content }
+  if (docForm.note) payload.note = docForm.note
+  // 修订已有草稿带 content_hash；基于线上文档新建草稿带 base_hash；纯新建都不带
+  if (docForm.content_hash) payload.content_hash = docForm.content_hash
+  else if (docForm.base_hash) payload.base_hash = docForm.base_hash
+
   try {
-    const res = await saveVectorDoc({ index_id: docForm.index_id, path, content: docForm.content })
-    const d = res.data || res
-    Message.success(t('vectorKb.docSaved', { id: d?.doc_id ?? '-' }))
-    docModalVisible.value = false
-    // 保存的是当前选中库的文档 → 刷新文档列表与探针分组
-    if (selectedIndex.value?.index_id === docForm.index_id) {
-      docPage.value = 1
-      await loadDocs()
-      if (canManage.value) await loadProbeData()
+    const res = await saveVectorDraft(payload)
+    const d = res?.data || res
+    if (d?.injection_warning) {
+      Notification.warning({
+        title: t('vectorKb.saveDraft'),
+        content: t('vectorKb.draftInjectionTip'),
+        duration: 8000
+      })
     }
+    if (Array.isArray(d?.warnings) && d.warnings.length) {
+      Notification.warning({
+        title: t('vectorKb.saveDraft'),
+        content: d.warnings.join('；'),
+        duration: 8000
+      })
+    }
+    Message.success(t('vectorKb.draftSavedTip'))
+    // 保存成功后用响应里的新哈希更新本地状态（下次修订继续用 content_hash）
+    docForm.content_hash = d?.content_hash || docForm.content_hash
+    docForm.base_hash = d?.base_hash || docForm.base_hash
+    if (d?.base_changed) Message.warning(t('vectorKb.draftBaseChangedTip'))
+    docModalVisible.value = false
+    await loadDrafts()
     return true
   } catch (_) {
+    // 409 基线变化 / 并发冲突等由 request.js 展示 msg；只刷新数据，不自动重试
+    await loadDrafts()
     return false
   }
 }
 
-async function handleDeleteDoc(record) {
+// ---------- 1085 §3.6 归档 / 恢复 ----------
+
+async function handleArchiveDoc(record) {
   const indexId = record.index_id ?? selectedIndex.value?.index_id
   if (!indexId) return
   try {
-    await deleteVectorDoc({ index_id: indexId, doc_id: record.doc_id })
-    Message.success(t('vectorKb.docDeleted'))
+    await archiveVectorDoc({ index_id: indexId, doc_id: record.doc_id })
+    Message.success(t('vectorKb.docArchived'))
     await loadDocs()
-    // 删除后该文档的探针会变成「跳过」，刷新自检分组
+    await loadDrafts()
+    await loadIndexes()
     if (canManage.value) await loadProbeData()
   } catch (e) { markForbidden(e) }
+}
+
+async function handleUnarchiveDoc(record) {
+  const indexId = record.index_id ?? selectedIndex.value?.index_id
+  if (!indexId) return
+  try {
+    const res = await unarchiveVectorDoc({ index_id: indexId, doc_id: record.doc_id })
+    const d = res?.data || res
+    Message.success(
+      d?.doc_status === 'draft'
+        ? t('vectorKb.docUnarchivedDraft')
+        : t('vectorKb.docUnarchived')
+    )
+    await loadDocs()
+    await loadDrafts()
+    await loadIndexes()
+    if (canManage.value) await loadProbeData()
+  } catch (e) { markForbidden(e) }
+}
+
+// ---------- 1085 §3.7 彻底删除 ----------
+
+const purgeModalVisible = ref(false)
+const purging = ref(false)
+const purgeForm = reactive({ index_id: undefined, doc_id: undefined, path: '', confirm_path: '' })
+
+function openPurgeDoc(record) {
+  purgeForm.index_id = record.index_id ?? selectedIndex.value?.index_id
+  purgeForm.doc_id = record.doc_id
+  purgeForm.path = pathFromSourceUri(record.source_uri)
+  purgeForm.confirm_path = ''
+  purgeModalVisible.value = true
+}
+
+async function handlePurgeDoc() {
+  if (purgeForm.confirm_path !== purgeForm.path) {
+    Message.warning(t('vectorKb.docPurgeMismatch'))
+    return false
+  }
+  purging.value = true
+  try {
+    const res = await purgeVectorDoc({
+      index_id: purgeForm.index_id,
+      doc_id: purgeForm.doc_id,
+      confirm_path: purgeForm.confirm_path
+    })
+    const d = res?.data || res
+    Message.success(
+      t('vectorKb.docPurged', {
+        drafts: d?.deleted_drafts ?? 0,
+        probes: d?.deleted_probes ?? 0
+      })
+    )
+    purgeModalVisible.value = false
+    await loadDocs()
+    await loadDrafts()
+    await loadIndexes()
+    if (canManage.value) await loadProbeData()
+    return true
+  } catch (_) {
+    return false
+  } finally { purging.value = false }
+}
+
+// ---------- 1085 §2.3 草稿区 ----------
+
+const draftLoading = ref(false)
+const draftList = ref([])
+const draftAudienceCount = ref(0)
+
+async function loadDrafts() {
+  if (!selectedIndex.value) {
+    draftList.value = []
+    draftAudienceCount.value = 0
+    return
+  }
+  draftLoading.value = true
+  try {
+    const res = await getVectorDraftList(selectedIndex.value.index_id)
+    const data = res?.data || res
+    draftList.value = Array.isArray(data?.drafts) ? data.drafts : []
+    draftAudienceCount.value = data?.audience_count ?? 0
+  } catch (e) {
+    markForbidden(e)
+    draftList.value = []
+    draftAudienceCount.value = 0
+  } finally { draftLoading.value = false }
+}
+
+const TARGET_STATUS_TEXT = {
+  published: 'vectorKb.docStatusPublished',
+  draft: 'vectorKb.docStatusDraft',
+  archived: 'vectorKb.docStatusArchived',
+  missing: 'vectorKb.draftTargetMissing'
+}
+const TARGET_STATUS_COLOR = { published: 'green', draft: 'gray', archived: 'arcoblue', missing: 'orange' }
+
+function targetStatusText(status) {
+  return t(TARGET_STATUS_TEXT[status] || 'vectorKb.draftTargetMissing')
+}
+
+function targetStatusColor(status) {
+  return TARGET_STATUS_COLOR[status] || 'gray'
+}
+
+/** 1085 §3.4 / §七：基线变化、目标已归档、库未 ready 时禁止发布 */
+function canPublishDraft(draft) {
+  return !!draft && !draft.base_changed && draft.target_status !== 'archived' && indexReady.value
+}
+
+const publishModalVisible = ref(false)
+const publishTarget = ref(null)
+const publishDetail = ref(null)
+const publishDetailLoading = ref(false)
+const publishing = ref(false)
+// 注入告警的二次确认（1085 §七）
+const injectionAck = ref(false)
+
+const publishWarnings = computed(() =>
+  Array.isArray(publishDetail.value?.warnings) ? publishDetail.value.warnings : []
+)
+
+const canPublishTarget = computed(() => {
+  if (!canPublishDraft(publishTarget.value)) return false
+  // 详情比列表新：以详情里的基线与目标状态为准
+  if (publishDetail.value?.base_changed) return false
+  if (publishDetail.value?.target_status === 'archived') return false
+  if (publishDetail.value?.injection_warning && !injectionAck.value) return false
+  return true
+})
+
+async function openPublishDraft(record) {
+  if (!canPublishDraft(record)) return
+  publishTarget.value = record
+  publishDetail.value = null
+  injectionAck.value = false
+  publishModalVisible.value = true
+  publishDetailLoading.value = true
+  try {
+    const res = await getVectorDraft(selectedIndex.value.index_id, record.path)
+    publishDetail.value = res?.data || res
+  } catch (_) {
+    // 详情取不到时仍展示列表里的 audience_count / 状态
+  } finally { publishDetailLoading.value = false }
+}
+
+async function handlePublishDraft() {
+  if (!canPublishTarget.value || !publishTarget.value) return false
+  publishing.value = true
+  try {
+    const res = await publishVectorDraft({
+      index_id: selectedIndex.value.index_id,
+      path: publishTarget.value.path
+    })
+    const d = res?.data || res
+    if (d?.injection_warning) {
+      Notification.warning({
+        title: t('vectorKb.draftPublishTitle'),
+        content: t('vectorKb.draftInjectionTip'),
+        duration: 8000
+      })
+    }
+    Message.success(
+      t('vectorKb.draftPublishOk', { count: d?.audience_count ?? draftAudienceCount.value })
+    )
+    publishModalVisible.value = false
+    await loadDrafts()
+    await loadDocs()
+    await loadIndexes()
+    if (canManage.value) await loadProbeData()
+    return true
+  } catch (_) {
+    // 409 基线变化 / 目标已归档等由 request.js 展示 msg；不自动重试
+    return false
+  } finally { publishing.value = false }
+}
+
+/** 1085 §3.5：只删草稿，线上不变 */
+function confirmDiscardDraft(record) {
+  Modal.warning({
+    title: t('vectorKb.draftDiscard'),
+    content: t('vectorKb.draftDiscardConfirm'),
+    okText: t('vectorKb.draftDiscard'),
+    cancelText: t('commonTable.cancel'),
+    onOk: async () => {
+      try {
+        await deleteVectorDraft({
+          index_id: selectedIndex.value.index_id,
+          path: record.path
+        })
+        Message.success(t('vectorKb.draftDiscarded'))
+        await loadDrafts()
+      } catch (_) { /* request.js 已弹错 */ }
+    }
+  })
 }
 
 function triggerUpload() {
@@ -1849,7 +2537,10 @@ function readFileText(file) {
   })
 }
 
-/** 上传多个 .md：逐个调 doc/save，失败的单独提示，不整体回滚（1041 §4.5） */
+/**
+ * 上传多个 .md：逐个调 draft/save —— 只产生草稿，不直接写线上（1085 §3.2）。
+ * 线上已存在同路径时后端返回 400，提示改用「编辑已有文档」。
+ */
 async function handleUploadFiles(e) {
   const files = Array.from(e.target.files || [])
   e.target.value = ''
@@ -1870,7 +2561,7 @@ async function handleUploadFiles(e) {
     }
     try {
       const content = await readFileText(f)
-      await saveVectorDoc({ index_id: selectedIndex.value.index_id, path, content })
+      await saveVectorDraft({ index_id: selectedIndex.value.index_id, path, content })
       ok++
     } catch (_) {
       failed.push(`${path}：${t('vectorKb.docSaveFailed')}`)
@@ -1884,11 +2575,9 @@ async function handleUploadFiles(e) {
       duration: 8000
     })
   } else {
-    Message.success(t('vectorKb.uploadDone', { ok }))
+    Message.success(t('vectorKb.uploadDraftDone', { ok }))
   }
-  docPage.value = 1
-  await loadDocs()
-  if (canManage.value) await loadProbeData()
+  await loadDrafts()
 }
 
 // 点表格行 = 切换当前知识库（文档 / 自检由 selectedIndex 的 watch 统一重载）
@@ -1936,13 +2625,16 @@ async function handleSync() {
     const d = res.data || res
     const scanned = d?.scanned ?? 0
     const changed = d?.changed ?? 0
+    const deleted = d?.deleted ?? 0
+    const failed = d?.failed ?? 0
     if (scanned === 0) {
       // 大概率 embedding 模型未就绪（后端按设计不报错只记告警）→ 警告而非成功
       Notification.warning({ title: t('vectorKb.sync'), content: t('vectorKb.syncZeroScanned'), duration: 6000 })
-    } else if (changed === 0) {
+    } else if (changed === 0 && deleted === 0 && failed === 0) {
       Message.info(t('vectorKb.syncNoChange'))
     } else {
-      Message.success(t('vectorKb.syncChanged', { count: changed }))
+      // 1085 §3.10：扫描 / 更新 / 清理 / 失败 四项都要展示
+      Message.success(t('vectorKb.syncResult', { scanned, changed, deleted, failed }))
     }
     // 同步成功后刷新索引与文档列表（107 §6.2）
     await loadIndexes()
@@ -1966,8 +2658,9 @@ async function handleSearch() {
     return
   }
   searching.value = true
-  // 新一轮检索 → 清掉上一轮的展开态
+  // 新一轮检索 → 清掉上一轮的展开态与不可用库
   expandedHits.value = new Set()
+  searchUnavailable.value = []
   try {
     const payload = { query, top_k: searchForm.top_k, index_id: selectedIndex.value.index_id }
     const res = await vectorSearch(payload)
@@ -1976,15 +2669,20 @@ async function handleSearch() {
     const d = res.data || res
     searchResults.value = Array.isArray(d?.hits) ? d.hits : []
     searchLowConf.value = d?.low_confidence === true
+    searchUnavailable.value = Array.isArray(d?.unavailable) ? d.unavailable : []
     searchExpanded.value = d?.expanded_query || query
     searchQuery.value = query
     searched.value = true
-  } catch (_) {
+  } catch (e) {
     searchResults.value = []
     searchLowConf.value = false
+    searchUnavailable.value = []
     searchExpanded.value = ''
     searchQuery.value = query
     searched.value = true
+    // 1041 §4.4：503 = embedding / 索引不可用，不能展示成「知识库没有内容」
+    const status = e?.response?.status ?? e?.code
+    if (status === 503) Message.warning(t('vectorKb.searchUnavailable503'))
   } finally { searching.value = false }
 }
 
@@ -2438,6 +3136,9 @@ const feedbackLoading = ref(false)
 const feedbackList = ref([])
 // 默认只看待处理（1041 §3.10）
 const feedbackStatus = ref('open')
+// 1085 §5.1：按库 / 结论筛选
+const feedbackIndexId = ref(undefined)
+const feedbackVerdict = ref('')
 
 const FEEDBACK_STATUS_TEXT = {
   open: 'vectorKb.feedbackStatusOpen',
@@ -2481,10 +3182,14 @@ async function loadFeedback() {
   try {
     const params = { limit: FEEDBACK_LIMIT }
     if (feedbackStatus.value) params.status = feedbackStatus.value
+    if (feedbackIndexId.value) params.index_id = feedbackIndexId.value
+    if (feedbackVerdict.value) params.verdict = feedbackVerdict.value
     const res = await getKbFeedbackList(params)
     feedbackList.value = toList(res)
   } catch (e) {
-    markForbidden(e)
+    // 反馈是独立分区：无权限时不把整页打成 403（部门普通成员可能看不到反馈）
+    const status = e?.response?.status ?? e?.code
+    if (status !== 403) markForbidden(e)
     feedbackList.value = []
   } finally { feedbackLoading.value = false }
 }
@@ -2503,6 +3208,74 @@ function handleFeedbackStatusFilter(value) {
   loadFeedback()
 }
 
+function handleFeedbackIndexFilter(value) {
+  feedbackIndexId.value = value
+  loadFeedback()
+}
+
+function handleFeedbackVerdictFilter(value) {
+  feedbackVerdict.value = value
+  loadFeedback()
+}
+
+/**
+ * 1085 §5.3：反馈转草稿，复用草稿接口
+ *   · 有 doc_id → doc_get 取正文与实际哈希，打开编辑器并预填 note
+ *   · 无 doc_id → 管理员自行填写路径与正文
+ *   · 目标文档已归档 → 草稿可建，发布前必须先恢复
+ */
+async function handleFeedbackToDraft(record) {
+  const indexId = record.index_id ?? selectedIndex.value?.index_id
+  if (!indexId) {
+    Message.warning(t('vectorKb.noIndexSelected'))
+    return
+  }
+  // 反馈可能属于别的库：先切到该库，保证保存后草稿出现在当前草稿区
+  if (selectedIndex.value?.index_id !== indexId) {
+    const target = indexList.value.find(i => i.index_id === indexId)
+    if (target) selectedIndex.value = target
+  }
+  const note = t('vectorKb.feedbackDraftNote', { id: record.id })
+
+  if (!record.doc_id) {
+    openCreateDoc(record.query || '')
+    docForm.path = ''
+    docForm.note = note
+    Message.info(t('vectorKb.feedbackDraftNeedPath'))
+    return
+  }
+
+  try {
+    const res = await getVectorDoc(record.doc_id)
+    const d = res?.data || res
+    const doc = d?.doc || {}
+    const path = pathFromSourceUri(doc.source_uri)
+    // 已有草稿时续编辑（避免 base_hash 与草稿冲突）
+    if (path) {
+      try {
+        const dres = await getVectorDraft(indexId, path, { showError: false })
+        const existing = dres?.data || dres
+        if (existing?.content_hash) {
+          fillDraftForm(existing)
+          docForm.note = note
+          if (doc.doc_status === 'archived') Message.warning(t('vectorKb.feedbackDraftArchivedTip'))
+          return
+        }
+      } catch (_) { /* 无草稿，继续基于线上内容新建 */ }
+    }
+    docForm.mode = 'edit'
+    docForm.index_id = doc.index_id ?? indexId
+    docForm.doc_id = doc.doc_id ?? record.doc_id
+    docForm.path = path
+    docForm.content = d?.content ?? ''
+    docForm.base_hash = d?.content_hash || ''
+    docForm.content_hash = ''
+    docForm.note = note
+    docModalVisible.value = true
+    if (doc.doc_status === 'archived') Message.warning(t('vectorKb.feedbackDraftArchivedTip'))
+  } catch (e) { markForbidden(e) }
+}
+
 // 切换知识库时统一重载该库的文档与自检数据（含从未自检 / 无探针两种空态）
 // 全局区块（检索设置 / 别名表 / 内容缺口 / 反馈）不跟随切换（1041 §3.7）；
 // 待复审对部门负责人是「本库」口径，所以要跟着切（1041 §5.2 / §5.4）
@@ -2511,11 +3284,15 @@ watch(
   (id) => {
     if (!id) {
       docList.value = []
+      draftList.value = []
+      draftAudienceCount.value = 0
       resetProbe()
       return
     }
     docPage.value = 1
+    docStatusFilter.value = ''
     loadDocs()
+    loadDrafts()
     if (canManage.value) loadProbeData()
     else resetProbe()
     loadReviewDue()
@@ -2526,11 +3303,12 @@ onMounted(() => {
   loadIndexes()
   // 待复审两种身份都要拉（管理员跨库 / 部门负责人本库）
   loadReviewDue()
+  // 反馈分区对两种身份都开放，权限由后端按库过滤
+  loadFeedback()
   if (isAdminMode.value && isAdmin.value) {
     loadSettings()
     loadAliases()
     loadGaps()
-    loadFeedback()
   }
 })
 </script>
@@ -2769,6 +3547,27 @@ onMounted(() => {
 .readonly-tip {
   margin-top: $space-2;
   color: $color-warning;
+}
+
+// ---------- 1085 库状态 / 文档筛选 / 发布确认 ----------
+.stale-tip {
+  margin-top: $space-2;
+  color: $color-warning;
+}
+
+.doc-filter {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex-wrap: wrap;
+  margin-bottom: $space-3;
+}
+
+.publish-line {
+  margin-bottom: $space-2;
+  font-size: $font-size-sm;
+  color: $color-text;
+  word-break: break-all;
 }
 
 .hit-meta {

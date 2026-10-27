@@ -199,29 +199,3 @@ export function shutdown() {
 export function reboot() {
   return post('/biz/gis_settings/power/reboot')
 }
-
-// ---------- 数据备份恢复（预留） ----------
-
-/**
- * 查询备份信息（预留）
- * @returns {Promise} { last_backup_time, backup_count }
- */
-export function getBackupInfo() {
-  return get('/biz/gis_settings/data/backup')
-}
-
-/**
- * 执行数据备份（预留）
- * @param {Object} data - { description? }
- */
-export function createBackup(data) {
-  return post('/biz/gis_settings/data/backup', data)
-}
-
-/**
- * 执行数据恢复（预留）
- * @param {Object} data - { backup_id }
- */
-export function restoreBackup(data) {
-  return post('/biz/gis_settings/data/restore', data)
-}

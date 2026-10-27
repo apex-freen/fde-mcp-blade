@@ -16,15 +16,27 @@ import { get, post, put, del } from '@/utils/request'
  * @param {Object} [params]
  * @param {string} [params.keyword] - 编码 / 名称模糊匹配
  * @param {string} [params.status] - draft / published / disabled；不传 = 全部
+ * @param {string} [params.scope] - org / dept / user；部门工作流页固定传 dept
+ * @param {boolean} [params.manageable_only] - true 时只返回当前用户可管理项
+ * @param {string} [params.scope_ref] - 可见域对象（部门工作流页 = 部门 ID）
  * @param {number} [params.page] / [params.page_size] - 默认 1 / 10
  * @returns {Promise<{data: {total: number, rows: WorkflowListItem[]}}>}
  * WorkflowListItem：code / name / description / trigger_hint / status / prefix / enforce_mode /
  *   scope / scope_ref / current_version / stage_count / can_manage
  * trigger_hint：触发语料（“用户可能怎么说”，多个用 “/” 分隔，可空）
- * enforce_mode：已废弃（闸门改为声明制），返回值忽略、不参与任何展示与判定
+ * enforce_mode：已废弃（闸门改为声明制），列表返回值忽略、不参与判定
  */
 export function getWorkflowList(params = {}) {
   return get('/biz/gis_workflow', params)
+}
+
+/**
+ * 当前用户可管理的部门（部门工作流页）
+ * 部门负责人：只返回 leader_user_id = 当前用户的部门；管理员：返回全部生效部门
+ * @returns {Promise<{data: Array<{dept_id: number|string, dept_name: string}>}>}
+ */
+export function getDeptOptions() {
+  return get('/biz/gis_workflow/dept_options')
 }
 
 /**

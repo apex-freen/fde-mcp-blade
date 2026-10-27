@@ -34,16 +34,16 @@
       "description": "【消息中心约定方法】按手机号给指定成员发送通知：插件内部自动完成「手机号 → userId → 发工作通知」全过程。任何实现了本方法的插件都会被「消息中心」自动探测为「通知插件」，无需改宿主代码。",
       "inputSchema": {
         "properties": {
+          "content": {
+            "description": "消息正文（Markdown）",
+            "type": "string"
+          },
           "phone": {
             "description": "收件人手机号",
             "type": "string"
           },
           "title": {
             "description": "消息标题",
-            "type": "string"
-          },
-          "content": {
-            "description": "消息正文（Markdown）",
             "type": "string"
           }
         },
@@ -57,7 +57,7 @@
       "handler": "notify_by_phone.py",
       "mode": "sync",
       "timeout": 30,
-      "risk_level": "auth",
+      "risk_level": "risk",
       "manual_avg_minutes": 1,
       "side_effect": true
     },
@@ -222,49 +222,49 @@
   },
   "config_help": {
     "agent_id": {
+      "desc": "钉钉企业内部应用 AgentId（应用信息页）",
       "label": "应用 AgentId",
-      "type": "number",
-      "desc": "钉钉企业内部应用 AgentId（应用信息页）"
+      "type": "number"
     },
     "allowed_senders": {
+      "desc": "允许的发起人署名；非空时消息署名必须命中，否则拒绝（防冒用）",
       "label": "署名白名单",
-      "type": "array",
-      "desc": "允许的发起人署名；非空时消息署名必须命中，否则拒绝（防冒用）"
+      "type": "array"
     },
     "app_key": {
+      "desc": "企业内部应用 AppKey（凭证与基础信息）",
       "label": "应用 AppKey",
-      "type": "string",
-      "desc": "企业内部应用 AppKey（凭证与基础信息）"
+      "type": "string"
     },
     "app_secret": {
+      "desc": "企业内部应用 AppSecret；可改由密钥箱管理，此处留 ${app_secret} 占位符",
       "label": "应用 AppSecret",
-      "type": "string",
-      "desc": "企业内部应用 AppSecret；可改由密钥箱管理，此处留 ${app_secret} 占位符"
+      "type": "string"
     },
     "default_sender": {
+      "desc": "调用未传 sender 时使用的消息署名",
       "label": "缺省署名",
-      "type": "string",
-      "desc": "调用未传 sender 时使用的消息署名"
+      "type": "string"
     },
     "recipients": {
+      "desc": "[{name,type,target}]；type=user（个人 userId）/ robot（群机器人），robot 可带各自 robot_sign",
       "label": "预配收件人",
-      "type": "array",
-      "desc": "[{name,type,target}]；type=user（个人 userId）/ robot（群机器人），robot 可带各自 robot_sign"
+      "type": "array"
     },
     "robot_sign": {
+      "desc": "群机器人「加签」安全设置的密钥，留空表示机器人未开启加签",
       "label": "机器人加签密钥",
-      "type": "string",
-      "desc": "群机器人「加签」安全设置的密钥，留空表示机器人未开启加签"
+      "type": "string"
     },
     "robot_webhook": {
+      "desc": "群机器人 Webhook 地址（群设置 → 智能群助手）",
       "label": "群机器人 Webhook",
-      "type": "string",
-      "desc": "群机器人 Webhook 地址（群设置 → 智能群助手）"
+      "type": "string"
     },
     "shadow_mode": {
+      "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）",
       "label": "影子演练",
-      "type": "boolean",
-      "desc": "开启后有副作用的调用只记录不执行，管理员批准后再真实执行（宿主闸门）"
+      "type": "boolean"
     }
   }
 }

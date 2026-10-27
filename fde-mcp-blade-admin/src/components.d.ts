@@ -11,6 +11,7 @@ declare module 'vue' {
     BaseChart: typeof import('./components/charts/BaseChart.vue')['default']
     CloudLoginModal: typeof import('./components/cloud/CloudLoginModal.vue')['default']
     CommandPalette: typeof import('./components/global/CommandPalette.vue')['default']
+    JsonViewer: typeof import('./components/common/JsonViewer.vue')['default']
     LineChart: typeof import('./components/charts/LineChart.vue')['default']
     NavIcon: typeof import('./components/common/NavIcon.vue')['default']
     PieChart: typeof import('./components/charts/PieChart.vue')['default']

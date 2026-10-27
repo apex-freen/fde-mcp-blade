@@ -116,7 +116,7 @@
                 {{ $t('hitl.maskedPreview') }}
                 <span class="expand-masked-hint">{{ $t('hitl.maskedPreviewHint') }}</span>
               </div>
-              <pre class="json-block">{{ formatJson(record.masked_snippet) }}</pre>
+              <JsonViewer :value="record.masked_snippet" />
             </div>
           </div>
         </template>
@@ -186,7 +186,7 @@
           <a-alert v-if="canEdit && effect === 'grant'" type="info" class="block-gap">
             {{ $t('hitl.editDisabledOnGrant') }}
           </a-alert>
-          <pre v-if="!editMode" class="json-block">{{ paramsDisplay }}</pre>
+          <JsonViewer v-if="!editMode" :value="detail.params" />
           <template v-else>
             <a-textarea
               v-model="paramText"
@@ -218,7 +218,7 @@
         <div v-if="detail.masked_snippet" class="section">
           <div class="section-title">{{ $t('hitl.maskedPreview') }}</div>
           <div class="hint">{{ $t('hitl.maskedPreviewHint') }}</div>
-          <pre class="json-block">{{ formatJson(detail.masked_snippet) }}</pre>
+          <JsonViewer :value="detail.masked_snippet" />
         </div>
 
         <!-- 执行结果回显（批准响应即终态，无需轮询） -->
@@ -249,7 +249,7 @@
           <a-alert v-if="overrideApplied" type="success" class="block-gap">{{ $t('hitl.overrideApplied') }}</a-alert>
           <div v-if="resultView.exec_note" class="note-block">
             <div class="section-subtitle">{{ $t('hitl.execNote') }}</div>
-            <pre class="json-block">{{ resultView.exec_note }}</pre>
+            <JsonViewer :value="resultView.exec_note" />
           </div>
         </div>
 
@@ -345,6 +345,7 @@ import dayjs from 'dayjs'
 import { api } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useRiskLevelDict } from '@/constants/riskLevel'
+import JsonViewer from '@/components/common/JsonViewer.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -568,22 +569,6 @@ function execColor(exec) {
   return 'green'
 }
 
-function formatJson(val) {
-  if (val === null || val === undefined || val === '') return '-'
-  if (typeof val === 'string') {
-    try {
-      return JSON.stringify(JSON.parse(val), null, 2)
-    } catch {
-      return val
-    }
-  }
-  try {
-    return JSON.stringify(val, null, 2)
-  } catch {
-    return String(val)
-  }
-}
-
 // ==================== 详情（明文 params / config / requester_has_grant） ====================
 const detailVisible = ref(false)
 const detailLoading = ref(false)
@@ -667,9 +652,7 @@ const grantMissingText = computed(() =>
   methodName.value ? t('hitl.grantMissing', { method: methodName.value }) : t('hitl.grantMissingShort')
 )
 
-// 详情参数区：默认只读，编辑基于详情返回的明文 params
-const paramsDisplay = computed(() => (detail.value?.params === null || detail.value?.params === undefined ? '-' : formatJson(detail.value.params)))
-
+// 详情参数区：默认只读（JsonViewer 表格渲染），编辑基于详情返回的明文 params
 const isApprover = computed(() => {
   const approverId = detail.value?.approver_id
   return approverId !== undefined && approverId !== null && currentUserId.value !== null && Number(approverId) === currentUserId.value
@@ -1030,20 +1013,6 @@ onMounted(async () => {
   .field-label {
     color: var(--color-text-2);
     min-width: 72px;
-  }
-  .json-block {
-    background: var(--color-fill-2);
-    border-radius: 4px;
-    padding: 12px;
-    margin: 0;
-    font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
-    font-size: 12px;
-    line-height: 1.6;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-    max-height: 300px;
-    overflow-y: auto;
   }
   .json-editor {
     font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;

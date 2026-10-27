@@ -128,73 +128,6 @@ docker compose down</pre>
       </template>
     </a-card>
 
-    <!-- 备份恢复 -->
-    <a-card :bordered="false" style="margin-top: 16px">
-      <template #title>
-        <div class="section-title">
-          <icon-save />
-          <span>{{ $t('settingsMaintenance.backupRestore') }}</span>
-          <a-tag v-if="!isDocker" color="orange" size="small">{{ $t('settingsMaintenance.reserved') }}</a-tag>
-        </div>
-      </template>
-
-      <!-- Docker 环境 -->
-      <template v-if="isDocker">
-        <a-alert type="info">
-          <template #title>{{ $t('settingsMaintenance.dockerBackupTitle') }}</template>
-          <div class="docker-hint">
-            <p>{{ $t('settingsMaintenance.dockerBackupHint') }}</p>
-            <pre class="code-block">
-# 备份数据卷
-docker run --rm -v volume-name:/data -v $(pwd):/backup \
-  alpine tar czf /backup/backup.tar.gz -C /data .
-
-# 恢复数据卷
-docker run --rm -v volume-name:/data -v $(pwd):/backup \
-  alpine tar xzf /backup/backup.tar.gz -C /data
-
-# 使用 compose 查看挂载
-docker compose config | grep -A5 volumes</pre>
-            <p class="hint-text">{{ $t('settingsMaintenance.dockerBackupHint2') }}</p>
-          </div>
-        </a-alert>
-      </template>
-
-      <!-- 物理设备 -->
-      <template v-else>
-        <a-spin :loading="backupLoading" style="width: 100%">
-          <a-descriptions :column="2" bordered size="small" style="margin-bottom: 16px">
-            <a-descriptions-item :label="$t('settingsMaintenance.lastBackupTime')">
-              {{ backupInfo.last_backup_time || $t('settingsMaintenance.noBackup') }}
-            </a-descriptions-item>
-            <a-descriptions-item :label="$t('settingsMaintenance.backupCount')">{{ backupInfo.backup_count ?? 0 }}</a-descriptions-item>
-          </a-descriptions>
-
-          <a-space>
-            <a-button type="primary" :loading="backingUp" @click="handleBackup">
-              <template #icon><icon-download /></template>
-              {{ $t('settingsMaintenance.backupNow') }}
-            </a-button>
-
-            <a-input
-              v-model="restoreBackupId"
-              :placeholder="$t('settingsMaintenance.backupIdPlaceholder')"
-              style="width: 280px"
-            />
-            <a-popconfirm :content="$t('settingsMaintenance.confirmRestore')" @ok="handleRestore">
-              <a-button
-                status="warning"
-                :loading="restoring"
-                :disabled="!restoreBackupId"
-              >
-                <template #icon><icon-upload /></template>
-                {{ $t('settingsMaintenance.restoreBackup') }}
-              </a-button>
-            </a-popconfirm>
-          </a-space>
-        </a-spin>
-      </template>
-    </a-card>
   </div>
 </template>
 
@@ -206,8 +139,7 @@ import { Message } from '@arco-design/web-vue'
 import { useUserStore } from '@/stores/user'
 import {
   getFirmwareInfo, upgradeFirmware,
-  shutdown, reboot,
-  getBackupInfo, createBackup, restoreBackup
+  shutdown, reboot
 } from '@/api/modules/gisSettings'
 
 const { t } = useI18n()
@@ -278,58 +210,8 @@ const handleShutdown = async () => {
   }
 }
 
-// ============ 备份恢复 ============
-const backupLoading = ref(false)
-const backupInfo = ref({})
-const backingUp = ref(false)
-const restoring = ref(false)
-const restoreBackupId = ref('')
-
-const loadBackupInfo = async () => {
-  if (isDocker.value) return
-  backupLoading.value = true
-  try {
-    const res = await getBackupInfo()
-    backupInfo.value = res.data || {}
-  } catch (e) {
-    // 错误已由拦截器提示
-  } finally {
-    backupLoading.value = false
-  }
-}
-
-const handleBackup = async () => {
-  backingUp.value = true
-  try {
-    await createBackup({ description: '手动备份' })
-    Message.success(t('settingsMaintenance.backupSuccess'))
-    loadBackupInfo()
-  } catch (e) {
-    // 错误已由拦截器提示
-  } finally {
-    backingUp.value = false
-  }
-}
-
-const handleRestore = async () => {
-  if (!restoreBackupId.value) {
-    Message.warning(t('settingsMaintenance.backupIdRequired'))
-    return
-  }
-  restoring.value = true
-  try {
-    await restoreBackup({ backup_id: restoreBackupId.value })
-    Message.success(t('settingsMaintenance.restoreSuccess'))
-  } catch (e) {
-    // 错误已由拦截器提示
-  } finally {
-    restoring.value = false
-  }
-}
-
 onMounted(() => {
   loadFirmware()
-  loadBackupInfo()
 })
 </script>
 

@@ -34,15 +34,19 @@ export function getVectorIndexList() {
 }
 
 /**
- * 查询索引下的文档列表
+ * 查询索引下的文档列表（1085 §2.2）
  *
  * Doc 19 §4.2：index_id 必填；page_size 上限 200
+ * 1085：新增 status 筛选（published / draft / archived），返回带 total。
  * @param {number} indexId
  * @param {number} page
  * @param {number} pageSize
+ * @param {string} [status] - published / draft / archived，不传 = 全部
  */
-export function getVectorDocList(indexId, page = 1, pageSize = 20) {
-  return get('/biz/gis_vector/doc_list', { index_id: indexId, page, page_size: pageSize })
+export function getVectorDocList(indexId, page = 1, pageSize = 20, status = '') {
+  const params = { index_id: indexId, page, page_size: pageSize }
+  if (status) params.status = status
+  return get('/biz/gis_vector/doc_list', params)
 }
 
 // ---------- 检索 & 重建 ----------
@@ -191,48 +195,113 @@ export function getProbeResults(runId, onlyFailed = false) {
 }
 
 // ==========================================
-// C 文档写入通道（Doc 1041 §3.6，仅管理员）
+// C 文档读取 / 草稿 / 发布 / 归档（1085 知识库精修）
+// 旧接口 /doc/save、/doc/delete、/doc/content 已删除，禁止再调用
 // ==========================================
 
 /**
- * 新建 / 覆盖 / 编辑文档（1041 §3.6）
+ * 读取文档原文（1085 §四）
  *
- * 对同一个 path 是**覆盖**语义（幂等）；后端没有「改名」接口，
- * 改名 = 新建新文件 + 删除旧文件。
- *
- * path 规则（前端必须先校验，避免用户白填）：
- *   · 是**相对库目录**的路径，如 `制度流程/差旅报销.md`
- *   · 必须以小写 .md 结尾；不能以 / 开头；不能含 : ；不能含 .. / . / 空路径段（//）
- *   · 路径段不能以 `_` 或 `.` 开头（这类会被同步逻辑跳过）
- *   · 不要自己拼 `knowledge_lib/...` 前缀，后端会按所选库自动加
- *
- * content 可带 front-matter 元数据（title / status / owner / effective_date /
- *   review_date / confidentiality / tags），不写也可用（默认视为已发布）；
- *   status: draft 的文档入库但不可检索。
- * @param {Object} data - { index_id, path, content }
- * @returns {{ doc_id: number }}
- */
-export function saveVectorDoc(data) {
-  return post('/biz/gis_vector/doc/save', data)
-}
-
-/**
- * 读取文档原文（1041 §3.6：打开编辑器前调）
+ * content_hash 基于**实际文件内容**计算，编辑已发布文档时必须用它当 base_hash；
+ * 列表里的 content_hash 是上次入库值，不能用作基线。
  * @param {number} docId
- * @returns {{ doc: Object, content: string }}
+ * @returns {{ doc: Object, content: string, content_hash: string, audience_count: number }}
  */
-export function getVectorDocContent(docId) {
-  return get('/biz/gis_vector/doc/content', { doc_id: docId })
+export function getVectorDoc(docId) {
+  return get('/biz/gis_vector/doc_get', { doc_id: docId })
 }
 
 /**
- * 删除文档（1041 §3.6）
+ * 草稿列表（1085 §2.3）
+ * @param {number} indexId
+ * @returns {{ index_id, audience_count, drafts: Array }}
+ */
+export function getVectorDraftList(indexId) {
+  return get('/biz/gis_vector/draft/list', { index_id: indexId })
+}
+
+/**
+ * 草稿详情（1085 §2.3）
  *
- * 会同时删除服务器上的文件，且不可恢复；删除后该文档的探针会变成「跳过」。
+ * 打开已有草稿时必须走这里：继续编辑要回传响应里的 content_hash。
+ * @param {number} indexId
+ * @param {string} path 相对库目录的路径
+ * @param {Object} [options] 透传请求配置；探测草稿是否存在时传 { showError: false }
+ */
+export function getVectorDraft(indexId, path, options = {}) {
+  return get('/biz/gis_vector/draft/get', { index_id: indexId, path }, options)
+}
+
+/**
+ * 保存草稿（1085 §3.3）
+ *
+ * 新建且线上不存在同路径 → 不传 base_hash / content_hash；
+ * 基于线上文档新建草稿 → 传 doc_get 的 content_hash 作为 base_hash；
+ * 修订已有草稿 → 传 draft/get 的 content_hash。
+ * @param {Object} data - { index_id, path, content, base_hash?, content_hash?, note? }
+ */
+export function saveVectorDraft(data) {
+  return post('/biz/gis_vector/draft/save', data)
+}
+
+/**
+ * 丢弃草稿（1085 §3.5）：只删草稿，线上不变
+ * @param {Object} data - { index_id, path }
+ */
+export function deleteVectorDraft(data) {
+  return post('/biz/gis_vector/draft/delete', data)
+}
+
+/**
+ * 发布草稿（1085 §3.4）：发布后才写线上、才可检索
+ * @param {Object} data - { index_id, path }
+ * @returns {{ doc_id, index_id, path, content_hash, audience_count,
+ *             injection_warning, warnings, published }}
+ */
+export function publishVectorDraft(data) {
+  return post('/biz/gis_vector/draft/publish', data)
+}
+
+/**
+ * 归档文档（1085 §3.6）：仅 published / draft 可归档，归档后不再参与检索
  * @param {Object} data - { index_id, doc_id }
  */
-export function deleteVectorDoc(data) {
-  return post('/biz/gis_vector/doc/delete', data)
+export function archiveVectorDoc(data) {
+  return post('/biz/gis_vector/doc/archive', data)
+}
+
+/**
+ * 恢复已归档文档（1085 §3.6）
+ * 恢复后的状态取决于文件 front-matter 的 status（published 或 draft）。
+ * @param {Object} data - { index_id, doc_id }
+ */
+export function unarchiveVectorDoc(data) {
+  return post('/biz/gis_vector/doc/unarchive', data)
+}
+
+/**
+ * 彻底删除（1085 §3.7）：仅管理员、仅已归档、confirm_path 必须完全一致
+ * @param {Object} data - { index_id, doc_id, confirm_path }
+ */
+export function purgeVectorDoc(data) {
+  return post('/biz/gis_vector/doc/purge', data)
+}
+
+/**
+ * 停用知识库（1085 §3.8）：停用后不参与检索、不出现在 MCP kb_list，管理台仍可见
+ * @param {number} indexId
+ */
+export function disableVectorIndex(indexId) {
+  return post('/biz/gis_vector/index/disable', { index_id: indexId })
+}
+
+/**
+ * 恢复知识库（1085 §3.8）
+ * 模型不一致时后端返回 400 并把库置为 stale，前端提示先重建。
+ * @param {number} indexId
+ */
+export function enableVectorIndex(indexId) {
+  return post('/biz/gis_vector/index/enable', { index_id: indexId })
 }
 
 /**
